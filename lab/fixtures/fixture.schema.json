@@ -1,0 +1,122 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "lab/fixtures/fixture.schema.json",
+  "title": "Deterministic fixture corpus manifest (v0.1)",
+  "description": "Machine-verifiable manifest for the camera fixture corpus (CAMSCAN-003 deliverable). Every fixture: id, files, format, dimensions, ground-truth metadata, sha256. The exact same fixture hash is applied to reference and implementation runs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generator", "generated_utc", "documents", "sequences"],
+  "properties": {
+    "schema_version": { "const": "0.1" },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["script", "seed"],
+      "properties": {
+        "script": { "type": "string", "minLength": 1 },
+        "seed": { "type": "integer" },
+        "command": { "type": "string" }
+      }
+    },
+    "generated_utc": { "type": "string", "format": "date-time" },
+    "documents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "files", "format", "dimensions", "ground_truth"],
+        "properties": {
+          "id": { "enum": ["clean-a4", "skewed-document", "receipt", "business-card", "handwritten", "low-light", "multi-page"] },
+          "files": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "sha256", "bytes"],
+              "properties": {
+                "path": { "type": "string", "pattern": "^documents/" },
+                "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                "bytes": { "type": "integer", "minimum": 1 },
+                "page": { "type": ["integer", "null"], "minimum": 1 }
+              }
+            }
+          },
+          "format": { "enum": ["png", "jpg"] },
+          "dimensions": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["width_px", "height_px"],
+            "properties": {
+              "width_px": { "type": "integer", "minimum": 1 },
+              "height_px": { "type": "integer", "minimum": 1 }
+            }
+          },
+          "ground_truth": {
+            "type": "object",
+            "required": ["page_count", "text_content"],
+            "properties": {
+              "page_count": { "type": "integer", "minimum": 1 },
+              "text_content": {
+                "description": "text rendered in the document (OCR oracle)",
+                "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }]
+              },
+              "page_quad_px": {
+                "description": "expected document quad in frame pixels (x,y pairs)",
+                "type": "array",
+                "items": { "type": "array", "items": { "type": "number" } }
+              },
+              "lighting": { "type": ["string", "null"] },
+              "rotation_deg": { "type": ["number", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "sequences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "frames", "format", "dimensions", "ground_truth"],
+        "properties": {
+          "id": { "enum": ["document-pan", "camera-motion", "rotation"] },
+          "frames": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "sha256", "bytes", "index", "transform"],
+              "properties": {
+                "path": { "type": "string", "pattern": "^sequences/" },
+                "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                "bytes": { "type": "integer", "minimum": 1 },
+                "index": { "type": "integer", "minimum": 0 },
+                "transform": { "type": "string", "minLength": 1 }
+              }
+            }
+          },
+          "format": { "enum": ["png", "jpg"] },
+          "dimensions": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["width_px", "height_px"],
+            "properties": {
+              "width_px": { "type": "integer", "minimum": 1 },
+              "height_px": { "type": "integer", "minimum": 1 }
+            }
+          },
+          "ground_truth": {
+            "type": "object",
+            "required": ["frame_count", "motion_description"],
+            "properties": {
+              "frame_count": { "type": "integer", "minimum": 2 },
+              "motion_description": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    }
+  }
+}

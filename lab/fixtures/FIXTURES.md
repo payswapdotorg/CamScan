@@ -27,9 +27,15 @@ CamScanner (reference) and CamScan (implementation) via the provider
 
 ## Rules
 
+- The machine-verifiable manifest contract is `fixture.schema.json` (JSON
+  Schema, CI-enforced): every fixture carries id, file list, format,
+  dimensions, ground-truth annotations, and sha256 per file.
 - Generation scripts + source images + manifests are Worker 2 deliverables
-  (`documents/*.png`, `manifest.json` with per-fixture sha256 + ground-truth
-  annotations: expected page geometry, text content for OCR oracles).
+  (`documents/*.png`, `sequences/*` frames, `manifest.json` with per-fixture
+  sha256 + ground-truth: expected page geometry, text content for OCR
+  oracles, expected page count).
+- The **exact same fixture hash** is applied to the CamScanner reference run
+  and the CamScan implementation run — fixture identity is content-addressed.
 - The corpus expands as reference discovery reveals new behaviors (e.g. ID-card
   mode, QR codes, tables). New fixtures get ledger entries.
 - Fixtures never contain personal data or third-party copyrighted content —

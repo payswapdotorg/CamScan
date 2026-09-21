@@ -1,6 +1,6 @@
 {
-  "$schema": "lab/parity-ledger/ledger.schema.md",
-  "updated": "2026-09-21T12:30:00Z",
+  "$schema": "lab/parity-ledger/ledger.schema.json",
+  "updated": "2026-09-21T13:25:00Z",
   "updated_by": "tech-lead",
   "statuses": [
     "UNKNOWN",

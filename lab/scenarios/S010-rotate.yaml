@@ -1,3 +1,4 @@
+# migrated to DSL v0.1 (typed meta.requires + explicit timeouts); previous requires: ['gui', 'adb', 'camera_fixture']
 id: rotate
 title: Page rotation
 status: UNKNOWN
@@ -22,10 +23,16 @@ assertions:
   output:
   - pdf-page-rotated
 meta:
+  timeout_seconds: 1800
+  step_timeout_seconds: 120
   requires:
-  - gui
-  - adb
-  - camera_fixture
+    gui: true
+    adb: true
+    android_emulator: true
+    emulator_acceleration:
+      allowed:
+      - none
+    camera_fixture: true
   owner: lead
   notes: Provisional spec from the mission's starting list — pending reference discovery
     (Worker 2). Status stays UNKNOWN until observed against CamScanner; actual reference

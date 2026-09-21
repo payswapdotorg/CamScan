@@ -1,11 +1,16 @@
-# LabProvider interface contract (v0)
+# LabProvider interface contract (v0.1)
 
 Every execution substrate implements this interface. The parity engine consumes
-**capabilities only** — it never branches on provider identity.
+**capabilities only** — it never branches on provider identity. Provider
+selection is capability matching via `scheduler.py`:
+
+```
+scenario meta.requires → capability matching → eligible provider → execution
+```
 
 ```python
 class LabProvider(Protocol):
-    slug: str                     # "e2b", "gcp-nested-kvm", "local-kvm", …
+    slug: str                     # "e2b", "local-kvm", future Flauz providers
 
     # declarative capability report (validated, never assumed)
     def capabilities(self) -> CapabilityReport: ...
@@ -37,38 +42,53 @@ class LabProvider(Protocol):
     def report(self, env: EnvironmentId) -> HealthReport: ...
 ```
 
-## Capability set (v0)
+## Capability set (v0.1 — typed, machine-verifiable)
+
+Capability reports are typed mappings validated against
+`capabilities.schema.json` (JSON Schema, CI-enforced). Scenario
+`meta.requires` uses the same vocabulary with typed requirement forms
+(boolean; enum scalar; `{allowed: [...]}`); matching lives in `scheduler.py`
+(`provider_matches` / `select_provider` / `pair_compatible`).
 
 ```yaml
-capabilities:
-  gui: bool               # headed display available (X server / streaming)
-  persistent: bool        # environment survives across runs
-  android_emulator: bool  # can run an Android emulator at all
-  emulator_acceleration: none | kvm | hvf   # acceptable for the lab: kvm
-  adb: bool               # Android Debug Bridge access
-  camera_fixture: bool    # deterministic virtual-camera injection
-  screenshots: bool
-  recording: bool
-  snapshot: bool
-  android_studio: bool    # IDE/toolchain present (implementation env)
+capabilities:                # provider capability report
+  gui: true                  # screen content observable (screenshot + UI hierarchy)
+  persistent: false          # environment survives across runs
+  android_emulator: true
+  emulator_acceleration: none   # enum: none | kvm | hvf — substrate TRUTH
+  adb: true
+  camera_fixture: false      # deterministic virtual-camera injection
+  screenshots: true
+  recording: true
+  snapshot: true
+  android_studio: false      # IDE/toolchain present (implementation env)
 ```
 
-Scenario `meta.requires` must be a subset of the provider's reported capabilities
-for a run to be schedulable. **Operator directive (2026-09-21): E2B-only** — no GCP,
-no external provider. The lab therefore accepts `emulator_acceleration: none` (TCG)
-for v1 with **generous, explicit per-scenario timeouts**; scenarios record the
-acceleration they ran under, and `emulator_acceleration: kvm` remains a declared
-capability slot for future Flauz providers so the ledger can distinguish
-`PASS (tcg)` from `PASS (kvm)` when a faster provider arrives.
+Scenario `meta.requires` must be satisfiable by the provider's reported
+capabilities for a run to be schedulable. **Operator directive (2026-09-21):
+E2B-only** — the lab runs v1 on `emulator_acceleration: none` (TCG) with
+**explicit per-scenario timeouts** (`meta.timeout_seconds` /
+`meta.step_timeout_seconds`, see `../scenarios/SCENARIO-DSL.md`); runs record
+the acceleration they executed under, and `kvm` remains a declared capability
+slot for future Flauz providers so the ledger can distinguish `PASS (tcg)`
+from `PASS (kvm)`.
+
+Timeout layering (never conflated): provider-level budgets (bootstrap/boot/
+renewal — substrate-calibrated, e.g. TCG boot 2400 s vs measured 410 s) are
+separate from scenario execution budgets (`meta.timeout_seconds`, enforced
+from env-ready to evidence-complete) and per-step budgets
+(`meta.step_timeout_seconds`, passed to `interact`/`execute`).
 
 ## Provider registry (status)
 
 | slug | status | notes |
 |---|---|---|
-| `e2b` | **control plane + TCG substrate** | 2026-09-21: `base` template has no nested KVM (accelerated impossible); the public `desktop` template (8 vCPU/~8 GB) runs the emulator in QEMU TCG software mode — gated empirically, see `../substrate/VALIDATION-2026-09-21-TCG.md`. Reports `emulator_acceleration: none`. |
-| `gcp-nested-kvm` | **RETIRED — operator directive (2026-09-21): no GCP** | Do not implement. Kept here only as historical record: the supplied credential was API-key-only and could not provision compute anyway. |
+| `e2b` | **IMPLEMENTED (CAMSCAN-008, lead)** | `e2b/` — baked TCG recipe (Java 17 + truststore hard gate + known-good SDK + AVD + `-accel off`), all 13 contract operations, acceptance gate in `e2b/acceptance.py`. Capability report: `e2b/capability-report.json` (CI-validated; `emulator_acceleration: none`). |
+| `gcp-nested-kvm` | **RETIRED — operator directive (2026-09-21): no GCP** | Do not implement. Historical record only. |
 | `local-kvm` | **not available** | lead sandbox has no `/dev/kvm`. |
 | future Flauz providers | open slot | when the operator provisions a KVM-capable host, implement against this same contract and report `emulator_acceleration: kvm`. |
 
-Provider implementations live one-per-directory here (`e2b/`, …) and are
-worker deliverables under normal work orders (the lead owns only this contract).
+Provider implementations live one-per-directory here. The e2b provider was
+lead-implemented (2026-09-21 handoff §26 item 1: the lab host station holds
+the E2B credential, the proven substrate probe, and the acceptance gate);
+normal worker deliverables under future work orders follow the same contract.

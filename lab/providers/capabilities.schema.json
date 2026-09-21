@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "lab/providers/capabilities.schema.json",
+  "title": "LabProvider capability report (v0.1)",
+  "description": "Machine-verifiable capability report emitted by every LabProvider. Scenario meta.requires is validated against the same vocabulary; matching is done by lab/providers/scheduler.py. Reports must state substrate truth (e.g. the e2b TCG provider reports emulator_acceleration 'none' — never 'kvm').",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "slug",
+    "version",
+    "generated_utc",
+    "verified_utc",
+    "gui",
+    "persistent",
+    "android_emulator",
+    "emulator_acceleration",
+    "adb",
+    "camera_fixture",
+    "screenshots",
+    "recording",
+    "snapshot",
+    "android_studio"
+  ],
+  "properties": {
+    "slug": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "version": { "type": "string", "description": "provider implementation version" },
+    "generated_utc": { "type": "string", "format": "date-time" },
+    "verified_utc": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "when the capability claims were last empirically verified (acceptance gate); null = claimed, not yet verified"
+    },
+    "gui": { "type": "boolean" },
+    "persistent": { "type": "boolean" },
+    "android_emulator": { "type": "boolean" },
+    "emulator_acceleration": { "enum": ["none", "kvm", "hvf"] },
+    "adb": { "type": "boolean" },
+    "camera_fixture": { "type": "boolean" },
+    "screenshots": { "type": "boolean" },
+    "recording": { "type": "boolean" },
+    "snapshot": { "type": "boolean" },
+    "android_studio": { "type": "boolean" },
+    "notes": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "per-capability provenance notes (e.g. how camera_fixture is realized)"
+    }
+  }
+}

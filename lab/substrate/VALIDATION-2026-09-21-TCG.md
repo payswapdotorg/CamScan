@@ -99,3 +99,16 @@ them in:
   error` with a zero build id and no logs. If fixed/rebuilt with the SDK baked in,
   sandbox bring-up drops from ~8 min to seconds. Worth a work order once the lab runs.
 - GCP is **retired** by operator directive — do not implement `gcp-nested-kvm`.
+
+---
+
+## Addendum (2026-09-21, CAMSCAN-008): recipe baked into the provider
+
+The recipe validated above is now encoded — not rediscovered per run — in
+`lab/providers/e2b/bootstrap.py` (marker-file idempotent steps: java 17 +
+truststore hard gate -> sdkmanager HTTPS verification -> known-good SDK ->
+exec-bit fix -> AVD), with the seven gotchas from this report fixed in code.
+The full provider lifecycle (provision/start/stop/reset/snapshot/restore/
+execute/interact/capture/collect_evidence/transfer/destroy/report) is
+`lab/providers/e2b/provider.py`; the acceptance gate is
+`lab/providers/e2b/acceptance.py`.

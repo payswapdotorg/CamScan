@@ -41,12 +41,24 @@ Read next: [ARCHITECTURE.md](ARCHITECTURE.md) · [LAB.md](LAB.md) · [AGENTS.md]
 
 ## Current state (honest, 2026-09-21)
 
-- **Bootstrap phase.** No product code exists yet. Parity ledger: all scenarios `UNKNOWN`.
-- **E2B substrate gate: FAILED for accelerated Android emulation; TCG gate: see below.** E2B guests
+```
+Parity Lab Infrastructure: IN PROGRESS
+CamScan Product: BOOTSTRAP
+CamScanner Oracle: NOT YET ESTABLISHED
+Parity Acceptance: 0 scenarios accepted
+```
+
+- **LabProvider `e2b`: implemented** (`lab/providers/e2b/` — baked TCG recipe,
+  all 13 contract operations, typed capability report, provider scheduler;
+  CAMSCAN-008). Acceptance gate: `python3 lab/providers/e2b/acceptance.py`.
+  Parity ledger: all scenarios `UNKNOWN` — the first end-to-end loop
+  (S001–S004) is the next milestone.
+- **E2B substrate gate: FAILED for accelerated Android emulation; TCG gate: PASS.** E2B guests
   have no nested `/dev/kvm` (validated live, see `lab/substrate/VALIDATION-2026-09-21.md`).
   **Operator directive (2026-09-21): no GCP, no external provider — E2B-only per the handoff.**
-  The lab therefore runs on QEMU TCG software emulation inside the E2B `desktop` template
-  (8 vCPU / ~8 GB RAM), gated empirically — see `lab/substrate/VALIDATION-2026-09-21-TCG.md`.
+  The lab therefore runs on QEMU TCG software emulation inside the E2B `desktop`
+  template (8 vCPU / ~8 GB RAM), gated empirically — see
+  `lab/substrate/VALIDATION-2026-09-21-TCG.md`.
   The `LabProvider` seam stays provider-neutral for future Flauz providers.
 - Worker dispatch runs through the chat.z.ai replay console (agents tab, model
   **GLM-5.3**, skill **Full-Stack**). See `AGENTS.md`.

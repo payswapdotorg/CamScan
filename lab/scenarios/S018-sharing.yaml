@@ -1,3 +1,4 @@
+# migrated to DSL v0.1 (typed meta.requires + explicit timeouts); previous requires: ['gui', 'adb']
 id: sharing
 title: Share a document
 status: UNKNOWN
@@ -20,9 +21,15 @@ assertions:
   output:
   - shared-artifact-hash-stable
 meta:
+  timeout_seconds: 1800
+  step_timeout_seconds: 120
   requires:
-  - gui
-  - adb
+    gui: true
+    adb: true
+    android_emulator: true
+    emulator_acceleration:
+      allowed:
+      - none
   owner: lead
   notes: Provisional spec from the mission's starting list — pending reference discovery
     (Worker 2). Status stays UNKNOWN until observed against CamScanner; actual reference

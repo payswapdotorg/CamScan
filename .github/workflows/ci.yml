@@ -12,9 +12,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install pyyaml
+      - run: pip install pyyaml jsonschema
       - name: Scenario DSL + ledger consistency + manifest integrity
         run: python3 tools/lab-cli/validate.py
+        # gates: typed meta.requires + timeouts, ledger JSON-Schema + mirrors,
+        # fixture refs/hashes, capability reports (e2b must report accel none)
       # app/ build gates are added by CAMSCAN-001 (gradle assembleDebug,
       # unit tests, lint) — interactive Android execution is NEVER forced
       # into CI (no KVM on hosted runners); it belongs to a LabProvider.

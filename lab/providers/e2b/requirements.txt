@@ -1,0 +1,3 @@
+# Runtime dependencies of the e2b LabProvider (lab host station only —
+# NOT needed by CI validators, which import only stdlib modules).
+e2b>=2.0.0

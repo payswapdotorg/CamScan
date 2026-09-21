@@ -1,3 +1,4 @@
+# migrated to DSL v0.1 (typed meta.requires + explicit timeouts); previous requires: ['gui', 'adb', 'camera_fixture']
 id: crop-confirmation
 title: Crop confirmation stage after capture
 status: UNKNOWN
@@ -20,10 +21,16 @@ assertions:
   state: []
   output: []
 meta:
+  timeout_seconds: 2400
+  step_timeout_seconds: 180
   requires:
-  - gui
-  - adb
-  - camera_fixture
+    gui: true
+    adb: true
+    android_emulator: true
+    emulator_acceleration:
+      allowed:
+      - none
+    camera_fixture: true
   owner: lead
   notes: Provisional spec from the mission's starting list — pending reference discovery
     (Worker 2). Status stays UNKNOWN until observed against CamScanner; actual reference

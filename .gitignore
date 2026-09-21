@@ -1,5 +1,7 @@
 # task packets carry transient tokens when needed — never commit
 lab/orchestration/packets/
+# acceptance-gate local outputs (evidence bytes live in R2; repo keeps results)
+lab/providers/e2b/.acceptance/
 # raw run bytes stay in R2; runs/ holds only manifests+specs, but local noise:
 runs/**/screenshots/
 runs/**/recordings/
@@ -10,3 +12,6 @@ runs/**/logs/
 .env.*
 *credentials*
 *secret*
+
+__pycache__/
+*.pyc
