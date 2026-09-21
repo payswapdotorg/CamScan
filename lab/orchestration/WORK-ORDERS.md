@@ -8,11 +8,12 @@ Status truth for work orders lives here; scenario status truth lives in
 
 | ID | Requirement | Status |
 |---|---|---|
-| P0 | chat.z.ai login through the replay console (worker dispatch) | **PENDING — operator action** |
-| P1 | accelerated-Android provider connected via `LabProvider` (GCP service-account JSON with compute scope, or a KVM-capable host) | **PENDING — operator decision** (see `lab/substrate/VALIDATION-2026-09-21.md` §3) |
+| P0 | chat.z.ai login through the replay console (worker dispatch) | **CLEARED 2026-09-21 10:07 UTC** (operator logged in via replay image) |
+| P1 | Android execution substrate via `LabProvider` | **RESOLVED by operator directive 2026-09-21: E2B-only (no GCP, no external provider)** — substrate = E2B `desktop` template + QEMU TCG software emulation, gated empirically (`lab/substrate/VALIDATION-2026-09-21-TCG.md`) |
 
-Non-interactive work orders (CI-runnable, no provider needed) can start immediately
-once P0 clears; interactive orders wait for P1.
+Non-interactive work orders (CI-runnable, no provider needed) dispatch as capacity
+allows; interactive orders depend on the TCG gate result and the `e2b` provider
+implementation (CAMSCAN-008).
 
 ## Queue
 
@@ -25,7 +26,7 @@ once P0 clears; interactive orders wait for P1.
 | CAMSCAN-005 | W3 | `tools/parity-cli`: run-matrix comparison of two evidence bundles (manifest-driven, hash-verified) + `diff.json`/`verdict.json` emitters | P0, CAMSCAN-003 | QUEUED |
 | CAMSCAN-006 | W3 | `tools/evidence-cli`: bundle/manifest builder + R2 upload (creds via env), hash sidecars | P0, CAMSCAN-003 | QUEUED |
 | CAMSCAN-007 | W1 | `tools/lab-cli` full implementation (validate/run/report) extending the lead's bootstrap validator | P0, CAMSCAN-002 | QUEUED |
-| CAMSCAN-008 | Lead→W1 | Provider `gcp-nested-kvm` implementation once P1 credential lands | P1 | BLOCKED |
+| CAMSCAN-008 | W1 | Provider `e2b` full implementation per `lab/providers/LABPROVIDER.md`: sandbox lifecycle (provision/start/stop/kill), emulator bootstrap (Java 17 + cacerts fix + cmdline-tools + AVD + TCG boot, generous timeouts), snapshot/restore strategy, adb execute/interact/capture, evidence collection — the proven probe recipe in `lab/substrate/VALIDATION-2026-09-21-TCG.md` is the reference | P1 (TCG gate PASS), CAMSCAN-002 | QUEUED |
 | CAMSCAN-009 | W2 | Reference env bring-up + CamScanner install + S001–S003 reference runs (evidence bundles) | P1, CAMSCAN-004 | BLOCKED |
 | CAMSCAN-010 | W1 | S001–S003 implementation against reference evidence | CAMSCAN-009 | BLOCKED |
 | CAMSCAN-011 | W3 | First reconciliation: S001–S003 diff + verdict + gaps | CAMSCAN-009, CAMSCAN-010 | BLOCKED |

@@ -61,16 +61,18 @@ capabilities:
 
 | Substrate | Verdict | Evidence |
 |---|---|---|
-| E2B Desktop (`base`, Debian 12) | **No nested KVM** — accelerated Android emulator impossible; retained as control/agent env | `lab/substrate/VALIDATION-2026-09-21.md` |
-| GCP | API-key-only credential **cannot provision VMs** (compute requires OAuth/service account) — provider slot OPEN, pending operator credential decision | `lab/substrate/VALIDATION-2026-09-21.md` §3 |
-| Local lead sandbox | No `/dev/kvm`, 4.1 GB RAM — not a candidate | same report §4 |
+| E2B Desktop (`base`) | **No nested KVM** — accelerated emulation impossible; 2 vCPU/478 MB too small anyway | `lab/substrate/VALIDATION-2026-09-21.md` |
+| E2B Desktop (`desktop`, public) | 8 vCPU / ~8 GB RAM / 25 GB disk. **TCG software-emulation gate: see TCG addendum** — this is the lab substrate per the operator directive | `lab/substrate/VALIDATION-2026-09-21-TCG.md` |
+| GCP | **RETIRED by operator directive (2026-09-21): no GCP.** (Historically also blocked: the supplied key was API-key-only, which cannot provision compute VMs.) | operator directive; original report §3 |
+| Local lead sandbox | No `/dev/kvm`, 4.1 GB RAM — control plane only, not a candidate | original report §4 |
 | GitHub Actions runners | No KVM on hosted runners — CI is non-interactive gates only | CI design note in `LAB.md` |
 
-**Consequence:** E2B stays the agent/control environment per the mission fallback;
-an accelerated-Android provider (GCP nested-virt VM with a service-account credential,
-a dedicated KVM host, or another provider) must be connected through `LabProvider`
-before interactive scenarios can execute. This is recorded as a **BLOCKED** dependency
-in the parity ledger — it is never counted as PASS.
+**Consequence (operator directive 2026-09-21):** the lab is **E2B-only** — no GCP, no
+external provider credential. Interactive scenarios execute on QEMU TCG software
+emulation inside the E2B `desktop` template, gated by the empirical TCG probe
+(`lab/substrate/VALIDATION-2026-09-21-TCG.md`). The `LabProvider` abstraction stays
+provider-neutral so a future Flauz provider (accelerated) can slot in without
+redesign. A BLOCKED substrate is never counted as PASS.
 
 ## Workers
 

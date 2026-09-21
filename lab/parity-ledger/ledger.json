@@ -1,6 +1,6 @@
 {
   "$schema": "lab/parity-ledger/ledger.schema.md",
-  "updated": "2026-09-21T10:30:00Z",
+  "updated": "2026-09-21T12:30:00Z",
   "updated_by": "tech-lead",
   "statuses": [
     "UNKNOWN",
@@ -11,31 +11,14 @@
     "BLOCKED",
     "PASS"
   ],
-  "blocked_dependencies": [
+  "blocked_dependencies": [],
+  "resolved_dependencies": [
     {
       "id": "BLOCKED-ANDROID-SUBSTRATE",
-      "summary": "No provider with accelerated Android emulator capability is connected. E2B has no nested KVM (validated 2026-09-21); GCP credential is API-key only and cannot provision VMs. Awaiting operator: GCP service account (compute scope) or another KVM-capable host.",
-      "blocks": [
-        "S001",
-        "S002",
-        "S003",
-        "S004",
-        "S005",
-        "S006",
-        "S007",
-        "S008",
-        "S009",
-        "S010",
-        "S011",
-        "S012",
-        "S013",
-        "S014",
-        "S015",
-        "S016",
-        "S017",
-        "S018"
-      ],
+      "resolved": "2026-09-21T12:18:21Z",
+      "resolution": "Operator directive 2026-09-21: E2B-only (no GCP, no external provider). Substrate = E2B public `desktop` template (8 vCPU / ~8 GB) + QEMU TCG software emulation — empirically gated PASS: Android 11 x86_64 boots to sys.boot_completed=1 in 410 s, adb-responsive, evidence captured. Provider `e2b` reports emulator_acceleration: none; verdicts record the acceleration they ran under. Remaining sequencing (provider implementation CAMSCAN-008, then CAMSCAN-009+) is tracked in lab/orchestration/WORK-ORDERS.md, not operator-gated.",
       "evidence": [
+        "lab/substrate/VALIDATION-2026-09-21-TCG.md",
         "lab/substrate/VALIDATION-2026-09-21.md"
       ]
     }

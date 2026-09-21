@@ -24,7 +24,7 @@ CamScanner reference → observe behavior → record executable scenario
 | Path | Owner | Contents |
 |---|---|---|
 | `app/` | Worker 1 | The CamScan Android application implementation |
-| `lab/providers/` | Lead + workers | Provider-neutral `LabProvider` abstraction (E2B, GCP/KVM, local…) |
+| `lab/providers/` | Lead + workers | Provider-neutral `LabProvider` abstraction (E2B TCG first; future Flauz providers) |
 | `lab/emulator/` | Workers 1 & 2 | Android emulator/AVD management per environment |
 | `lab/scenarios/` | Lead (spec), Worker 2 (discovery) | Scenario DSL + executable scenario suite (`S###.yaml`) |
 | `lab/fixtures/` | Worker 2 | Deterministic camera/document fixture corpus |
@@ -42,10 +42,12 @@ Read next: [ARCHITECTURE.md](ARCHITECTURE.md) · [LAB.md](LAB.md) · [AGENTS.md]
 ## Current state (honest, 2026-09-21)
 
 - **Bootstrap phase.** No product code exists yet. Parity ledger: all scenarios `UNKNOWN`.
-- **E2B substrate gate: FAILED for accelerated Android emulation** — E2B guests have no
-  nested `/dev/kvm` (validated live, see `lab/substrate/VALIDATION-2026-09-21.md`).
-  E2B is retained as the **agent/control environment**; an accelerated-Android
-  `LabProvider` must be connected before any interactive scenario can run.
+- **E2B substrate gate: FAILED for accelerated Android emulation; TCG gate: see below.** E2B guests
+  have no nested `/dev/kvm` (validated live, see `lab/substrate/VALIDATION-2026-09-21.md`).
+  **Operator directive (2026-09-21): no GCP, no external provider — E2B-only per the handoff.**
+  The lab therefore runs on QEMU TCG software emulation inside the E2B `desktop` template
+  (8 vCPU / ~8 GB RAM), gated empirically — see `lab/substrate/VALIDATION-2026-09-21-TCG.md`.
+  The `LabProvider` seam stays provider-neutral for future Flauz providers.
 - Worker dispatch runs through the chat.z.ai replay console (agents tab, model
   **GLM-5.3**, skill **Full-Stack**). See `AGENTS.md`.
 

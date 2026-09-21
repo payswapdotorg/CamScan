@@ -1,5 +1,13 @@
 # E2B Android substrate validation — 2026-09-21
 
+> **Addendum notice (2026-09-21, later):** the "unacceptably slow" verdict on TCG
+> below was an assumption, not a measurement. The operator has since directed
+> **E2B-only** (no GCP, no external provider), and the public E2B `desktop`
+> template (8 vCPU / ~8 GB RAM — much larger than the `base` template probed
+> here) was empirically gated for QEMU TCG software emulation. See
+> [`VALIDATION-2026-09-21-TCG.md`](VALIDATION-2026-09-21-TCG.md) for the revised
+> gate result. §3 (GCP) is RETIRED by the operator directive — no GCP.
+
 **Purpose:** hard capability gate (mission §4) — determine whether an Android
 emulator can run with acceptable acceleration inside an E2B Desktop sandbox,
 before installing the full toolchain.

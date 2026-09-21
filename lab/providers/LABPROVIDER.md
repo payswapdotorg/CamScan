@@ -54,16 +54,21 @@ capabilities:
 ```
 
 Scenario `meta.requires` must be a subset of the provider's reported capabilities
-for a run to be schedulable. **Accelerated emulator scenarios additionally require
-`emulator_acceleration: kvm`** (software-only TCG is not acceptable for the lab).
+for a run to be schedulable. **Operator directive (2026-09-21): E2B-only** — no GCP,
+no external provider. The lab therefore accepts `emulator_acceleration: none` (TCG)
+for v1 with **generous, explicit per-scenario timeouts**; scenarios record the
+acceleration they ran under, and `emulator_acceleration: kvm` remains a declared
+capability slot for future Flauz providers so the ledger can distinguish
+`PASS (tcg)` from `PASS (kvm)` when a faster provider arrives.
 
 ## Provider registry (status)
 
 | slug | status | notes |
 |---|---|---|
-| `e2b` | **control-plane only** | validated 2026-09-21: no nested KVM → `android_emulator` accelerated = false. Used for agent/control work, staging, non-interactive steps. |
-| `gcp-nested-kvm` | **BLOCKED (credential)** | API-key credential cannot provision compute; awaiting service-account JSON with compute scope. Target shape: N2-class VM, `--enable-nested-virtualization`, KVM inside, Android emulator + AVDs. |
+| `e2b` | **control plane + TCG substrate** | 2026-09-21: `base` template has no nested KVM (accelerated impossible); the public `desktop` template (8 vCPU/~8 GB) runs the emulator in QEMU TCG software mode — gated empirically, see `../substrate/VALIDATION-2026-09-21-TCG.md`. Reports `emulator_acceleration: none`. |
+| `gcp-nested-kvm` | **RETIRED — operator directive (2026-09-21): no GCP** | Do not implement. Kept here only as historical record: the supplied credential was API-key-only and could not provision compute anyway. |
 | `local-kvm` | **not available** | lead sandbox has no `/dev/kvm`. |
+| future Flauz providers | open slot | when the operator provisions a KVM-capable host, implement against this same contract and report `emulator_acceleration: kvm`. |
 
-Provider implementations live one-per-directory here (`e2b/`, `gcp/`, …) and are
+Provider implementations live one-per-directory here (`e2b/`, …) and are
 worker deliverables under normal work orders (the lead owns only this contract).
