@@ -1,0 +1,5 @@
+// CAMSCAN-001: root file only declares plugins; module logic lives in app/build.gradle.kts.
+plugins {
+    alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.kotlin.android) apply false
+}

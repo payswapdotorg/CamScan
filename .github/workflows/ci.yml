@@ -20,3 +20,19 @@ jobs:
       # app/ build gates are added by CAMSCAN-001 (gradle assembleDebug,
       # unit tests, lint) — interactive Android execution is NEVER forced
       # into CI (no KVM on hosted runners); it belongs to a LabProvider.
+
+  android-skeleton:
+    name: android skeleton gates (assemble / unit / lint)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: assembleDebug + testDebugUnitTest + lintDebug
+        run: ./gradlew assembleDebug testDebugUnitTest lintDebug --stacktrace
