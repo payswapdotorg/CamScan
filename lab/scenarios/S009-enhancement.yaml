@@ -1,0 +1,31 @@
+id: enhancement
+title: Enhancement modes applied to scan
+status: UNKNOWN
+preconditions:
+- camera-permission-granted
+fixture:
+  camera: low-light
+steps:
+- launch
+- 'tap: scan'
+- capture
+- cycle-enhancement-modes
+- accept
+assertions:
+  behavior:
+  - enhancement-modes-selectable
+  - enhancement-applies-to-preview
+  ui:
+  - enhancement-controls-visible
+  state: []
+  output:
+  - enhanced-output-artifact
+meta:
+  requires:
+  - gui
+  - adb
+  - camera_fixture
+  owner: lead
+  notes: Provisional spec from the mission's starting list — pending reference discovery
+    (Worker 2). Status stays UNKNOWN until observed against CamScanner; actual reference
+    behavior may differ.

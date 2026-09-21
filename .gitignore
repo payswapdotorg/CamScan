@@ -1,0 +1,12 @@
+# task packets carry transient tokens when needed — never commit
+lab/orchestration/packets/
+# raw run bytes stay in R2; runs/ holds only manifests+specs, but local noise:
+runs/**/screenshots/
+runs/**/recordings/
+runs/**/outputs/
+runs/**/logs/
+*.log
+.env
+.env.*
+*credentials*
+*secret*

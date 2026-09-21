@@ -1,0 +1,29 @@
+id: reopen-saved-document
+title: Reopen a saved document
+status: UNKNOWN
+preconditions:
+- document-in-library(clean-a4)
+fixture:
+  camera: null
+  sequence: null
+steps:
+- launch
+- open-document(clean-a4)
+- observe-viewer
+assertions:
+  behavior:
+  - document-opens-from-library
+  - pages-rendered-as-saved
+  ui:
+  - viewer-visible
+  state:
+  - document-open-in-viewer
+  output: []
+meta:
+  requires:
+  - gui
+  - adb
+  owner: lead
+  notes: Provisional spec from the mission's starting list — pending reference discovery
+    (Worker 2). Status stays UNKNOWN until observed against CamScanner; actual reference
+    behavior may differ.

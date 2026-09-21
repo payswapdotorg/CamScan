@@ -1,0 +1,29 @@
+id: onboarding
+title: First-run onboarding flow
+status: UNKNOWN
+preconditions:
+- fresh-install
+- first-run
+fixture:
+  camera: null
+  sequence: null
+steps:
+- launch
+- complete-onboarding
+assertions:
+  behavior:
+  - onboarding-shown-on-first-run
+  - onboarding-skippable-or-completable
+  ui:
+  - onboarding-controls-visible
+  state:
+  - onboarding-completed-flag-set
+  output: []
+meta:
+  requires:
+  - gui
+  - adb
+  owner: lead
+  notes: Provisional spec from the mission's starting list — pending reference discovery
+    (Worker 2). Status stays UNKNOWN until observed against CamScanner; actual reference
+    behavior may differ.

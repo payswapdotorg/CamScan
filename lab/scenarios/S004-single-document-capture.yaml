@@ -1,0 +1,37 @@
+id: single-document-capture
+title: Single-document capture end-to-end
+status: UNKNOWN
+preconditions:
+- fresh-install
+- camera-permission-granted
+fixture:
+  camera: clean-a4
+steps:
+- launch
+- 'tap: scan'
+- capture
+- accept-document
+- save
+assertions:
+  behavior:
+  - document-detected
+  - crop-stage-visible
+  - save-succeeds
+  ui:
+  - scan-control-visible
+  - preview-visible
+  state:
+  - document-added-to-library
+  output:
+  - pdf-created
+  - pdf-readable
+  - one-page-document
+meta:
+  requires:
+  - gui
+  - adb
+  - camera_fixture
+  owner: lead
+  notes: Provisional spec from the mission's starting list — pending reference discovery
+    (Worker 2). Status stays UNKNOWN until observed against CamScanner; actual reference
+    behavior may differ.

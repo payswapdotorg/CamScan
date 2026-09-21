@@ -1,0 +1,31 @@
+id: manual-crop
+title: Manual crop adjustment
+status: UNKNOWN
+preconditions:
+- camera-permission-granted
+fixture:
+  camera: skewed-document
+steps:
+- launch
+- 'tap: scan'
+- capture
+- adjust-crop
+- confirm
+assertions:
+  behavior:
+  - crop-handles-movable
+  - crop-applies-to-preview
+  ui:
+  - crop-handles-visible
+  state: []
+  output:
+  - cropped-output-reflects-adjustment
+meta:
+  requires:
+  - gui
+  - adb
+  - camera_fixture
+  owner: lead
+  notes: Provisional spec from the mission's starting list — pending reference discovery
+    (Worker 2). Status stays UNKNOWN until observed against CamScanner; actual reference
+    behavior may differ.

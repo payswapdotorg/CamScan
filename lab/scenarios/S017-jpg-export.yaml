@@ -1,0 +1,30 @@
+id: jpg-export
+title: Export page as JPG
+status: UNKNOWN
+preconditions:
+- document-in-library(clean-a4)
+fixture:
+  camera: null
+  sequence: null
+steps:
+- launch
+- open-document(clean-a4)
+- 'export: jpg'
+assertions:
+  behavior:
+  - export-succeeds
+  - exported-image-viewable
+  ui:
+  - export-menu-visible
+  state: []
+  output:
+  - jpg-created
+  - jpg-readable
+meta:
+  requires:
+  - gui
+  - adb
+  owner: lead
+  notes: Provisional spec from the mission's starting list — pending reference discovery
+    (Worker 2). Status stays UNKNOWN until observed against CamScanner; actual reference
+    behavior may differ.

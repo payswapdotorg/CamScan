@@ -1,0 +1,32 @@
+id: rotate
+title: Page rotation
+status: UNKNOWN
+preconditions:
+- camera-permission-granted
+fixture:
+  camera: clean-a4
+steps:
+- launch
+- 'tap: scan'
+- capture
+- rotate
+- confirm
+- save
+assertions:
+  behavior:
+  - rotation-applies-immediately
+  - rotation-persists-in-output
+  ui:
+  - rotate-control-visible
+  state: []
+  output:
+  - pdf-page-rotated
+meta:
+  requires:
+  - gui
+  - adb
+  - camera_fixture
+  owner: lead
+  notes: Provisional spec from the mission's starting list — pending reference discovery
+    (Worker 2). Status stays UNKNOWN until observed against CamScanner; actual reference
+    behavior may differ.

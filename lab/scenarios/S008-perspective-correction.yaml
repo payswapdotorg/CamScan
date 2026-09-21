@@ -1,0 +1,32 @@
+id: perspective-correction
+title: Perspective correction after capture
+status: UNKNOWN
+preconditions:
+- camera-permission-granted
+fixture:
+  camera: skewed-document
+steps:
+- launch
+- 'tap: scan'
+- capture
+- accept-document
+- save
+- reopen-document
+assertions:
+  behavior:
+  - perspective-corrected-output
+  - rectified-page-geometry
+  ui: []
+  state:
+  - document-added-to-library
+  output:
+  - pdf-pages-rectangular
+meta:
+  requires:
+  - gui
+  - adb
+  - camera_fixture
+  owner: lead
+  notes: Provisional spec from the mission's starting list — pending reference discovery
+    (Worker 2). Status stays UNKNOWN until observed against CamScanner; actual reference
+    behavior may differ.

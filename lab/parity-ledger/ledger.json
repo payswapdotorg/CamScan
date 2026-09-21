@@ -1,0 +1,243 @@
+{
+  "$schema": "lab/parity-ledger/ledger.schema.md",
+  "updated": "2026-09-21T10:30:00Z",
+  "updated_by": "tech-lead",
+  "statuses": [
+    "UNKNOWN",
+    "DISCOVERED",
+    "SPECIFIED",
+    "IMPLEMENTED",
+    "PARTIAL",
+    "BLOCKED",
+    "PASS"
+  ],
+  "blocked_dependencies": [
+    {
+      "id": "BLOCKED-ANDROID-SUBSTRATE",
+      "summary": "No provider with accelerated Android emulator capability is connected. E2B has no nested KVM (validated 2026-09-21); GCP credential is API-key only and cannot provision VMs. Awaiting operator: GCP service account (compute scope) or another KVM-capable host.",
+      "blocks": [
+        "S001",
+        "S002",
+        "S003",
+        "S004",
+        "S005",
+        "S006",
+        "S007",
+        "S008",
+        "S009",
+        "S010",
+        "S011",
+        "S012",
+        "S013",
+        "S014",
+        "S015",
+        "S016",
+        "S017",
+        "S018"
+      ],
+      "evidence": [
+        "lab/substrate/VALIDATION-2026-09-21.md"
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "id": "S001",
+      "scenario": "application-launch",
+      "title": "Cold launch of the application",
+      "status": "UNKNOWN",
+      "capability": "application-launch",
+      "owner": null,
+      "last_run": null,
+      "evidence": [],
+      "notes": "provisional \u2014 pending reference discovery"
+    },
+    {
+      "id": "S002",
+      "scenario": "onboarding",
+      "title": "First-run onboarding flow",
+      "status": "UNKNOWN",
+      "capability": "onboarding",
+      "owner": null,
+      "last_run": null,
+      "evidence": [],
+      "notes": "provisional \u2014 pending reference discovery"
+    },
+    {
+      "id": "S003",
+      "scenario": "camera-permission",
+      "title": "Camera permission request and grant",
+      "status": "UNKNOWN",
+      "capability": "camera-permission",
+      "owner": null,
+      "last_run": null,
+      "evidence": [],
+      "notes": "provisional \u2014 pending reference discovery"
+    },
+    {
+      "id": "S004",
+      "scenario": "single-document-capture",
+      "title": "Single-document capture end-to-end",
+      "status": "UNKNOWN",
+      "capability": "single-document-capture",
+      "owner": null,
+      "last_run": null,
+      "evidence": [],
+      "notes": "provisional \u2014 pending reference discovery"
+    },
+    {
+      "id": "S005",
+      "scenario": "automatic-document-detection",
+      "title": "Automatic document edge detection",
+      "status": "UNKNOWN",
+      "capability": "automatic-document-detection",
+      "owner": null,
+      "last_run": null,
+      "evidence": [],
+      "notes": "provisional \u2014 pending reference discovery"
+    },
+    {
+      "id": "S006",
+      "scenario": "crop-confirmation",
+      "title": "Crop confirmation stage after capture",
+      "status": "UNKNOWN",
+      "capability": "crop-confirmation",
+      "owner": null,
+      "last_run": null,
+      "evidence": [],
+      "notes": "provisional \u2014 pending reference discovery"
+    },
+    {
+      "id": "S007",
+      "scenario": "manual-crop",
+      "title": "Manual crop adjustment",
+      "status": "UNKNOWN",
+      "capability": "manual-crop",
+      "owner": null,
+      "last_run": null,
+      "evidence": [],
+      "notes": "provisional \u2014 pending reference discovery"
+    },
+    {
+      "id": "S008",
+      "scenario": "perspective-correction",
+      "title": "Perspective correction after capture",
+      "status": "UNKNOWN",
+      "capability": "perspective-correction",
+      "owner": null,
+      "last_run": null,
+      "evidence": [],
+      "notes": "provisional \u2014 pending reference discovery"
+    },
+    {
+      "id": "S009",
+      "scenario": "enhancement",
+      "title": "Enhancement modes applied to scan",
+      "status": "UNKNOWN",
+      "capability": "enhancement",
+      "owner": null,
+      "last_run": null,
+      "evidence": [],
+      "notes": "provisional \u2014 pending reference discovery"
+    },
+    {
+      "id": "S010",
+      "scenario": "rotate",
+      "title": "Page rotation",
+      "status": "UNKNOWN",
+      "capability": "rotate",
+      "owner": null,
+      "last_run": null,
+      "evidence": [],
+      "notes": "provisional \u2014 pending reference discovery"
+    },
+    {
+      "id": "S011",
+      "scenario": "save",
+      "title": "Save document to library",
+      "status": "UNKNOWN",
+      "capability": "save",
+      "owner": null,
+      "last_run": null,
+      "evidence": [],
+      "notes": "provisional \u2014 pending reference discovery"
+    },
+    {
+      "id": "S012",
+      "scenario": "reopen-saved-document",
+      "title": "Reopen a saved document",
+      "status": "UNKNOWN",
+      "capability": "reopen-saved-document",
+      "owner": null,
+      "last_run": null,
+      "evidence": [],
+      "notes": "provisional \u2014 pending reference discovery"
+    },
+    {
+      "id": "S013",
+      "scenario": "multi-page-scan",
+      "title": "Multi-page document scan",
+      "status": "UNKNOWN",
+      "capability": "multi-page-scan",
+      "owner": null,
+      "last_run": null,
+      "evidence": [],
+      "notes": "provisional \u2014 pending reference discovery"
+    },
+    {
+      "id": "S014",
+      "scenario": "document-deletion",
+      "title": "Delete a document from library",
+      "status": "UNKNOWN",
+      "capability": "document-deletion",
+      "owner": null,
+      "last_run": null,
+      "evidence": [],
+      "notes": "provisional \u2014 pending reference discovery"
+    },
+    {
+      "id": "S015",
+      "scenario": "ocr",
+      "title": "OCR text extraction",
+      "status": "UNKNOWN",
+      "capability": "ocr",
+      "owner": null,
+      "last_run": null,
+      "evidence": [],
+      "notes": "provisional \u2014 pending reference discovery"
+    },
+    {
+      "id": "S016",
+      "scenario": "pdf-export",
+      "title": "Export document as PDF",
+      "status": "UNKNOWN",
+      "capability": "pdf-export",
+      "owner": null,
+      "last_run": null,
+      "evidence": [],
+      "notes": "provisional \u2014 pending reference discovery"
+    },
+    {
+      "id": "S017",
+      "scenario": "jpg-export",
+      "title": "Export page as JPG",
+      "status": "UNKNOWN",
+      "capability": "jpg-export",
+      "owner": null,
+      "last_run": null,
+      "evidence": [],
+      "notes": "provisional \u2014 pending reference discovery"
+    },
+    {
+      "id": "S018",
+      "scenario": "sharing",
+      "title": "Share a document",
+      "status": "UNKNOWN",
+      "capability": "sharing",
+      "owner": null,
+      "last_run": null,
+      "evidence": [],
+      "notes": "provisional \u2014 pending reference discovery"
+    }
+  ]
+}

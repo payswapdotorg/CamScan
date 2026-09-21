@@ -1,0 +1,30 @@
+id: crop-confirmation
+title: Crop confirmation stage after capture
+status: UNKNOWN
+preconditions:
+- camera-permission-granted
+fixture:
+  camera: clean-a4
+steps:
+- launch
+- 'tap: scan'
+- capture
+- observe-crop-stage
+assertions:
+  behavior:
+  - crop-stage-offers-confirm
+  - crop-stage-offers-adjust
+  ui:
+  - crop-handles-visible
+  - confirm-control-visible
+  state: []
+  output: []
+meta:
+  requires:
+  - gui
+  - adb
+  - camera_fixture
+  owner: lead
+  notes: Provisional spec from the mission's starting list — pending reference discovery
+    (Worker 2). Status stays UNKNOWN until observed against CamScanner; actual reference
+    behavior may differ.

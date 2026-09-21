@@ -1,0 +1,29 @@
+id: sharing
+title: Share a document
+status: UNKNOWN
+preconditions:
+- document-in-library(clean-a4)
+fixture:
+  camera: null
+  sequence: null
+steps:
+- launch
+- open-document(clean-a4)
+- share
+assertions:
+  behavior:
+  - system-share-sheet-invoked
+  - share-carries-file
+  ui:
+  - share-affordance-visible
+  state: []
+  output:
+  - shared-artifact-hash-stable
+meta:
+  requires:
+  - gui
+  - adb
+  owner: lead
+  notes: Provisional spec from the mission's starting list — pending reference discovery
+    (Worker 2). Status stays UNKNOWN until observed against CamScanner; actual reference
+    behavior may differ.

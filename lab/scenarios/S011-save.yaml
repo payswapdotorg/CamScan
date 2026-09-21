@@ -1,0 +1,32 @@
+id: save
+title: Save document to library
+status: UNKNOWN
+preconditions:
+- camera-permission-granted
+fixture:
+  camera: clean-a4
+steps:
+- launch
+- 'tap: scan'
+- capture
+- accept-document
+- save
+assertions:
+  behavior:
+  - save-succeeds
+  - library-lists-document
+  ui:
+  - library-visible
+  state:
+  - document-added-to-library
+  output:
+  - pdf-created
+meta:
+  requires:
+  - gui
+  - adb
+  - camera_fixture
+  owner: lead
+  notes: Provisional spec from the mission's starting list — pending reference discovery
+    (Worker 2). Status stays UNKNOWN until observed against CamScanner; actual reference
+    behavior may differ.

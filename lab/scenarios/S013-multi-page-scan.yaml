@@ -1,0 +1,34 @@
+id: multi-page-scan
+title: Multi-page document scan
+status: UNKNOWN
+preconditions:
+- camera-permission-granted
+fixture:
+  camera: multi-page
+steps:
+- launch
+- 'tap: scan'
+- capture
+- capture
+- capture
+- done
+- save
+assertions:
+  behavior:
+  - additional-captures-append-pages
+  - page-count-matches-captures
+  ui:
+  - page-count-indicator-visible
+  state:
+  - document-added-to-library
+  output:
+  - pdf-page-count-equals-captures
+meta:
+  requires:
+  - gui
+  - adb
+  - camera_fixture
+  owner: lead
+  notes: Provisional spec from the mission's starting list — pending reference discovery
+    (Worker 2). Status stays UNKNOWN until observed against CamScanner; actual reference
+    behavior may differ.

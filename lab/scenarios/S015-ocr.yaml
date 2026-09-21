@@ -1,0 +1,30 @@
+id: ocr
+title: OCR text extraction
+status: UNKNOWN
+preconditions:
+- document-in-library(clean-a4)
+fixture:
+  camera: null
+  sequence: null
+steps:
+- launch
+- open-document(clean-a4)
+- run-ocr
+assertions:
+  behavior:
+  - ocr-runs-on-demand
+  - ocr-text-extracted
+  ui:
+  - ocr-affordance-visible
+  state: []
+  output:
+  - ocr-text-present
+  - ocr-text-recognizable
+meta:
+  requires:
+  - gui
+  - adb
+  owner: lead
+  notes: Provisional spec from the mission's starting list — pending reference discovery
+    (Worker 2). Status stays UNKNOWN until observed against CamScanner; actual reference
+    behavior may differ.

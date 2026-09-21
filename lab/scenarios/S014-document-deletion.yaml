@@ -1,0 +1,29 @@
+id: document-deletion
+title: Delete a document from library
+status: UNKNOWN
+preconditions:
+- document-in-library(clean-a4)
+fixture:
+  camera: null
+  sequence: null
+steps:
+- launch
+- delete-document(clean-a4)
+- confirm-delete
+assertions:
+  behavior:
+  - deletion-confirmed
+  - document-no-longer-listed
+  ui:
+  - delete-affordance-visible
+  state:
+  - document-removed-from-library
+  output: []
+meta:
+  requires:
+  - gui
+  - adb
+  owner: lead
+  notes: Provisional spec from the mission's starting list — pending reference discovery
+    (Worker 2). Status stays UNKNOWN until observed against CamScanner; actual reference
+    behavior may differ.

@@ -1,0 +1,27 @@
+id: application-launch
+title: Cold launch of the application
+status: UNKNOWN
+preconditions:
+- fresh-install
+fixture:
+  camera: null
+  sequence: null
+steps:
+- launch
+assertions:
+  behavior:
+  - app-opens-without-crash
+  - cold-start-under-threshold
+  ui:
+  - root-screen-visible
+  state:
+  - app-foregrounded
+  output: []
+meta:
+  requires:
+  - gui
+  - adb
+  owner: lead
+  notes: Provisional spec from the mission's starting list — pending reference discovery
+    (Worker 2). Status stays UNKNOWN until observed against CamScanner; actual reference
+    behavior may differ.

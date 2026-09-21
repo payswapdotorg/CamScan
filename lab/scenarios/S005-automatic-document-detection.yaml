@@ -1,0 +1,29 @@
+id: automatic-document-detection
+title: Automatic document edge detection
+status: UNKNOWN
+preconditions:
+- camera-permission-granted
+fixture:
+  camera: clean-a4
+steps:
+- launch
+- 'tap: scan'
+- observe-detection-overlay
+- capture
+assertions:
+  behavior:
+  - document-edges-detected-automatically
+  - detection-overlay-shown-live
+  ui:
+  - detection-overlay-visible
+  state: []
+  output: []
+meta:
+  requires:
+  - gui
+  - adb
+  - camera_fixture
+  owner: lead
+  notes: Provisional spec from the mission's starting list — pending reference discovery
+    (Worker 2). Status stays UNKNOWN until observed against CamScanner; actual reference
+    behavior may differ.

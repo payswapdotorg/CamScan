@@ -1,0 +1,30 @@
+id: camera-permission
+title: Camera permission request and grant
+status: UNKNOWN
+preconditions:
+- fresh-install
+- camera-permission-not-granted
+fixture:
+  camera: null
+  sequence: null
+steps:
+- launch
+- 'tap: scan'
+- 'grant-permission: camera'
+assertions:
+  behavior:
+  - permission-dialog-shown
+  - permission-requested-before-camera-use
+  ui:
+  - permission-dialog-visible
+  state:
+  - camera-permission-granted
+  output: []
+meta:
+  requires:
+  - gui
+  - adb
+  owner: lead
+  notes: Provisional spec from the mission's starting list — pending reference discovery
+    (Worker 2). Status stays UNKNOWN until observed against CamScanner; actual reference
+    behavior may differ.
