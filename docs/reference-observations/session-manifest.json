@@ -1,0 +1,150 @@
+{
+  "record": "CAMSCAN-004 session manifest (blocked live session + static observation)",
+  "session": "camscan004-reference-20260921T224152Z",
+  "generated_utc": "2026-09-21T22:45:40Z",
+  "base_sha": "3b3551a5052852b598cde7dac57d8492e6e835af",
+  "branch": "work/CAMSCAN-004",
+  "verdict": "BLOCKED (live reference observation) \u2014 static artifact analysis OBSERVED",
+  "large_artifacts_outside_git": [
+    {
+      "file": "CamScanner_7.25.5.2609020000_apkcombo.com.xapk",
+      "bytes": 221499725,
+      "sha256": "7ef8e46525a1210bbaa332d5f5d560ce30d768b4375ea92265d2e292d25dba65",
+      "source_url": "https://apkcombo.com/camscanner/com.intsig.camscanner/download/phone-7.25.5.2609020000-apk",
+      "note": "kept outside the repo (211 MB); R2 candidate when credentials allow"
+    }
+  ],
+  "files": [
+    {
+      "path": "runs/camscan004-reference-20260921T224152Z/observation-result.json",
+      "sha256": "61d9b7eca0589592f49a56aa7ea52e2dd7f3602bf014c050ea23b5d0279cc3da",
+      "bytes": 1028
+    },
+    {
+      "path": "docs/reference-observations/REPORT.md",
+      "sha256": "7d1688803581a68225a51fb15397363b81b0ce7e58325a016177edbdcb1e891e",
+      "bytes": 12754
+    },
+    {
+      "path": "docs/reference-observations/static-apk-analysis.md",
+      "sha256": "730410d9f8d829b78817811d6a0084deece04647e0d885d927986e18bf37efb9",
+      "bytes": 6420
+    },
+    {
+      "path": "docs/reference-observations/static-apk-analysis.json",
+      "sha256": "80dc3ef64882db2ac28bacc3434cf3691f56c2b733d47b4caaad22d90e406508",
+      "bytes": 8728
+    },
+    {
+      "path": "docs/capability-map.md",
+      "sha256": "9b169c79a371f7dd0cd4120812e352003b98068307762395017e7e1be9eb2dcb",
+      "bytes": 7760
+    },
+    {
+      "path": "tools/reference-observe/observe.py",
+      "sha256": "c721bca7edac6f982a861c6d76f81bafdff2490f739b9b1058a1c7ac39f53e3f",
+      "bytes": 22502
+    },
+    {
+      "path": "tools/reference-observe/gen_scenario_records.py",
+      "sha256": "9fea2429e3bee26ca4abda6ceb2dad9ff36f5539a128b4dbb05a10181d0eb3cd",
+      "bytes": 24980
+    },
+    {
+      "path": "tools/reference-observe/README.md",
+      "sha256": "9db3d8423a2769f6fa13b823a757aee8534ff2c0813eaeb3cee0f3264b8d04c8",
+      "bytes": 2726
+    },
+    {
+      "path": "docs/reference-observations/S001-launch.md",
+      "sha256": "94f5e63841f08bcf7a9a091f6b856d2a8f2c15e7a4852a6770368b770be533c8",
+      "bytes": 2355
+    },
+    {
+      "path": "docs/reference-observations/S002-onboarding.md",
+      "sha256": "1e7fe5a2744a7be7ea7e2cc44e8202c2c78c84505c1947aff943a7cbaf5deba3",
+      "bytes": 2270
+    },
+    {
+      "path": "docs/reference-observations/S003-camera-permission.md",
+      "sha256": "b3d06c7790c5cacd5f0df717daf9037c576466c472cdfb7864c0605f03aa9b3f",
+      "bytes": 2628
+    },
+    {
+      "path": "docs/reference-observations/S004-single-document-capture.md",
+      "sha256": "dab96d2e594a47f7189321e14763eb1088772a507b90cc9d89108e65e566527a",
+      "bytes": 2443
+    },
+    {
+      "path": "docs/reference-observations/S005-automatic-document-detection.md",
+      "sha256": "dbe24d3d5883937acb709a822eb5fbc886062514ffe497715c429fb5a75cc5d5",
+      "bytes": 1889
+    },
+    {
+      "path": "docs/reference-observations/S006-crop-confirmation.md",
+      "sha256": "310b5a43db470d9953edecc4b9db6f44bdded39dcd933933b669aca77e12a372",
+      "bytes": 1595
+    },
+    {
+      "path": "docs/reference-observations/S007-manual-crop.md",
+      "sha256": "d4023b3b1f1a4f2054f3346de541238f9bc5998cf6ca3d2591f447216b1edba4",
+      "bytes": 1649
+    },
+    {
+      "path": "docs/reference-observations/S008-perspective-correction.md",
+      "sha256": "9a0a13511fcf1d5ff65f7a021d90976bc6342dc8902beea6172b56122e051bdb",
+      "bytes": 1683
+    },
+    {
+      "path": "docs/reference-observations/S009-enhancement.md",
+      "sha256": "f209a5624741863942223272128e5c32271a8c1c3e705b1728a20ea21e80d2ad",
+      "bytes": 1569
+    },
+    {
+      "path": "docs/reference-observations/S010-rotate.md",
+      "sha256": "92e94f1d66f1ba9568bef9702ba682611dee2766d1b1b403d82185ba61117922",
+      "bytes": 1511
+    },
+    {
+      "path": "docs/reference-observations/S011-save.md",
+      "sha256": "bc818bddf69088aac4a665560a978a441e6e24d99ab72e8814415a5c0f86e500",
+      "bytes": 2110
+    },
+    {
+      "path": "docs/reference-observations/S012-reopen-saved-document.md",
+      "sha256": "38ede779293de88867aeec6e086ad4182ec39beb9b8cacce8f3a988cd296f439",
+      "bytes": 1523
+    },
+    {
+      "path": "docs/reference-observations/S013-multi-page-scan.md",
+      "sha256": "48dd9fee92a8e16e148766ed284fdb93489b76f141b66892f7d0997af7ffc3fb",
+      "bytes": 1622
+    },
+    {
+      "path": "docs/reference-observations/S014-document-deletion.md",
+      "sha256": "a4fafe6a73ec4c01a9d9fa91d16b260266c026cfa7f89d6fbefc25ec3d325ca3",
+      "bytes": 1589
+    },
+    {
+      "path": "docs/reference-observations/S015-ocr.md",
+      "sha256": "2251268fa1496625185550bcdaa9661b4809b46fcc75dd7e0a96ffc8482cec74",
+      "bytes": 1984
+    },
+    {
+      "path": "docs/reference-observations/S016-pdf-export.md",
+      "sha256": "0ab47146d3f51415b90885658390167591546242505ac9593974571614880bce",
+      "bytes": 1661
+    },
+    {
+      "path": "docs/reference-observations/S017-jpg-export.md",
+      "sha256": "8af8ab35960cc6d7ade7c8754e00c064bfaa035ef243f7d74e27eda582ac10eb",
+      "bytes": 1627
+    },
+    {
+      "path": "docs/reference-observations/S018-sharing.md",
+      "sha256": "8e094af997ed2ff7be6ef41880c4eb225066c4773fef8a892140e5bad48c95c4",
+      "bytes": 1592
+    }
+  ],
+  "generation_command": "sha256sum over the session files; this manifest is regenerated at commit time (see git history)"
+}
