@@ -40,3 +40,33 @@ CamScanner (reference) and CamScan (implementation) via the provider
   mode, QR codes, tables). New fixtures get ledger entries.
 - Fixtures never contain personal data or third-party copyrighted content —
   synthetic/generated content only.
+
+## Corpus conventions (v0.1 — CAMSCAN-003)
+
+Regeneration: `python3 lab/fixtures/generate.py` (in place, byte-identical);
+`python3 lab/fixtures/generate.py --check` regenerates the corpus to a temp
+dir and hash-verifies every manifest entry (files **and** manifest.json).
+Environment: Pillow (>=9, built on 11.3) + FreeType with DejaVu fonts
+(system dejavu dir, matplotlib bundle as fallback). The manifest
+`generated_utc` is a fixed corpus epoch — not wall-clock — so regeneration
+stays byte-identical; the recorded sha256s remain the cross-environment
+integrity truth.
+
+- Frames are 1080x1920 portrait (>=1080p class), phone-camera-like viewing
+  geometry: the page fills the majority of the frame with background visible.
+- `page_quad_px` point order is `[TL, TR, BR, BL]`, x right / y down, frame
+  pixels. The recorded quad is exactly the quad the generator warped to
+  (2-decimal quantized) — it is the detection ground truth.
+- Documents are PNG (lossless — they are the OCR oracles); sequences are
+  JPEG quality 87 (camera-like motion frames). `ground_truth.text_content`
+  is the exact text rendered into the page.
+- `documents/multi-page/` is an ordered 3-page set sharing one camera
+  position (fixed mount, repeatable placement), so a single quad is truth
+  for all pages; the per-file `page` field carries the order.
+- Sequence per-frame transform grammar:
+  `pan(dx,dy)` · `shake(dx,dy,theta,scale)` · `rotate(theta,scale)`.
+  `document-pan` intentionally lets the page partially exit the frame at the
+  pan extremes (detection tracking); `rotation` ends with the page landscape
+  (90 deg in-plane).
+- Lighting vocabulary: `even-daylight`, `neutral-indoor`, `dim-tungsten`
+  (low-light is under-exposed to ~1/3 brightness with high sensor grain).
