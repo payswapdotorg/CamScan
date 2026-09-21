@@ -32,7 +32,7 @@ recorded into the environment handle's timings dict.
 from __future__ import annotations
 
 import time
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 JAVA_HOME = "/usr/lib/jvm/java-17-openjdk-amd64"
 SDK = "/opt/android-sdk"
@@ -211,10 +211,16 @@ def step_exec_bits(sb: Any) -> tuple[bool, str]:
     return True, "EMU_EXEC_OK"
 
 
-def step_avd(sb: Any, avd_name: str, system_image: str, device_profile: str) -> tuple[bool, str]:
+def step_avd(sb: Any, avd_name: str, system_image: str, device_profile: str,
+              sdcard_mb: int = 2048) -> tuple[bool, str]:
+    """Create the AVD. sdcard: camera/storage-hungry apps (AOSP camera2,
+    document scanners like CamScanner) crash with
+    ExceptionInInitializerError in Storage singletons when the AVD has no
+    sdcard volume — always create one (camera-fixture probe round 7, 2026-09-21).
+    """
     script = (f"export JAVA_HOME={JAVA_HOME} ANDROID_HOME={SDK} && "
               f"echo no | {AVDMANAGER} create avd -n {avd_name} -k '{system_image}' "
-              f"-d {device_profile} --force >/dev/null 2>&1; "
+              f"-d {device_profile} -c {sdcard_mb}M --force >/dev/null 2>&1; "
               f"{AVDMANAGER} list avd 2>/dev/null | grep -c 'Name: {avd_name}'")
     c, o = _sh(sb, script, timeout=300)
     if o.strip() != "1":
@@ -275,19 +281,31 @@ def bootstrap(sb: Any, env_id: str, timings: dict[str, float],
 
 def emulator_launch_cmd(avd_name: str, memory_mb: int, cores: int,
                         locale: str, timezone: str, camera_back: str,
-                        wipe_data: bool) -> str:
+                        wipe_data: bool,
+                        camera_poster: Optional[str] = None) -> str:
     """Detached TCG emulator launch line (gotchas 4+5+6).
 
     Proven configuration: Android 11 x86_64 / pixel_4 / -accel off /
     -no-window / -gpu swiftshader_indirect / -memory 2048 / -cores 4.
     Deterministic locale/timezone via -prop persist.sys.*.
+    camera_poster: absolute sandbox path to an image injected into the
+    virtualscene back camera as poster1 — discovered by binary mining at
+    the 2026-09-21 camera-fixture probe (emulator 37.1.11 supports
+    `-virtualscene-poster <name>=<filename>`; the console `virtualscene`
+    subcommand does NOT exist in this build — use the launch flag).
     """
     wipe = " -wipe-data" if wipe_data else ""
+    poster = (f" -virtualscene-poster poster1={camera_poster}"
+              if camera_poster else "")
+    # audio stays ENABLED (no -no-audio): apps initializing audio services
+    # (AOSP camera2 shutter player — camera-fixture probe round 5) crash with
+    # the flag; qemu falls back to a null backend headlessly. Boot measured
+    # 390-434s with audio ON — no TCG penalty.
     return (
         f"cd {SDK}/emulator && "
-        f"(nohup ./emulator -avd {avd_name} -accel off -no-window -no-audio "
+        f"(nohup ./emulator -avd {avd_name} -accel off -no-window "
         f"-no-boot-anim -gpu swiftshader_indirect -memory {memory_mb} -cores {cores} "
-        f"-no-snapshot{wipe} "
+        f"-no-snapshot{wipe}{poster} "
         f"-prop persist.sys.locale={locale} -prop persist.sys.timezone={timezone} "
         f"-camera-back {camera_back} "
         f"> /tmp/emulator.log 2>&1 < /dev/null &) ; sleep 3 ; "

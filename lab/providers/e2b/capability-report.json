@@ -16,10 +16,11 @@
   "notes": {
     "gui": "swiftshader_indirect rendering; screen content capturable without a display",
     "emulator_acceleration": "QEMU TCG (-accel off); no /dev/kvm in E2B Firecracker microVMs \u2014 substrate truth, never kvm",
-    "camera_fixture": "probed at the CAMSCAN-008 acceptance gate 2026-09-21T151742Z: NOT injectable on the public desktop template (no virtualscene/poster console commands; camera service absent) \u2014 camera scenarios need a different fixture mechanism",
+    "camera_fixture": "probed empirically 2026-09-21 rounds 1-10: camera Device 0 registers; AOSP camera2 runs (needs sdcard AVD + audio-enabled boot \u2014 both crashes root-caused and fixed); viewfinder renders the virtualscene room live; poster mechanisms EXIST (-virtualscene-poster flag + 'virtualscene-image <wall|table>' console command, both return OK) but visual replacement of the default scene poster is NOT yet confirmed \u2014 environment.ini scene-definition exploration pending; camera_fixture stays false until injectability is visually verified",
     "recording": "verified at the CAMSCAN-008 acceptance gate 2026-09-21T151742Z: screenrecord under TCG produced a 36,137-byte mp4",
     "snapshot": "verified at the CAMSCAN-008 acceptance gate 2026-09-21T151742Z: e2b pause/resume with a live TCG emulator \u2014 boot_completed held after resume",
     "screenshots": "proven at the 2026-09-21 TCG substrate gate (42,803-byte PNG captured)",
-    "acceptance_gate": "PASS 2026-09-21T151742Z \u2014 full lifecycle provision->destroy with zero manual repairs; evidence at r2:camscan-parity-evidence/providers/e2b/acceptance/20260921T151742Z"
+    "acceptance_gate": "PASS 2026-09-21T151742Z \u2014 full lifecycle provision->destroy with zero manual repairs; evidence at r2:camscan-parity-evidence/providers/e2b/acceptance/20260921T151742Z",
+    "camera_recipe": "working camera recipe (proven rounds 5-10): AVD with -c 2048M sdcard (avdmanager), launch WITHOUT -no-audio (camera2 crashes with it), animation scales 0, ANR dismissal via on-device uiautomator dump + Wait tap, camera-app onboarding walked with 2 NEXT taps at (540,2080)"
   }
 }

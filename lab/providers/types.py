@@ -87,6 +87,8 @@ class EnvironmentSpec:
     locale: str = "en-US"                     # deterministic default (persist.sys.locale)
     timezone: str = "UTC"                     # deterministic default (persist.sys.timezone)
     camera_back: str = "virtualscene"         # emulated back-camera backend
+    camera_poster: Optional[str] = None       # sandbox path: image injected as
+                                              # virtualscene poster1 (launch flag)
     extra_sdk_packages: tuple[str, ...] = ()  # beyond the provider's known-good base
     tag: Optional[str] = None                 # free-form run correlation
 

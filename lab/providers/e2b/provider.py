@@ -317,7 +317,8 @@ class E2BProvider:
         t0 = time.time()
         launch = bs.emulator_launch_cmd(
             env.avd_name, env.spec.memory_mb, env.spec.cores, env.spec.locale,
-            env.spec.timezone, env.spec.camera_back, wipe_data=False)
+            env.spec.timezone, env.spec.camera_back, wipe_data=False,
+            camera_poster=env.spec.camera_poster)
         res = self._sh(env_id, launch, timeout=120, record=False)
         first = res.stdout.strip().splitlines()
         procs = first[0].strip() if first else "0"
@@ -429,7 +430,8 @@ class E2BProvider:
         launch = bs.emulator_launch_cmd(
             env.avd_name, env.spec.memory_mb, env.spec.cores, env.spec.locale,
             env.spec.timezone, env.spec.camera_back,
-            wipe_data=bool(reset.wipe_data))
+            wipe_data=bool(reset.wipe_data),
+            camera_poster=env.spec.camera_poster)
         env.status = "booting"
         res = self._sh(env_id, launch, timeout=120, record=False)
         booted, detail = self._wait_boot(env)
