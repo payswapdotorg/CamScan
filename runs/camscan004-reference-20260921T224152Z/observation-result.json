@@ -1,0 +1,26 @@
+{
+  "gate": "CAMSCAN-004",
+  "run_id": "camscan004-reference-20260921T224152Z",
+  "started_utc": "2026-09-21T22:41:52Z",
+  "phases": [
+    {
+      "name": "preflight",
+      "ok": false,
+      "detail": {
+        "reason": "E2B_API_KEY not set \u2014 the e2b provider requires the E2B API key in the environment (never in git/evidence)"
+      },
+      "ts_utc": "2026-09-21T22:41:53Z"
+    }
+  ],
+  "apk": {
+    "path": "/home/z/camscan-apk/CamScanner_7.25.5.2609020000_apkcombo.com.xapk",
+    "source_url": "https://apkcombo.com/camscanner/com.intsig.camscanner/download/phone-7.25.5.2609020000-apk",
+    "exists": true,
+    "bytes": 221499725,
+    "sha256": "7ef8e46525a1210bbaa332d5f5d560ce30d768b4375ea92265d2e292d25dba65"
+  },
+  "package_expected": "com.intsig.camscanner",
+  "verdict": "BLOCKED",
+  "blocker": "reference substrate unavailable in this worker sandbox: E2B_API_KEY not set \u2014 the e2b provider requires the E2B API key in the environment (never in git/evidence)",
+  "finished_utc": "2026-09-21T22:41:53Z"
+}

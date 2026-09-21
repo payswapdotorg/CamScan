@@ -1,0 +1,181 @@
+{
+  "record": "CAMSCAN-004 static reference-artifact analysis",
+  "generated_utc": "2026-09-21T22:42:56Z",
+  "method": "black-box observable-artifact analysis only: zip listing, JAR signature verification (openssl PKCS7 + per-entry digest audit), binary AndroidManifest metadata parse (pyaxmlparser/AXMLPrinter). No decompilation, no source extraction, no proprietary assets copied.",
+  "source": {
+    "type": "reputable APK mirror (APKCombo) \u2014 vendor's official site serves only store links",
+    "vendor_site_checked": "https://www.camscanner.com/download (no direct APK; store links only)",
+    "source_url": "https://apkcombo.com/camscanner/com.intsig.camscanner/download/phone-7.25.5.2609020000-apk",
+    "obtained_utc": "2026-09-21T22:36Z",
+    "distribution_channel_note": "official CamScanner is distributed on Google Play as split APKs; the mirror re-packages the Play listing as an XAPK v2 bundle (base + config splits)"
+  },
+  "artifact": {
+    "file": "CamScanner_7.25.5.2609020000_apkcombo.com.xapk",
+    "format": "XAPK v2 (ZIP container of Play split set)",
+    "bytes": 221499725,
+    "sha256": "7ef8e46525a1210bbaa332d5f5d560ce30d768b4375ea92265d2e292d25dba65",
+    "splits": [
+      {
+        "id": "base",
+        "file": "com.intsig.camscanner.apk",
+        "bytes": 162035756,
+        "sha256": "18e70e79928129ad87aed8a99880e6da0b80e834d8c10c34a1fd37ab8657051c",
+        "sha1": "4f2e80d29afe7908e7d9ffb614b0bce91a2a6ef4"
+      },
+      {
+        "id": "config.arm64_v8a",
+        "file": "config.arm64_v8a.apk",
+        "bytes": 59168248,
+        "sha256": "2c525ce9eb3a3437c1765f5a2ee43d80f98ab1a50172f70a8a5864dd7ebbdc4a"
+      },
+      {
+        "id": "config.en",
+        "file": "config.en.apk",
+        "bytes": 291225,
+        "sha256": "1990469a1780920425e498b67b02232fca43f7f61204091b3afb82fb570b8e47"
+      }
+    ]
+  },
+  "signature_verification": {
+    "scheme": "v1 JAR signature (META-INF/BNDLTOOL.RSA)",
+    "certificate_subject": "C=CN, ST=Shanghai, L=Shanghai, O=www.intsig.com, OU=IntSig Information Co.,Ltd, CN=IntSig",
+    "certificate_serial": "4B453CFA",
+    "certificate_validity": "2010-01-07 -> 2064-10-10 (self-signed)",
+    "pkcs7_signature_over_sf": "VERIFIED (openssl smime -verify)",
+    "sf_digest_manifest_sha256": "qIFS6ym0sB4w2wFsUs6B8OayapRe25d8uxs4ghe37nQ= MATCHES",
+    "manifest_entry_digests": "13083/13083 verified (SHA-256/SHA-1), 0 mismatches, 0 missing",
+    "conclusion": "the artifact is byte-for-byte covered by IntSig's own signing key \u2014 mirror tampering ruled out for v1-signed entries"
+  },
+  "application": {
+    "package": "com.intsig.camscanner",
+    "version_name": "7.25.5.2609020000",
+    "version_code": "72551",
+    "min_sdk": "21",
+    "target_sdk": "36",
+    "label": "CamScanner",
+    "application_class": "com.intsig.camscanner.launch.CsApplication",
+    "launchable_activity": "com.intsig.camscanner.mainmenu.mainactivity.MainActivity",
+    "notable_application_attrs": {
+      "allowBackup": false,
+      "largeHeap": true,
+      "hardwareAccelerated": true,
+      "requestLegacyExternalStorage": true,
+      "preserveLegacyExternalStorage": true,
+      "usesCleartextTraffic": true,
+      "networkSecurityConfig": "@xml resource present",
+      "taskAffinity": "com.intsig.camscanner"
+    }
+  },
+  "permissions": {
+    "uses_permissions": [
+      "android.permission.ACCESS_ADSERVICES_AD_ID",
+      "android.permission.ACCESS_ADSERVICES_ATTRIBUTION",
+      "android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE",
+      "android.permission.ACCESS_ADSERVICES_TOPICS",
+      "android.permission.ACCESS_COARSE_LOCATION",
+      "android.permission.ACCESS_FINE_LOCATION",
+      "android.permission.ACCESS_LOCATION_EXTRA_COMMANDS",
+      "android.permission.ACCESS_NETWORK_STATE",
+      "android.permission.ACCESS_WIFI_STATE",
+      "android.permission.BLUETOOTH",
+      "android.permission.BLUETOOTH_ADMIN",
+      "android.permission.BLUETOOTH_CONNECT",
+      "android.permission.BLUETOOTH_SCAN",
+      "android.permission.CAMERA",
+      "android.permission.CHANGE_WIFI_MULTICAST_STATE",
+      "android.permission.FOREGROUND_SERVICE",
+      "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
+      "android.permission.GET_TASKS",
+      "android.permission.INTERNET",
+      "android.permission.POST_NOTIFICATIONS",
+      "android.permission.READ_EXTERNAL_STORAGE",
+      "android.permission.READ_MEDIA_IMAGES",
+      "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+      "android.permission.USE_BIOMETRIC",
+      "android.permission.USE_FINGERPRINT",
+      "android.permission.VIBRATE",
+      "android.permission.WAKE_LOCK",
+      "android.permission.WRITE_EXTERNAL_STORAGE",
+      "com.android.launcher.permission.INSTALL_SHORTCUT",
+      "com.android.vending.BILLING",
+      "com.google.android.c2dm.permission.RECEIVE",
+      "com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE",
+      "com.google.android.gms.permission.AD_ID",
+      "com.huawei.appmarket.service.commondata.permission.GET_COMMON_DATA",
+      "com.intsig.camscanner.Account",
+      "com.intsig.camscanner.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
+      "com.samsung.android.mapsagent.permission.READ_APP_INFO",
+      "com.sony.mobile.permission.SYSTEM_UI_VISIBILITY_EXTENSION"
+    ],
+    "declared_custom_permissions": [
+      {
+        "name": "com.intsig.camscanner.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
+        "protectionLevel": "signature (0x2)"
+      },
+      {
+        "name": "com.intsig.camscanner.READ_CAMSCANNER",
+        "protectionLevel": "signature (0x2)"
+      },
+      {
+        "name": "com.intsig.camscanner.WRITE_CAMSCANNER",
+        "protectionLevel": "signature (0x2)"
+      }
+    ],
+    "runtime_dangerous_expected_on_android11": [
+      "android.permission.CAMERA",
+      "android.permission.READ_EXTERNAL_STORAGE",
+      "android.permission.ACCESS_FINE_LOCATION",
+      "android.permission.ACCESS_COARSE_LOCATION"
+    ],
+    "no_op_on_android11_api30": [
+      "android.permission.WRITE_EXTERNAL_STORAGE (auto-granted, no effect for targetSdk>=30)",
+      "android.permission.POST_NOTIFICATIONS (API 33+)",
+      "android.permission.READ_MEDIA_IMAGES (API 33+)",
+      "android.permission.READ_MEDIA_VISUAL_USER_SELECTED (API 33+)",
+      "android.permission.BLUETOOTH_SCAN / BLUETOOTH_CONNECT (API 31+)"
+    ],
+    "install_time_normal": [
+      "android.permission.ACCESS_LOCATION_EXTRA_COMMANDS",
+      "android.permission.ACCESS_NETWORK_STATE",
+      "android.permission.ACCESS_WIFI_STATE",
+      "android.permission.CHANGE_WIFI_MULTICAST_STATE",
+      "android.permission.FOREGROUND_SERVICE",
+      "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
+      "android.permission.GET_TASKS",
+      "android.permission.INTERNET",
+      "android.permission.USE_BIOMETRIC",
+      "android.permission.USE_FINGERPRINT",
+      "android.permission.VIBRATE",
+      "android.permission.WAKE_LOCK",
+      "com.google.android.gms.permission.AD_ID"
+    ]
+  },
+  "uses_features": {
+    "android.hardware.camera": "required=false",
+    "android.hardware.camera.autofocus": "required=false",
+    "android.hardware.camera.flash": "required=false",
+    "android.hardware.nfc": "required=false",
+    "android.hardware.screen.portrait": "required=false",
+    "android.hardware.telephony": "required=false",
+    "android.hardware.usb.host": "required=false",
+    "android.hardware.wifi": "required=false"
+  },
+  "native_code_risk": {
+    "base_apk_lib_entries": 0,
+    "native_abis_available": [
+      "arm64-v8a only (config.arm64_v8a.apk split)"
+    ],
+    "reference_substrate_abi": "x86_64 (system-images;android-30;default;x86_64, AOSP \u2014 no ARM translation layer in 'default' images)",
+    "risk": "install via adb install-multiple will succeed, but any native-library load (scan engine) may fail on x86_64 without an ARM-translation-capable image (google_apis images carry ndk_translation since API 28). MUST be probed empirically at first reference run.",
+    "mitigations": [
+      "probe: install base+arm64 splits on the AOSP x86_64 image and observe launch/logcat (UnsatisfiedLinkError vs OK)",
+      "alternative 1: switch reference EnvironmentSpec.system_image to system-images;android-30;google_apis;x86_64 (adds libndk arm64 translation; deviates from the lead-pinned 'default' image \u2014 lead decision)",
+      "alternative 2: obtain an x86/x86_64-native or fat/monolithic build of the official app from a mirror variant"
+    ]
+  },
+  "runtime_library_hints": [
+    "Flutter module embedded (assets/flutter_assets/, packages/aichat) \u2014 AI chat features",
+    "io.sentry crash reporting present (sentry-android-replay)",
+    "netty, okhttp, firebase-* libraries present (network stack expectations)"
+  ]
+}
