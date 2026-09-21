@@ -23,6 +23,7 @@ Run:  E2B_API_KEY=... python3 lab/providers/e2b/acceptance.py
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sys
@@ -111,8 +112,9 @@ def main() -> int:
         result["lifecycle"].append("transfer(push)")
         build = provider.execute(env_id, f"sh {PROBE_APK_REMOTE}", timeout=600)
         assert "PROBE_APK_DONE" in build.stdout, f"probe apk build failed: {build.stdout[-500:]}"
-        apk_hash = [l for l in build.stdout.splitlines() if "probe.apk" in l and len(l) == 71]
-        result["probe_apk_sha256"] = apk_hash[0].split()[0] if apk_hash else ""
+        apk_hash = [l.split()[0] for l in build.stdout.splitlines()
+                    if "probe.apk" in l and l.strip() and len(l.split()[0]) == 64]
+        result["probe_apk_sha256"] = apk_hash[0] if apk_hash else ""
         result["lifecycle"].append("build-probe-apk")
         log(f"probe APK built (sha256={result['probe_apk_sha256'][:16]}…)")
 
@@ -122,17 +124,56 @@ def main() -> int:
         assert "Success" in install.stdout, f"install failed: {install.stdout[-300:]}"
         result["lifecycle"].append("install-apk")
         log("probe APK installed")
+
+        # post-install diagnostics (resolution evidence for the launch step)
+        diag = provider.execute(env_id, f"{ADB} shell pm list packages | grep camscan",
+                                timeout=120)
+        result["probe_pm_list"] = diag.stdout.strip()
+        resolve = provider.execute(
+            env_id, f"{ADB} shell cmd package resolve-activity --brief "
+                    f"-c android.intent.category.LAUNCHER {PROBE_PKG} | tail -2",
+            timeout=120)
+        result["probe_resolve_activity"] = resolve.stdout.strip()
+        log(f"pm: {result['probe_pm_list']!r} resolve: {result['probe_resolve_activity']!r}")
+
         launch = provider.execute(
-            env_id, f"{ADB} shell am start -W -n {PROBE_PKG}/android.app.Activity",
+            env_id, f"{ADB} shell am start -n {PROBE_PKG}/android.app.Activity",
             timeout=300)
-        assert "Status: ok" in launch.stdout, f"launch failed: {launch.stdout[-400:]}"
+        result["launch_raw"] = launch.stdout.strip()[-400:]
+        # launch proof = the app PROCESS is alive (am start -W's idle wait
+        # is unreliable under TCG: first draw/idle report can exceed am's
+        # internal wait even though the activity starts fine)
+        proc_line = ""
+        for _ in range(8):  # up to ~80 s for first process start under TCG
+            time.sleep(10)
+            ps = provider.execute(env_id, f"{ADB} shell ps -A | grep {PROBE_PKG} | head -1",
+                                  timeout=120)
+            if PROBE_PKG in ps.stdout:
+                proc_line = ps.stdout.strip().splitlines()[0]
+                break
+        if not proc_line:
+            # fallback launch path: monkey starts the declared launcher
+            # activity without an explicit component (diagnose resolve-vs-start)
+            log("process not seen after am start — trying monkey")
+            monkey = provider.execute(env_id, f"{ADB} shell monkey -p {PROBE_PKG} 1 2>&1 | tail -3",
+                                      timeout=300)
+            result["launch_monkey"] = monkey.stdout.strip()[-300:]
+            log(f"monkey: {result['launch_monkey']!r}")
+            time.sleep(10)
+            ps = provider.execute(env_id, f"{ADB} shell ps -A | grep {PROBE_PKG} | head -1",
+                                  timeout=120)
+            if PROBE_PKG in ps.stdout:
+                proc_line = ps.stdout.strip().splitlines()[0]
+        result["probe_process"] = proc_line
+        assert proc_line, (f"launch failed — process never appeared: "
+                           f"{result['launch_raw']} | monkey: {result.get('launch_monkey', '')}")
         result["launch_status"] = "ok"
         result["lifecycle"].append("launch-apk")
-        log(f"probe APK launched: {[l for l in launch.stdout.splitlines() if 'Status' in l]}")
-        ps = provider.execute(env_id, f"{ADB} shell ps -A | grep {PROBE_PKG} | head -1",
-                              timeout=120)
-        result["probe_process"] = ps.stdout.strip().splitlines()[0] if ps.stdout.strip() else ""
-        assert PROBE_PKG in ps.stdout, "probe process not running after launch"
+        log(f"probe APK launched — process alive: {proc_line[:60]}")
+        focus = provider.execute(env_id, f"{ADB} shell dumpsys window | grep -m1 mCurrentFocus",
+                                  timeout=120)
+        result["probe_window_focus"] = focus.stdout.strip()[:200]
+        log(f"window focus: {result['probe_window_focus']!r}")
 
         # -- interact (traced) -------------------------------------------------
         for action in (
@@ -185,16 +226,24 @@ def main() -> int:
             "trace_events": bundle.trace_events,
             "local_path": bundle.local_path}
         assert len(bundle.files) >= 4, "evidence bundle missing artifacts"
+        assert bundle.trace_events >= 10, (
+            f"action trace too thin: {bundle.trace_events} events")
         result["lifecycle"].append("collect_evidence")
         log(f"evidence collected: {len(bundle.files)} files, "
             f"{bundle.trace_events} trace events")
 
-        # -- transfer pull (explicit API use) ---------------------------------
+        # -- transfer pull (explicit API use; hash-verified integrity) ------
         pulled = provider.transfer(env_id, "pull", WORKDIR / "pulled-probe.apk", PROBE_APK)
-        assert pulled["bytes"] == push["bytes"] or pulled["bytes"] > 10000
+        pulled_sha = hashlib.sha256((WORKDIR / "pulled-probe.apk").read_bytes()).hexdigest()
         result["pulled_apk_bytes"] = pulled["bytes"]
+        result["pulled_apk_sha256"] = pulled_sha
+        if result["probe_apk_sha256"]:
+            assert pulled_sha == result["probe_apk_sha256"], (
+                f"pulled APK hash mismatch: {pulled_sha} != {result['probe_apk_sha256']}")
+        else:
+            assert pulled["bytes"] > 0, "pulled APK empty"
         result["lifecycle"].append("transfer(pull)")
-        log(f"pulled probe APK locally ({pulled['bytes']}B)")
+        log(f"pulled probe APK locally ({pulled['bytes']}B, sha256 verified)")
 
         # -- probe: snapshot (e2b pause/resume with live emulator) --------------
         snap_ok, snap_detail = probe_snapshot(provider, env_id)
@@ -231,9 +280,12 @@ def main() -> int:
         result["traceback"] = traceback.format_exc()[-4000:]
         log(f"[!] GATE FAILURE: {e}")
     finally:
-        if env_id and env_id in provider._envs:
+        # sweep EVERY env this provider provisioned (covers early provision
+        # failures where the local env_id was never assigned)
+        for e in list(provider.list_envs()):
             try:
-                provider.destroy(env_id)
+                provider.destroy(e["env_id"])
+                log(f"cleanup: destroyed {e['env_id']}")
             except Exception:  # noqa: BLE001
                 pass
 
@@ -285,7 +337,7 @@ def probe_snapshot(provider: E2BProvider, env_id: str) -> tuple[bool, dict]:
         detail["snapshot_id"] = snap_id
         provider.restore(env_id, snap_id)
         alive = provider.execute(
-            env_id, "pgrep -c -f 'qemu-system.*-avd camscan-probe' || true",
+            env_id, "pgrep -c -f 'qemu-syste[m].*-avd camscan-probe' || true",
             timeout=60)
         procs = alive.stdout.strip().splitlines()[0].strip() if alive.stdout.strip() else "0"
         boot = provider.execute(env_id, f"{ADB} shell getprop sys.boot_completed",

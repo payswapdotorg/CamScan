@@ -1,8 +1,8 @@
 {
   "slug": "e2b",
   "version": "0.1.0",
-  "generated_utc": "2026-09-21T13:20:00Z",
-  "verified_utc": null,
+  "generated_utc": "2026-09-21T15:33:50Z",
+  "verified_utc": "2026-09-21T15:33:50Z",
   "gui": true,
   "persistent": false,
   "android_emulator": true,
@@ -10,15 +10,16 @@
   "adb": true,
   "camera_fixture": false,
   "screenshots": true,
-  "recording": false,
-  "snapshot": false,
+  "recording": true,
+  "snapshot": true,
   "android_studio": false,
   "notes": {
     "gui": "swiftshader_indirect rendering; screen content capturable without a display",
-    "emulator_acceleration": "QEMU TCG (-accel off); no /dev/kvm in E2B Firecracker microVMs — substrate truth, never kvm",
-    "camera_fixture": "unverified: virtualscene back camera set; poster-injection mechanism probed at the CAMSCAN-008 acceptance gate",
-    "recording": "unverified: probed at the CAMSCAN-008 acceptance gate (screenrecord under TCG)",
-    "snapshot": "unverified: probed at the CAMSCAN-008 acceptance gate (e2b pause/resume with live emulator)",
-    "screenshots": "proven at the 2026-09-21 TCG substrate gate (42,803-byte PNG captured)"
+    "emulator_acceleration": "QEMU TCG (-accel off); no /dev/kvm in E2B Firecracker microVMs \u2014 substrate truth, never kvm",
+    "camera_fixture": "probed at the CAMSCAN-008 acceptance gate 2026-09-21T151742Z: NOT injectable on the public desktop template (no virtualscene/poster console commands; camera service absent) \u2014 camera scenarios need a different fixture mechanism",
+    "recording": "verified at the CAMSCAN-008 acceptance gate 2026-09-21T151742Z: screenrecord under TCG produced a 36,137-byte mp4",
+    "snapshot": "verified at the CAMSCAN-008 acceptance gate 2026-09-21T151742Z: e2b pause/resume with a live TCG emulator \u2014 boot_completed held after resume",
+    "screenshots": "proven at the 2026-09-21 TCG substrate gate (42,803-byte PNG captured)",
+    "acceptance_gate": "PASS 2026-09-21T151742Z \u2014 full lifecycle provision->destroy with zero manual repairs; evidence at r2:camscan-parity-evidence/providers/e2b/acceptance/20260921T151742Z"
   }
 }

@@ -124,8 +124,10 @@ class E2BProvider:
         return Sandbox.create(template=self.cfg.template, timeout=lifetime_s)
 
     def _attach_sandbox(self, sandbox_id: str):
+        """Attach to an existing (running or paused) sandbox by id.
+        Sandbox.connect() resumes paused sandboxes (on_resume='restore')."""
         from e2b import Sandbox
-        return Sandbox(sandbox_id=sandbox_id)
+        return Sandbox.connect(sandbox_id)
 
     # -------------------------------------------------------- capabilities
 
@@ -211,12 +213,13 @@ class E2BProvider:
     def _trace(self, env_id: str, kind: str, label: str = "",
                detail: Optional[dict[str, Any]] = None) -> None:
         """Append a trace event to the sandbox-side JSONL action trace.
-        Base64 transport keeps arbitrary JSON safe through the shell."""
+        Base64 transport keeps arbitrary JSON safe through the shell; the
+        payload carries its own trailing newline so the file is valid JSONL."""
         env = self._require_env(env_id)
         event = TraceEvent(ts_utc=_utc(), env_id=env_id, kind=kind,
                            label=label, detail=detail or {})
         line = json.dumps(asdict(event), separators=(",", ":"))
-        b64 = base64.b64encode(line.encode()).decode()
+        b64 = base64.b64encode((line + "\n").encode()).decode()
         sb = self._sandboxes.get(env_id)
         if sb is None:
             return
@@ -241,40 +244,60 @@ class E2BProvider:
     def provision(self, spec: Optional[EnvironmentSpec] = None) -> EnvironmentHandle:
         """Fresh E2B sandbox + full baked bootstrap (no emulator boot yet).
 
-        No manual repair steps: any bootstrap failure returns the handle in
-        `error` state with the failing step recorded in last_error.
+        Transient substrate failures (network blips during SDK fetch etc.)
+        are handled by REPLACING the sandbox once — replace, never repair;
+        no manual steps. A second consecutive failure raises with the
+        failing step recorded (handle left in `error` state).
         """
         spec = spec or EnvironmentSpec()
-        env_id = f"e2b-{secrets.token_hex(4)}"
-        avd_name = f"camscan-{spec.purpose}"
-        t0 = time.time()
-        sb = self._new_sandbox(self.cfg.sandbox_lifetime_s)
-        env = EnvironmentHandle(
-            env_id=env_id, sandbox_id=sb.sandbox_id, avd_name=avd_name,
-            adb_serial="", provider_slug=self.slug, spec=spec,
-            capabilities=self.capabilities(), created_utc=_utc(),
-            status="provisioning",
-            trace_path=f"{self.cfg.trace_dir}/{env_id}.jsonl")
-        self._envs[env_id] = env
-        self._sandboxes[env_id] = sb
-        self._last_renewal[env_id] = time.time()
-        self._sh(env_id, f"mkdir -p {self.cfg.cap_dir} {self.cfg.trace_dir} "
-                         f"{self.cfg.evidence_root}", record=False)
-        packages = tuple(dict.fromkeys(bs.BASE_SDK_PACKAGES + tuple(spec.extra_sdk_packages)))
-        ok, detail = bs.bootstrap(
-            sb, env_id, env.timings, packages=packages, avd_name=avd_name,
-            system_image=spec.system_image, device_profile=spec.device_profile,
-            on_progress=lambda m: self._trace(env_id, "bootstrap", label=m))
-        env.timings["provision_total_s"] = round(time.time() - t0, 1)
-        if not ok:
-            env.status = "error"
-            env.last_error = detail
-            raise RuntimeError(f"bootstrap failed: {detail}")
-        env.status = "provisioned"
-        self._trace(env_id, "lifecycle", label="provisioned",
-                    detail={"sandbox_id": env.sandbox_id, "avd": avd_name,
-                            "sdk": SDK, "packages": list(packages)})
-        return env
+        last_detail = ""
+        for attempt in (1, 2):
+            env_id = f"e2b-{secrets.token_hex(4)}"
+            avd_name = f"camscan-{spec.purpose}"
+            t0 = time.time()
+            try:
+                sb = self._new_sandbox(self.cfg.sandbox_lifetime_s)
+                env = EnvironmentHandle(
+                    env_id=env_id, sandbox_id=sb.sandbox_id, avd_name=avd_name,
+                    adb_serial="", provider_slug=self.slug, spec=spec,
+                    capabilities=self.capabilities(), created_utc=_utc(),
+                    status="provisioning",
+                    trace_path=f"{self.cfg.trace_dir}/{env_id}.jsonl")
+                self._envs[env_id] = env
+                self._sandboxes[env_id] = sb
+                self._last_renewal[env_id] = time.time()
+                self._sh(env_id, f"mkdir -p {self.cfg.cap_dir} {self.cfg.trace_dir} "
+                                 f"{self.cfg.evidence_root}", record=False)
+                packages = tuple(dict.fromkeys(
+                    bs.BASE_SDK_PACKAGES + tuple(spec.extra_sdk_packages)))
+                ok, detail = bs.bootstrap(
+                    sb, env_id, env.timings, packages=packages, avd_name=avd_name,
+                    system_image=spec.system_image, device_profile=spec.device_profile,
+                    on_progress=lambda m: self._trace(env_id, "bootstrap", label=m))
+                env.timings["provision_total_s"] = round(time.time() - t0, 1)
+                env.timings["provision_attempt"] = attempt
+                if not ok:
+                    env.status = "error"
+                    env.last_error = detail
+                    last_detail = detail
+                    # transient-substrate policy: replace the sandbox once
+                    self._trace(env_id, "lifecycle", label="bootstrap-failed",
+                                detail={"attempt": attempt, "error": detail[:400]})
+                    self.destroy(env_id)
+                    continue
+                env.status = "provisioned"
+                self._trace(env_id, "lifecycle", label="provisioned",
+                            detail={"sandbox_id": env.sandbox_id, "avd": avd_name,
+                                    "sdk": SDK, "packages": list(packages),
+                                    "attempt": attempt})
+                return env
+            except Exception as e:  # noqa: BLE001 — sandbox create/infra failure
+                last_detail = f"{type(e).__name__}: {e}"
+                self._envs.pop(env_id, None)
+                self._sandboxes.pop(env_id, None)
+                self._last_renewal.pop(env_id, None)
+                continue
+        raise RuntimeError(f"bootstrap failed on both attempts: {last_detail}")
 
     def start(self, env_id: str) -> dict[str, Any]:
         """Boot the emulator (TCG) and wait for adb + boot_completed.
@@ -352,6 +375,24 @@ class E2BProvider:
             boot_flag = self._adb(env_id, "shell getprop sys.boot_completed",
                                   timeout=45, record=False) if serial else CommandResult(-1)
             if boot_flag.stdout.strip().endswith("1"):
+                # AOSP `default` images boot to the first-boot SETUP WIZARD:
+                # sys.boot_completed=1 arrives while com.android.sdksetup still
+                # owns the foreground and app launches stall with
+                # 'Status: timeout'. Environment-ready therefore means:
+                # provisioned + wizard dismissed + launcher focused.
+                for setting in (
+                        "settings put global device_provisioned 1",
+                        "settings put secure user_setup_complete 1",
+                        "settings put global setup_wizard_has_run 1"):
+                    self._adb(env_id, f"shell {setting}", timeout=60, record=False)
+                self._adb(env_id, "shell am force-stop com.android.sdksetup",
+                          timeout=60, record=False)
+                self._adb(env_id, "shell input keyevent KEYCODE_HOME",
+                          timeout=60, record=False)
+                focus = self._adb(env_id, "shell dumpsys window | grep -m1 mCurrentFocus",
+                                  timeout=120, record=False)
+                info["window_focus"] = focus.stdout.strip()[:200]
+                info["wizard_dismissed"] = "sdksetup" not in focus.stdout
                 props = self._adb(env_id, "shell getprop ro.build.version.release",
                                   timeout=120, record=False)
                 info["android_version"] = props.stdout.strip().splitlines()[0] if props.stdout else ""
@@ -437,8 +478,9 @@ class E2BProvider:
             raise RuntimeError(f"snapshot id {snap_id!r} does not match env {env_id}")
         if env_id in self._sandboxes:
             del self._sandboxes[env_id]
+        # attach + thaw (connect resumes paused sandboxes, restoring the
+        # disk+memory state — the emulator keeps running where it froze)
         sb = self._attach_sandbox(env.sandbox_id)
-        sb.connect(on_resume="restore")
         self._sandboxes[env_id] = sb
         self._last_renewal[env_id] = time.time()
         # verify the emulator survived the freeze/thaw
@@ -646,9 +688,11 @@ class E2BProvider:
         # pull the whole bundle to local disk
         local_root = Path(self.cfg.local_workdir).resolve() / "evidence" / run_id
         local_root.mkdir(parents=True, exist_ok=True)
-        listing = sb.files.list(bundle)
+        listing = sb.files.list(bundle, depth=5)  # cap/ subdir + files
         for entry in listing:
-            if entry.is_dir:
+            etype = getattr(entry, "type", None)
+            evalue = getattr(etype, "value", etype)  # FileType enum or raw string
+            if str(evalue) == "dir":
                 continue
             rel = str(entry.path).replace(bundle, "").lstrip("/")
             if not rel:

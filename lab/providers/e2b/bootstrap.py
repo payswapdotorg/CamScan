@@ -52,7 +52,7 @@ BASE_SDK_PACKAGES: tuple[str, ...] = (
     "emulator",
     "system-images;android-30;default;x86_64",
     "platforms;android-30",
-    "build-tools;33.0.5",
+    "build-tools;33.0.2",
 )
 
 BOOT_FATAL_STRINGS = (
@@ -158,9 +158,12 @@ def step_https_check(sb: Any) -> tuple[bool, str]:
     c, o = _sh(sb, "curl -fsSI --max-time 60 "
                    "https://dl.google.com/android/repository/repository2-1.xml 2>&1 | head -1",
                timeout=120)
-    if "HTTP/" not in o or " 200 " not in o:
+    first = o.strip().splitlines()[0].strip() if o.strip() else ""
+    # status line forms: "HTTP/1.1 200" / "HTTP/2 200" (no trailing space!)
+    parts = first.split()
+    if len(parts) < 2 or not parts[0].startswith("HTTP/") or parts[1] != "200":
         return False, f"https check failed: {o[:200]}"
-    return True, o.strip()
+    return True, first
 
 
 def step_sdk(sb: Any, packages: tuple[str, ...]) -> tuple[bool, str]:
@@ -179,14 +182,21 @@ if [ ! -x cmdline-tools/latest/bin/sdkmanager ]; then
 fi
 export ANDROID_HOME={SDK}
 yes | cmdline-tools/latest/bin/sdkmanager --licenses >/tmp/lic.log 2>&1 || true
-cmdline-tools/latest/bin/sdkmanager {pkgs} >/tmp/sdk.log 2>&1 || {{ tail -8 /tmp/sdk.log; exit 1; }}
+ec=0
+cmdline-tools/latest/bin/sdkmanager {pkgs} >/tmp/sdk.log 2>&1 || ec=$?
+if [ "$ec" -ne 0 ]; then
+  echo "SDKMANAGER_EXIT=$ec"
+  tail -30 /tmp/sdk.log
+  exit 1
+fi
 test -x {ADB}
 test -d {SDK}/emulator
 echo SDK_DONE
 """
     c, o = _sh(sb, script, timeout=2400)
     if "SDK_DONE" not in o:
-        return False, f"sdk install failed: {o[:500]}"
+        # head AND tail: progress bars flood the head; the reason is at the end
+        return False, f"sdk install failed (exit={c}): {o[:300]} ... {o[-500:]}"
     return True, "SDK_DONE"
 
 
@@ -281,16 +291,27 @@ def emulator_launch_cmd(avd_name: str, memory_mb: int, cores: int,
         f"-prop persist.sys.locale={locale} -prop persist.sys.timezone={timezone} "
         f"-camera-back {camera_back} "
         f"> /tmp/emulator.log 2>&1 < /dev/null &) ; sleep 3 ; "
-        f"pgrep -c -f 'qemu-system.*-avd {avd_name}'"
+        f"pgrep -c -f 'qemu-syste[m].*-avd {avd_name}'"
     )
 
 
 def emulator_kill_cmd(avd_name: str) -> str:
-    """Stop the emulator process (sandbox stays alive)."""
-    return (f"pkill -f 'qemu-system.*-avd {avd_name}' ; sleep 2 ; "
-            f"pgrep -c -f 'qemu-system.*-avd {avd_name}' || true")
+    """Stop the emulator process tree (sandbox stays alive): SIGTERM, then
+    SIGKILL escalation. Gotcha 8: pgrep/pkill -f SELF-MATCH — the E2B
+    command wrapper shell's own cmdline contains the pattern text, so a
+    plain pattern counts/kills the wrapper itself (inflated counts; the
+    kill sequence shooting its own shell mid-sequence). The [m] bracket
+    trick makes the literal pattern text non-self-matching."""
+    return (
+        f"pkill -f 'qemu-syste[m].*-avd {avd_name}' 2>/dev/null; sleep 3; "
+        f"pkill -9 -f 'qemu-syste[m].*-avd {avd_name}' 2>/dev/null; sleep 2; "
+        f"pgrep -c -f 'qemu-syste[m].*-avd {avd_name}' || true"
+    )
 
 
 def emulator_alive_cmd(avd_name: str) -> str:
-    """gotcha 6: the process is qemu-system-x86_64-headless, not 'emulator'."""
-    return f"pgrep -c -f 'qemu-system.*-avd {avd_name}' || true"
+    """gotcha 6: the process is qemu-system-x86_64-headless, not 'emulator'.
+    gotcha 8: [m] bracket trick prevents pgrep -f self-match on the E2B
+    command wrapper shell (empirically verified: plain pattern counts 1
+    even with a bogus avd name)."""
+    return f"pgrep -c -f 'qemu-syste[m].*-avd {avd_name}' || true"

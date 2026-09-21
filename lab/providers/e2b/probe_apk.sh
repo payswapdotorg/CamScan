@@ -12,7 +12,7 @@
 # The lab's REAL application comes from CAMSCAN-001 (Worker 1, Gradle).
 set -e
 SDK=/opt/android-sdk
-BT=$SDK/build-tools/33.0.5
+BT=$SDK/build-tools/33.0.2
 PLATFORM=$SDK/platforms/android-30/android.jar
 WORK=/root/probeapk
 MANIFEST=$WORK/AndroidManifest.xml
@@ -24,8 +24,10 @@ cat > "$MANIFEST" <<'XML'
     package="org.camscan.lab.probeapp"
     android:versionCode="1"
     android:versionName="1.0">
+  <uses-sdk android:minSdkVersion="30" android:targetSdkVersion="30"/>
   <application android:label="CamScan Probe" android:hasCode="false">
-    <activity android:name="android.app.Activity" android:label="CamScan Probe">
+    <activity android:name="android.app.Activity" android:label="CamScan Probe"
+              android:exported="true">
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.LAUNCHER"/>
