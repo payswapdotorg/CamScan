@@ -1,0 +1,771 @@
+{
+  "schema_version": "0.1",
+  "generator": {
+    "script": "lab/fixtures/generate.py",
+    "seed": 20260921,
+    "command": "python3 lab/fixtures/generate.py"
+  },
+  "generated_utc": "2026-09-21T00:00:00Z",
+  "documents": [
+    {
+      "id": "clean-a4",
+      "files": [
+        {
+          "path": "documents/clean-a4.png",
+          "sha256": "d0b13b27d7ede73deff0a7a704fa63c2b6e2b7f53d2ff2fcadb01faad1514b0e",
+          "bytes": 3188172,
+          "page": null
+        }
+      ],
+      "format": "png",
+      "dimensions": {
+        "width_px": 1080,
+        "height_px": 1920
+      },
+      "ground_truth": {
+        "page_count": 1,
+        "text_content": "CAMSCAN PARITY LAB\nFixture Document A-001\nThis page is a synthetic fixture generated\nfor camera capture testing. It contains no\npersonal data and no third party content.\n\nParagraph two covers detection. The page\nedges are clean and the lighting is even,\nso automatic document detection should\nlocate the full boundary on the first\nattempt.\n\nThe text on this page is intentionally\nsimple so that optical character\nrecognition can be compared between the\nreference application and the implementation.",
+        "page_quad_px": [
+          [
+            59.77,
+            214.79
+          ],
+          [
+            1049.55,
+            235.52
+          ],
+          [
+            1020.23,
+            1635.21
+          ],
+          [
+            30.45,
+            1614.48
+          ]
+        ],
+        "lighting": "even-daylight",
+        "rotation_deg": 1.2
+      }
+    },
+    {
+      "id": "skewed-document",
+      "files": [
+        {
+          "path": "documents/skewed-document.png",
+          "sha256": "6376043fdd70e40286843aae56d7f208ff3808b4e645974d5ff262fe044b13b5",
+          "bytes": 3127930,
+          "page": null
+        }
+      ],
+      "format": "png",
+      "dimensions": {
+        "width_px": 1080,
+        "height_px": 1920
+      },
+      "ground_truth": {
+        "page_count": 1,
+        "text_content": "SKEWED PAGE FIXTURE\nFixture Document B-002\nThis synthetic page is photographed at an\nangle. The perspective is intentionally\nstrong so that edge detection must correct\nthe keystone before the scan is stored.\n\nA second block of text gives the\nrecognition engine more material to\ncompare after perspective correction has\nbeen applied by both applications.",
+        "page_quad_px": [
+          [
+            115.0,
+            300.0
+          ],
+          [
+            820.0,
+            405.0
+          ],
+          [
+            1010.0,
+            1445.0
+          ],
+          [
+            180.0,
+            1690.0
+          ]
+        ],
+        "lighting": "even-daylight",
+        "rotation_deg": null
+      }
+    },
+    {
+      "id": "receipt",
+      "files": [
+        {
+          "path": "documents/receipt.png",
+          "sha256": "ab26e5e4de485615aedf254fa3e69e947a6e06bafda86b6b97352624f262a8b6",
+          "bytes": 3477099,
+          "page": null
+        }
+      ],
+      "format": "png",
+      "dimensions": {
+        "width_px": 1080,
+        "height_px": 1920
+      },
+      "ground_truth": {
+        "page_count": 1,
+        "text_content": "CAMSCAN STORE\nSYNTHETIC RECEIPT 0007\n2026-09-28 14:22\n--------------------\nNOTEBOOK       2.50\nINK PEN        1.20\nPAPER CLIP     0.30\nRULER          1.05\n--------------------\nTOTAL          5.05\nCASH\nTHANK YOU\nFIXTURE ONLY - NO SALE",
+        "page_quad_px": [
+          [
+            345.11,
+            140.73
+          ],
+          [
+            804.68,
+            160.79
+          ],
+          [
+            734.89,
+            1759.27
+          ],
+          [
+            275.32,
+            1739.21
+          ]
+        ],
+        "lighting": "neutral-indoor",
+        "rotation_deg": 2.5
+      }
+    },
+    {
+      "id": "business-card",
+      "files": [
+        {
+          "path": "documents/business-card.png",
+          "sha256": "8d16eb819ac137ad7cc85e8bfde94ddb68150d89b1d5cb8b3ded10fe41739799",
+          "bytes": 2994481,
+          "page": null
+        }
+      ],
+      "format": "png",
+      "dimensions": {
+        "width_px": 1080,
+        "height_px": 1920
+      },
+      "ground_truth": {
+        "page_count": 1,
+        "text_content": "ALEX SAMPLE\nDocument Engineer\nCAMSCAN FIXTURE WORKS\n+1 555 010 7299\nalex.sample@example.org",
+        "page_quad_px": [
+          [
+            237.85,
+            793.55
+          ],
+          [
+            877.79,
+            802.49
+          ],
+          [
+            872.15,
+            1206.45
+          ],
+          [
+            232.21,
+            1197.51
+          ]
+        ],
+        "lighting": "even-daylight",
+        "rotation_deg": 0.8
+      }
+    },
+    {
+      "id": "handwritten",
+      "files": [
+        {
+          "path": "documents/handwritten.png",
+          "sha256": "f268a9fb03ceba6aedc182e084ef08162798062047ab1bd09ef8b9ab66f44a25",
+          "bytes": 3475469,
+          "page": null
+        }
+      ],
+      "format": "png",
+      "dimensions": {
+        "width_px": 1080,
+        "height_px": 1920
+      },
+      "ground_truth": {
+        "page_count": 1,
+        "text_content": "Notes on parity\nscan the page twice\ncompare edges first\nthen compare the text\nlighting matters most\nkeep the phone steady",
+        "page_quad_px": [
+          [
+            47.58,
+            271.16
+          ],
+          [
+            997.26,
+            246.3
+          ],
+          [
+            1032.42,
+            1588.84
+          ],
+          [
+            82.74,
+            1613.7
+          ]
+        ],
+        "lighting": "neutral-indoor",
+        "rotation_deg": -1.5
+      }
+    },
+    {
+      "id": "low-light",
+      "files": [
+        {
+          "path": "documents/low-light.png",
+          "sha256": "c3bc9f9e435b438bf2ef2caeaf8b904a6a5954e1040fa52b5b045717257f1fc7",
+          "bytes": 4751447,
+          "page": null
+        }
+      ],
+      "format": "png",
+      "dimensions": {
+        "width_px": 1080,
+        "height_px": 1920
+      },
+      "ground_truth": {
+        "page_count": 1,
+        "text_content": "LOW LIGHT PAGE\nFixture Document C-003\nThis synthetic page is underexposed on\npurpose. Enhancement modes should brighten\nthe page before optical character\nrecognition runs.\n\nThe exposure is roughly one third of the\nnormal level so the enhancement path is\nexercised end to end.",
+        "page_quad_px": [
+          [
+            67.03,
+            236.64
+          ],
+          [
+            1036.88,
+            253.57
+          ],
+          [
+            1012.97,
+            1623.36
+          ],
+          [
+            43.12,
+            1606.43
+          ]
+        ],
+        "lighting": "dim-tungsten",
+        "rotation_deg": 1.0
+      }
+    },
+    {
+      "id": "multi-page",
+      "files": [
+        {
+          "path": "documents/multi-page/page-01.png",
+          "sha256": "851f8a778f491ebcce219aeb93189fa63d9d1129593329054f246253ae055090",
+          "bytes": 3090025,
+          "page": 1
+        },
+        {
+          "path": "documents/multi-page/page-02.png",
+          "sha256": "8a0b9c514b66f4d76b5cb37632b5c33d959406feb7d1baec3c34adf5b053a0a5",
+          "bytes": 3092288,
+          "page": 2
+        },
+        {
+          "path": "documents/multi-page/page-03.png",
+          "sha256": "a4916083bbcc2f66ccdd2560d4ddf685ed4e00471a3fc4d4b0c4a56681ea73e3",
+          "bytes": 3087157,
+          "page": 3
+        }
+      ],
+      "format": "png",
+      "dimensions": {
+        "width_px": 1080,
+        "height_px": 1920
+      },
+      "ground_truth": {
+        "page_count": 3,
+        "text_content": [
+          "MULTI PAGE SET M-004\nFixture Document M-004\nFirst page of the ordered multi page\nfixture. Each page carries its own\nordinal footer so that page order can\nbe verified after the scan.\nPAGE 1 OF 3",
+          "MULTI PAGE SET M-004\nFixture Document M-004\nSecond page of the ordered multi page\nfixture. The camera frames are captured\nin sequence and the application must\npreserve the capture order.\nPAGE 2 OF 3",
+          "MULTI PAGE SET M-004\nFixture Document M-004\nThird page of the ordered multi page\nfixture. The final page closes the set\nand the application should report three\npages in total.\nPAGE 3 OF 3"
+        ],
+        "page_quad_px": [
+          [
+            59.72,
+            230.23
+          ],
+          [
+            1039.63,
+            243.91
+          ],
+          [
+            1020.28,
+            1629.77
+          ],
+          [
+            40.37,
+            1616.09
+          ]
+        ],
+        "lighting": "even-daylight",
+        "rotation_deg": 0.8
+      }
+    }
+  ],
+  "sequences": [
+    {
+      "id": "document-pan",
+      "frames": [
+        {
+          "path": "sequences/document-pan/frame-00.jpg",
+          "sha256": "78edd30a4a911f5d2ab9b943a966f23cf0796fb9cab4262f9ccaac99fd3287bb",
+          "bytes": 244201,
+          "index": 0,
+          "transform": "pan(dx=-200.00,dy=+20.00)"
+        },
+        {
+          "path": "sequences/document-pan/frame-01.jpg",
+          "sha256": "4265ba5e02a713c06d380fd2729edc7a33c0507d66b8c2bf9a974c92021fe3e5",
+          "bytes": 245597,
+          "index": 1,
+          "transform": "pan(dx=-173.33,dy=+17.33)"
+        },
+        {
+          "path": "sequences/document-pan/frame-02.jpg",
+          "sha256": "e11ae1553539f742afb804b7eec826b4e1383455835c92addca3f17f95b92d89",
+          "bytes": 248225,
+          "index": 2,
+          "transform": "pan(dx=-146.67,dy=+14.67)"
+        },
+        {
+          "path": "sequences/document-pan/frame-03.jpg",
+          "sha256": "08782d4dd63e022ca74db1a4fed9c001df0412c827255dc10fd431b6d1e583c9",
+          "bytes": 248388,
+          "index": 3,
+          "transform": "pan(dx=-120.00,dy=+12.00)"
+        },
+        {
+          "path": "sequences/document-pan/frame-04.jpg",
+          "sha256": "3dba4611b31b8afdc8c05f69563b46e69209d4c4ec288f25b52dfe8e26f68c75",
+          "bytes": 247249,
+          "index": 4,
+          "transform": "pan(dx=-93.33,dy=+9.33)"
+        },
+        {
+          "path": "sequences/document-pan/frame-05.jpg",
+          "sha256": "fa270ad664b0b9a0868336613a3ce584f3fdbdcbacf0ab3dea17a3d9dfecae65",
+          "bytes": 248044,
+          "index": 5,
+          "transform": "pan(dx=-66.67,dy=+6.67)"
+        },
+        {
+          "path": "sequences/document-pan/frame-06.jpg",
+          "sha256": "3646987e74f54e893d934621fb2a57dbb90fc3241477e5e497bbeaa9db0ce469",
+          "bytes": 250462,
+          "index": 6,
+          "transform": "pan(dx=-40.00,dy=+4.00)"
+        },
+        {
+          "path": "sequences/document-pan/frame-07.jpg",
+          "sha256": "39f2604ffb0a78e6bb629262e7b344ed6a254611ae89c44886e9d7d611efcac1",
+          "bytes": 247002,
+          "index": 7,
+          "transform": "pan(dx=-13.33,dy=+1.33)"
+        },
+        {
+          "path": "sequences/document-pan/frame-08.jpg",
+          "sha256": "d40ceeda37d57c31893217e6f1f454f9e1a2c8b63cd7df41b498f47fb371babf",
+          "bytes": 249973,
+          "index": 8,
+          "transform": "pan(dx=+13.33,dy=-1.33)"
+        },
+        {
+          "path": "sequences/document-pan/frame-09.jpg",
+          "sha256": "c5016333cea212e2ed93b70e3d2a403ba30e96577f73b3fc1817564be40eee48",
+          "bytes": 250296,
+          "index": 9,
+          "transform": "pan(dx=+40.00,dy=-4.00)"
+        },
+        {
+          "path": "sequences/document-pan/frame-10.jpg",
+          "sha256": "33fd7d3785460060ff5e78ae9bfab3a1bbae99216addaf6461982f70cd2ebd22",
+          "bytes": 244498,
+          "index": 10,
+          "transform": "pan(dx=+66.67,dy=-6.67)"
+        },
+        {
+          "path": "sequences/document-pan/frame-11.jpg",
+          "sha256": "e25376c38f1d783976c496aa178e57d1bb54a2bcf1acf3bff8ebd94306849b71",
+          "bytes": 249804,
+          "index": 11,
+          "transform": "pan(dx=+93.33,dy=-9.33)"
+        },
+        {
+          "path": "sequences/document-pan/frame-12.jpg",
+          "sha256": "12ec4ea0d32356c5e6b4f4768d5e968fb857fa9ebe93a2e2e98790e7881d7a64",
+          "bytes": 247997,
+          "index": 12,
+          "transform": "pan(dx=+120.00,dy=-12.00)"
+        },
+        {
+          "path": "sequences/document-pan/frame-13.jpg",
+          "sha256": "e5be0ac2ac0f04babe2690e742fe7eb0ab7f20df7a0b1e0ff726192ac49750e0",
+          "bytes": 245572,
+          "index": 13,
+          "transform": "pan(dx=+146.67,dy=-14.67)"
+        },
+        {
+          "path": "sequences/document-pan/frame-14.jpg",
+          "sha256": "9670b11f9768c5f50c1a63f4b72da95f2ea2c4bfcb452e8801c830a6435bfca9",
+          "bytes": 249794,
+          "index": 14,
+          "transform": "pan(dx=+173.33,dy=-17.33)"
+        },
+        {
+          "path": "sequences/document-pan/frame-15.jpg",
+          "sha256": "f094b8a59567ff59709c443cd4ca525c24f73d5ac54f09ef31318ffb02efa434",
+          "bytes": 248352,
+          "index": 15,
+          "transform": "pan(dx=+200.00,dy=-20.00)"
+        }
+      ],
+      "format": "jpg",
+      "dimensions": {
+        "width_px": 1080,
+        "height_px": 1920
+      },
+      "ground_truth": {
+        "frame_count": 16,
+        "motion_description": "Slow lateral pan across the document: 16 frames, camera drifts left to right by 400 px total (26.67 px/frame) with a slight vertical drift (+20 to -20 px). The page partially exits the frame at both extremes; ground truth quad per frame = base quad translated by (dx, dy)."
+      }
+    },
+    {
+      "id": "camera-motion",
+      "frames": [
+        {
+          "path": "sequences/camera-motion/frame-00.jpg",
+          "sha256": "7bea2de8ebf16aa96ee7fd0bae84212b1f50dd2d810464ff0454766f2e6ed4bb",
+          "bytes": 251303,
+          "index": 0,
+          "transform": "shake(dx=-8.14,dy=-4.42,theta=+1.29deg,scale=1.0008)"
+        },
+        {
+          "path": "sequences/camera-motion/frame-01.jpg",
+          "sha256": "57b537ef11f8fe9fd86048592381ae56cd4c573d0462a701dca7730a5be65e1f",
+          "bytes": 249255,
+          "index": 1,
+          "transform": "shake(dx=-8.19,dy=-5.06,theta=-0.37deg,scale=0.9971)"
+        },
+        {
+          "path": "sequences/camera-motion/frame-02.jpg",
+          "sha256": "067b9d8e90926033485eb713bdd35bd5c5c1b5591ca0eb97d47d6d5a5c0a3253",
+          "bytes": 248040,
+          "index": 2,
+          "transform": "shake(dx=-2.76,dy=-4.24,theta=+0.01deg,scale=1.0057)"
+        },
+        {
+          "path": "sequences/camera-motion/frame-03.jpg",
+          "sha256": "d4ca0f44e88eee0fcbb0e7c040ee3c7efb2d35b8c81a93c9f489f236a7a03b8c",
+          "bytes": 250281,
+          "index": 3,
+          "transform": "shake(dx=+5.87,dy=-7.75,theta=+1.46deg,scale=1.0019)"
+        },
+        {
+          "path": "sequences/camera-motion/frame-04.jpg",
+          "sha256": "9ed3d1ea241e1e4cf0110e3b12fb8a4c3e574660ab7a197fad442879918e55fe",
+          "bytes": 249348,
+          "index": 4,
+          "transform": "shake(dx=-7.44,dy=-1.92,theta=+0.87deg,scale=0.9906)"
+        },
+        {
+          "path": "sequences/camera-motion/frame-05.jpg",
+          "sha256": "782d5b2d9bf14453475b1d59dc00d58df377d7e02c83c4041b7d4d2851555493",
+          "bytes": 248845,
+          "index": 5,
+          "transform": "shake(dx=+10.65,dy=+0.83,theta=+0.43deg,scale=0.9951)"
+        },
+        {
+          "path": "sequences/camera-motion/frame-06.jpg",
+          "sha256": "d24db9bb6f5d10860031d8c9b5ac8843675c8b0e70cfb13f1d821f7eef3e706d",
+          "bytes": 250189,
+          "index": 6,
+          "transform": "shake(dx=-5.02,dy=-4.44,theta=-1.20deg,scale=1.0077)"
+        },
+        {
+          "path": "sequences/camera-motion/frame-07.jpg",
+          "sha256": "32947542c6ea1c57e88ebf7f92442279560c5308327544725b74332ef5bdba30",
+          "bytes": 249160,
+          "index": 7,
+          "transform": "shake(dx=+10.88,dy=+9.24,theta=-0.45deg,scale=0.9959)"
+        },
+        {
+          "path": "sequences/camera-motion/frame-08.jpg",
+          "sha256": "dd32fef1e3e15cbeb944752623ff06d699d9e138674dfeb0d42a11cf9ee2dc0c",
+          "bytes": 249672,
+          "index": 8,
+          "transform": "shake(dx=+4.97,dy=-6.98,theta=-1.00deg,scale=0.9985)"
+        },
+        {
+          "path": "sequences/camera-motion/frame-09.jpg",
+          "sha256": "401a4d6c3b2095562085d6327e0020ac22ca3f5b59200d5e4b896cb497255aeb",
+          "bytes": 249578,
+          "index": 9,
+          "transform": "shake(dx=-10.18,dy=-6.61,theta=-0.96deg,scale=0.9999)"
+        },
+        {
+          "path": "sequences/camera-motion/frame-10.jpg",
+          "sha256": "91d8942c58263008157664a3133305697c482792e17fe608a96ff76396efaeaa",
+          "bytes": 249772,
+          "index": 10,
+          "transform": "shake(dx=-8.88,dy=+9.71,theta=-1.02deg,scale=0.9928)"
+        },
+        {
+          "path": "sequences/camera-motion/frame-11.jpg",
+          "sha256": "f6208468eb9d3914bf18f5dd60d2858b5d6d973d1033ab4faaeccde44ea47a54",
+          "bytes": 250953,
+          "index": 11,
+          "transform": "shake(dx=+10.45,dy=+6.03,theta=-0.30deg,scale=1.0049)"
+        },
+        {
+          "path": "sequences/camera-motion/frame-12.jpg",
+          "sha256": "f259ae19b4bf07d83a97db273f398d17b4a2719a7d17d6cb0adfbfec1ae4e1c3",
+          "bytes": 248721,
+          "index": 12,
+          "transform": "shake(dx=-11.10,dy=-9.98,theta=+0.20deg,scale=1.0080)"
+        },
+        {
+          "path": "sequences/camera-motion/frame-13.jpg",
+          "sha256": "84351b56ad6b59565bfff846097ecf7d7077bcfe8aa3c260895c033ad66e0a5c",
+          "bytes": 249328,
+          "index": 13,
+          "transform": "shake(dx=-1.24,dy=+2.43,theta=+0.22deg,scale=0.9949)"
+        },
+        {
+          "path": "sequences/camera-motion/frame-14.jpg",
+          "sha256": "73fa11bb1e98accf08f1e99ed5810ebc8bd85bc239c453eb5c3a0f2e280723e2",
+          "bytes": 248065,
+          "index": 14,
+          "transform": "shake(dx=+4.97,dy=+4.73,theta=+0.02deg,scale=0.9960)"
+        },
+        {
+          "path": "sequences/camera-motion/frame-15.jpg",
+          "sha256": "7aea63334e51f9fa8c97a6356b12c91168b15e1a143d1992f0e8adf221371d02",
+          "bytes": 249965,
+          "index": 15,
+          "transform": "shake(dx=-2.45,dy=-2.43,theta=+0.25deg,scale=1.0058)"
+        },
+        {
+          "path": "sequences/camera-motion/frame-16.jpg",
+          "sha256": "797da78b34ada44199cb4b2df06f3a2ca6770c2e111b8e27dce91be7a6055f89",
+          "bytes": 251046,
+          "index": 16,
+          "transform": "shake(dx=-3.25,dy=-2.77,theta=-1.05deg,scale=1.0094)"
+        },
+        {
+          "path": "sequences/camera-motion/frame-17.jpg",
+          "sha256": "e2d3ca984e43bb3a965d2cbc301fb421fa96a3f61e88d93892d585faf3a168ff",
+          "bytes": 249179,
+          "index": 17,
+          "transform": "shake(dx=-7.57,dy=+1.17,theta=+0.80deg,scale=0.9936)"
+        },
+        {
+          "path": "sequences/camera-motion/frame-18.jpg",
+          "sha256": "6b89fc4463bd32059a7aaa36b1541174bfc67f3bf34161c10b0a270cbc8c214a",
+          "bytes": 250482,
+          "index": 18,
+          "transform": "shake(dx=-2.07,dy=-0.89,theta=+0.97deg,scale=1.0096)"
+        },
+        {
+          "path": "sequences/camera-motion/frame-19.jpg",
+          "sha256": "a8fc5ae271d55dd94b53c41dab7e97c9d0af4905afcca5c945fa6a7daa573869",
+          "bytes": 250966,
+          "index": 19,
+          "transform": "shake(dx=-9.39,dy=+8.59,theta=-0.41deg,scale=1.0082)"
+        }
+      ],
+      "format": "jpg",
+      "dimensions": {
+        "width_px": 1080,
+        "height_px": 1920
+      },
+      "ground_truth": {
+        "frame_count": 20,
+        "motion_description": "Handheld shake: 20 frames of seeded small-amplitude jitter around a centered framing (dx within +/-12 px, dy within +/-10 px, in-plane rotation within +/-1.5 deg, scale 0.99-1.01). Ground truth quad per frame = rotated/scaled base quad at (dx, dy)."
+      }
+    },
+    {
+      "id": "rotation",
+      "frames": [
+        {
+          "path": "sequences/rotation/frame-00.jpg",
+          "sha256": "af13e95cb7691a6aa815aebf21eab16a412bf9020a79babac41f41b93a03bd4c",
+          "bytes": 234827,
+          "index": 0,
+          "transform": "rotate(theta=0.00deg,scale=1.0000)"
+        },
+        {
+          "path": "sequences/rotation/frame-01.jpg",
+          "sha256": "e37212713a549aba6f1f0b11c34d27bbc72b09a253460613d1cc94eb0c78e6a6",
+          "bytes": 239576,
+          "index": 1,
+          "transform": "rotate(theta=3.91deg,scale=1.0000)"
+        },
+        {
+          "path": "sequences/rotation/frame-02.jpg",
+          "sha256": "f42ba4e088034a4bd8f629a12475fce749a4cc2eea46651cc99d69d378882f16",
+          "bytes": 244660,
+          "index": 2,
+          "transform": "rotate(theta=7.83deg,scale=1.0000)"
+        },
+        {
+          "path": "sequences/rotation/frame-03.jpg",
+          "sha256": "c51985a7f35a486d42a8178e9fec8d0b387846cde4ca1e97c9c4e38ae4e2d28b",
+          "bytes": 245901,
+          "index": 3,
+          "transform": "rotate(theta=11.74deg,scale=1.0000)"
+        },
+        {
+          "path": "sequences/rotation/frame-04.jpg",
+          "sha256": "e1e2e21481c6862a67c76258d18be79ae8d94476ca190b35a27d9f104ee0f73d",
+          "bytes": 246611,
+          "index": 4,
+          "transform": "rotate(theta=15.65deg,scale=0.9987)"
+        },
+        {
+          "path": "sequences/rotation/frame-05.jpg",
+          "sha256": "91416a4b16952fe009cd648be2f59e5f54034b334604d91b823081064a769a23",
+          "bytes": 244170,
+          "index": 5,
+          "transform": "rotate(theta=19.57deg,scale=0.9484)"
+        },
+        {
+          "path": "sequences/rotation/frame-06.jpg",
+          "sha256": "8a4f621f9a940e58fb120172a0941bf2eba5f89e0b550745778372aab6dd41f2",
+          "bytes": 241532,
+          "index": 6,
+          "transform": "rotate(theta=23.48deg,scale=0.9070)"
+        },
+        {
+          "path": "sequences/rotation/frame-07.jpg",
+          "sha256": "289cfe46fa57f6b9392ec847dadd2b885a044c504d041c737100cbaaf30aad29",
+          "bytes": 241026,
+          "index": 7,
+          "transform": "rotate(theta=27.39deg,scale=0.8730)"
+        },
+        {
+          "path": "sequences/rotation/frame-08.jpg",
+          "sha256": "dafcccdee33db029fa43368a30246ca76d28aa8d64b73fe0403420d949535b82",
+          "bytes": 239884,
+          "index": 8,
+          "transform": "rotate(theta=31.30deg,scale=0.8452)"
+        },
+        {
+          "path": "sequences/rotation/frame-09.jpg",
+          "sha256": "48f26ed332a043e949c7f5b0ad8f2edd31329fbc7d096ff20030808df1b35bfe",
+          "bytes": 238254,
+          "index": 9,
+          "transform": "rotate(theta=35.22deg,scale=0.8228)"
+        },
+        {
+          "path": "sequences/rotation/frame-10.jpg",
+          "sha256": "8ce3f6da09c9db216f1a3b7fd10933e3e0ae97c31502912d29cedb66e82b1806",
+          "bytes": 237339,
+          "index": 10,
+          "transform": "rotate(theta=39.13deg,scale=0.8052)"
+        },
+        {
+          "path": "sequences/rotation/frame-11.jpg",
+          "sha256": "4055f3609d55ef15f80a1fd33cf1bf89f06321fbb3862c73f357bf6f092ad1fd",
+          "bytes": 236223,
+          "index": 11,
+          "transform": "rotate(theta=43.04deg,scale=0.7920)"
+        },
+        {
+          "path": "sequences/rotation/frame-12.jpg",
+          "sha256": "fe446e1a8cab0808dc4be2cc45644eb7e035830413da9f03a2576799e0c6b2a9",
+          "bytes": 235757,
+          "index": 12,
+          "transform": "rotate(theta=46.96deg,scale=0.7829)"
+        },
+        {
+          "path": "sequences/rotation/frame-13.jpg",
+          "sha256": "23ce37f3bd9b11109cd93c67d58ac5903a02d58d6dc617a8bf063c97e1f587df",
+          "bytes": 236687,
+          "index": 13,
+          "transform": "rotate(theta=50.87deg,scale=0.7775)"
+        },
+        {
+          "path": "sequences/rotation/frame-14.jpg",
+          "sha256": "f1525d0d01e07e72d03890ff255a82dd805c27af435b3ec30dbfa661daaeed3c",
+          "bytes": 236463,
+          "index": 14,
+          "transform": "rotate(theta=54.78deg,scale=0.7757)"
+        },
+        {
+          "path": "sequences/rotation/frame-15.jpg",
+          "sha256": "472fd07c3d19b1334a7cfe2625fb8fdbd7f90c5bd30d439ad559037fd1b870dc",
+          "bytes": 235758,
+          "index": 15,
+          "transform": "rotate(theta=58.70deg,scale=0.7776)"
+        },
+        {
+          "path": "sequences/rotation/frame-16.jpg",
+          "sha256": "e9c5263f9af4a1c6d8f919b3fa2b6dea6d4c48d51954327bf1e4750d67c769ac",
+          "bytes": 235648,
+          "index": 16,
+          "transform": "rotate(theta=62.61deg,scale=0.7832)"
+        },
+        {
+          "path": "sequences/rotation/frame-17.jpg",
+          "sha256": "553e9fcc310df9e2427085d069d1c92bedea6737ce800936c08ad1abe571bee0",
+          "bytes": 236043,
+          "index": 17,
+          "transform": "rotate(theta=66.52deg,scale=0.7926)"
+        },
+        {
+          "path": "sequences/rotation/frame-18.jpg",
+          "sha256": "580292aa9b63e228ce3a770c7909bad74591c6319d8f7f6f3f353d771e75d14c",
+          "bytes": 235411,
+          "index": 18,
+          "transform": "rotate(theta=70.43deg,scale=0.8060)"
+        },
+        {
+          "path": "sequences/rotation/frame-19.jpg",
+          "sha256": "b2a982d6beec5f86ae65646ec73da93273e85571dcd3f9644bbad91a35f7f4e1",
+          "bytes": 235975,
+          "index": 19,
+          "transform": "rotate(theta=74.35deg,scale=0.8237)"
+        },
+        {
+          "path": "sequences/rotation/frame-20.jpg",
+          "sha256": "0c0d97ca097edc4942e422908184f7602d06d4e5ac2d85000a92ff7209999bdd",
+          "bytes": 236264,
+          "index": 20,
+          "transform": "rotate(theta=78.26deg,scale=0.8463)"
+        },
+        {
+          "path": "sequences/rotation/frame-21.jpg",
+          "sha256": "2098902232a74728a95d328998d3d213244c33c4c7b607d589cf12566c2d1e67",
+          "bytes": 235211,
+          "index": 21,
+          "transform": "rotate(theta=82.17deg,scale=0.8744)"
+        },
+        {
+          "path": "sequences/rotation/frame-22.jpg",
+          "sha256": "9787e746c4b74715c9bb0a378ab0e6b0c05f053cd5164e895c619694bd99026c",
+          "bytes": 234140,
+          "index": 22,
+          "transform": "rotate(theta=86.09deg,scale=0.9088)"
+        },
+        {
+          "path": "sequences/rotation/frame-23.jpg",
+          "sha256": "3f81b1783d5c01ebaf31b0182c6bbd90df01ea56ff2f280dc11a0d7ecbcf3556",
+          "bytes": 229355,
+          "index": 23,
+          "transform": "rotate(theta=90.00deg,scale=0.9506)"
+        }
+      ],
+      "format": "jpg",
+      "dimensions": {
+        "width_px": 1080,
+        "height_px": 1920
+      },
+      "ground_truth": {
+        "frame_count": 24,
+        "motion_description": "Device rotation during capture: 24 frames, in-plane page rotation 0 deg to 90 deg at ~3.91 deg/frame; the page is progressively scaled down (up to ~0.79x) to remain inside the frame, ending landscape. Ground truth quad per frame = base quad rotated by theta and scaled by s."
+      }
+    }
+  ]
+}
