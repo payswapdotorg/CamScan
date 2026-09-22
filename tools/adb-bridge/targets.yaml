@@ -1,0 +1,103 @@
+# tools/adb-bridge/targets.yaml — the semantic target registry (CAMSCAN-002).
+#
+# DATA, NOT CODE: scenario files reference semantic ids only (never
+# coordinates, selectors, or app internals). Resolution order per id:
+#   1. ui-selector match in the LATEST ui dump (center of the matched
+#      node's bounds) — refreshed via bridge.ui_dump() or tap_semantic(
+#      refresh=True) / dump_max_age_s;
+#   2. else the registered coordinates (deterministic fallback).
+#
+# Scoping: lookups check the current app scope (apps.<package>.targets)
+# first, then the global scope (targets) — system-UI targets (permission
+# dialogs) live globally; app controls live under their package. The
+# bridge's app scope is set by launch()/set_app().
+#
+# Selector grammar: conjunction of key="value" terms; keys: text,
+# text_contains, resource-id (id), content-desc (desc), class
+# (class-name). Selectors are validated at registry-load time — a typo
+# fails loudly before any device interaction.
+#
+# Honesty of this seed data:
+#   - coordinates are pinned to the lab's reference profile (pixel_4,
+#     1080x2280, API 30) and are the FALLBACK, not the truth;
+#   - app-section selectors for org.payswap.camscan use the intended
+#     resource-ids of controls not yet implemented (CAMSCAN-001 delivered
+#     only the skeleton) — they are the design contract the implementation
+#     flows (CAMSCAN-010) must materialize;
+#   - the reference app section is RESERVED (empty) on purpose: CamScanner
+#     ids come from observed live dumps (CAMSCAN-004 live record /
+#     CAMSCAN-009 runs), never from invention here.
+
+schema: 1
+profile:
+  device: pixel_4
+  resolution: 1080x2280
+  android_api: 30
+
+# ------------------------------------------------------------- global scope
+# System UI — identical across apps on the pinned profile.
+targets:
+
+  # Android 11 runtime-permission dialog (AOSP `default` image). The
+  # affirmative buttons are the foreground/one-time grants; coordinates
+  # are bottom-of-dialog estimates for 1080x2280, provisional until the
+  # first live dump is recorded.
+  permission_allow:
+    selector: text="While using the app"
+    x: 540
+    y: 1454
+    note: API-30 affirmative (foreground grant); coordinate fallback provisional
+  permission_allow_this_time:
+    selector: text="Only this time"
+    x: 540
+    y: 1512
+    note: API-30 one-time grant; coordinate fallback provisional
+  permission_deny:
+    selector: text="Don't allow"
+    x: 540
+    y: 1570
+    note: API-30 negative; apostrophe is part of the dumped text
+
+# ---------------------------------------------------------------- app scopes
+apps:
+
+  # CamScan — the implementation app (Worker 1 domain).
+  org.payswap.camscan:
+    targets:
+
+      # The one real control shipped by the CAMSCAN-001 skeleton.
+      root_placeholder:
+        selector: resource-id="org.payswap.camscan:id/placeholder_text"
+        x: 540
+        y: 1100
+        note: CAMSCAN-001 skeleton placeholder_text (bounds 80,1000-1000,1200)
+
+      # Intended capture-flow controls — design contract for CAMSCAN-010
+      # implementation runs; resource-ids materialize with the flows.
+      shutter_button:
+        selector: resource-id="org.payswap.camscan:id/shutter"
+        x: 540
+        y: 1880
+        note: intended id; coordinate fallback = bottom-center capture zone
+      next_button:
+        selector: resource-id="org.payswap.camscan:id/next"
+        x: 980
+        y: 2210
+        note: intended id; coordinate fallback = bottom-right action zone
+      save_button:
+        selector: resource-id="org.payswap.camscan:id/save"
+        x: 980
+        y: 2210
+        note: intended id; coordinate fallback = bottom-right action zone
+      gallery_tile_1:
+        selector: resource-id="org.payswap.camscan:id/gallery_tile_0"
+        x: 270
+        y: 1310
+        note: intended id; coordinate fallback = first grid cell, top-left
+
+  # CamScanner — the reference app (Worker 2 domain). RESERVED: populated
+  # only from observed live ui dumps (reference discovery / S001-S004
+  # reference runs); global system-UI targets above already cover its
+  # permission flows.
+  com.intsig.camscanner:
+    targets: {}
