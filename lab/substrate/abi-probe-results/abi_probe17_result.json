@@ -1,0 +1,23 @@
+{
+  "probe": "camscan004-abi-17-install-multiple-hostpaths",
+  "started_utc": "2026-09-22T10:43:57Z",
+  "device_abilist": "x86_64,x86,arm64-v8a,armeabi-v7a,armeabi\nlibndk_translation.so",
+  "root_dexopt": "SETPROP_OK\nverify\nrestarting adbd as non root\nuid=2000(shell) gid=2000(shell) groups=2000(shell),1004(input),1007(log),1011(adb),1015(sdcard_rw),1028(sdcard_r),3001(net_bt_admin),3002(net_bt),3003(inet),3006(net_bw_stats),3009(readproc),3011(uhid) context=u:r:shell:s0",
+  "host_apks": "-rw-r--r-- 1 root root 162035756 Sep 15 18:06 com.intsig.camscanner.apk\n-rw-r--r-- 1 root root  59168248 Sep 15 18:06 config.arm64_v8a.apk\n-rw-r--r-- 1 root root    291225 Sep 15 18:06 config.en.apk",
+  "install_multiple": "=== P17 INSTALL-MULTIPLE attempt marker ===\nIM_VERDICT: Success\nIM_OK=1\n=== immediate registry check ===\npackage:/data/app/~~gxyy5kE0sF9OkAmtSx-meg==/com.intsig.camscanner-lyY61asb8y0G6T7xlxXPoA==/base.apk\npackage:/data/app/~~gxyy5kE0sF9OkAmtSx-meg==/com.intsig.camscanner-lyY61asb8y0G6T7xlxXPoA==/split_config.arm64_v8a.apk\npackage:/data/app/~~gxyy5kE0sF9OkAmtSx-meg==/com.intsig.camscanner-lyY61asb8y0G6T7xlxXPoA==/split_config.en.apk\npackage:com.intsig.camscanner",
+  "install_attempts": 2,
+  "install_ok": true,
+  "package_resolved": true,
+  "resolve_log": [
+    "package:/data/app/~~gxyy5kE0sF9OkAmtSx-m"
+  ],
+  "package_info": "priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=false\ncom.intsig.camscanner/.mainmenu.mainactivity.MainActivity\n    codePath=/data/app/~~gxyy5kE0sF9OkAmtSx-meg==/com.intsig.camscanner-lyY61asb8y0G6T7xlxXPoA==\n    primaryCpuAbi=arm64-v8a\n    versionName=7.25.5.2609020000",
+  "launch": [
+    "",
+    "* Task{c61eeed #8 visible=true type=standard mode=fullscreen translucent=false A=10167:com.intsig.camscanner U=0 StackId=8 sz=1}\n      affinity=10167:com.intsig.camscanner\n      intent={flg=0x10000000 cmp=com.intsig.camscanner/.mainmenu.mainactivity.MainActivity}\n      mActivityComponent=com.intsig.camscanner/.mainmenu.mainactivity.MainActivity"
+  ],
+  "launched": true,
+  "screenshot": "/home/z/lead-staging/camscan004_abi_probe/abi17-launch.png",
+  "crash_forensics": "",
+  "finished_utc": "2026-09-22T11:40:24Z"
+}

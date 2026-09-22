@@ -1,0 +1,33 @@
+{
+  "probe": "camscan004-abi-15-p9verbatim-verifyfilter",
+  "started_utc": "2026-09-22T06:50:38Z",
+  "device_abilist": "x86_64,x86,arm64-v8a,armeabi-v7a,armeabi\nlibndk_translation.so",
+  "root_dexopt": "restarting adbd as root\nSETPROP_OK\nverify\nrestarting adbd as non root\nuid=2000(shell) gid=2000(shell) groups=2000(shell),1004(input),1007(log),1011(adb),1015(sdcard_rw),1028(sdcard_r),3001(net_bt_admin),3002(net_bt),3003(inet),3006(net_bw_stats),3009(readproc),3011(uhid) context=u:r:shell:s0",
+  "push": "ile pushed, 0 skipped. 289.4 MB/s (291225 bytes in 0.001s)\n-rw-rw-rw- 1 shell shell 162035756 2026-09-15 18:06 /data/local/tmp/base.apk\n-rw-rw-rw- 1 shell shell  59168248 2026-09-15 18:06 /data/local/tmp/split_arm64.apk\n-rw-rw-rw- 1 shell shell    291225 2026-09-15 18:06 /data/local/tmp/split_en.apk",
+  "session_install": "with owner Binder:2157_10 (3668) at com.android.server.pm.PackageSetting com.android.server.pm.PackageManagerService.getPackageSettingInternal(java.lang.String, int)(PackageManagerService.java:25244) waiters=1 in int com.android.server.pm.PackageManagerService.performDexOptInternal(com.android.server.pm.dex.DexoptOptions) for 719ms\n09-22 07:10:34.936  2157  3788 W system_server: Long monitor contention with owner Binder:2157_10 (3668) at com.android.server.pm.PackageSetting com.android.server.pm.PackageManagerService.getPackageSettingInternal(java.lang.String, int)(PackageManagerService.java:25244) waiters=2 in int com.android.server.pm.permission.PermissionManagerService.checkUidPermission(java.lang.String, int) for 688ms\n09-22 07:10:34.958  2157  2362 W system_server: Long monitor contention with owner Binder:2157_10 (3668) at com.android.server.pm.PackageSetting com.android.server.pm.PackageManagerService.getPackageSettingInternal(java.lang.String, int)(PackageManagerService.java:25244) waiters=3 in android.content.pm.ApplicationInfo com.android.server.pm.PackageManagerService.getApplicationInfoInternal(java.lang.String, int, int, int) for 704ms\n09-22 07:10:34.967  2157  2946 W system_server: Long monitor contention with owner Binder:2157_10 (3668) at com.android.server.pm.PackageSetting com.android.server.pm.PackageManagerService.getPackageSettingInternal(java.lang.String, int)(PackageManagerService.java:25244) waiters=4 in android.content.pm.ApplicationInfo com.android.server.pm.PackageManagerService.getApplicationInfoInternal(java.lang.String, int, int, int) for 626ms",
+  "session_install_attempts": 1,
+  "install_ok": true,
+  "package_resolved": false,
+  "resolve_log": [
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    ""
+  ],
+  "launch": [
+    "Starting: Intent { cmp=com.intsig.camscanner/.mainmenu.mainactivity.MainActivity }\nError type 3\nError: Activity class {com.intsig.camscanner/com.intsig.camscanner.mainmenu.mainactivity.MainActivity} does not exist.",
+    "mResumedActivity: ActivityRecord{530fee5 u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t7}",
+    "Starting: Intent { cmp=com.intsig.camscanner/.mainmenu.mainactivity.MainActivity }\nError type 3\nError: Activity class {com.intsig.camscanner/com.intsig.camscanner.mainmenu.mainactivity.MainActivity} does not exist.",
+    "mResumedActivity: ActivityRecord{530fee5 u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t7}",
+    "Starting: Intent { cmp=com.intsig.camscanner/.mainmenu.mainactivity.MainActivity }\nError type 3\nError: Activity class {com.intsig.camscanner/com.intsig.camscanner.mainmenu.mainactivity.MainActivity} does not exist.",
+    "mResumedActivity: ActivityRecord{530fee5 u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t7}"
+  ],
+  "launched": false,
+  "screenshot": "/home/z/lead-staging/camscan004_abi_probe/abi11-launch.png",
+  "crash_forensics": "=== crash buffer ===\n--------- beginning of crash\n09-22 07:25:33.960 10032 10032 E AndroidRuntime: FATAL EXCEPTION: main\n09-22 07:25:33.960 10032 10032 E AndroidRuntime: Process: com.google.android.videos, PID: 10032\n09-22 07:25:33.960 10032 10032 E AndroidRuntime: android.app.RemoteServiceException: Context.startForegroundService() did not then call Service.startForeground(): ServiceRecord{ded9efb u0 com.google.android.videos/com.google.android.apps.play.movies.common.service.pinning.TransferService}\n09-22 07:25:33.960 10032 10032 E AndroidRuntime: \tat android.app.ActivityThread$H.handleMessage(ActivityThread.java:2005)\n09-22 07:25:33.960 10032 10032 E AndroidRuntime: \tat android.os.Handler.dispatchMessage(Handler.java:106)\n09-22 07:25:33.960 10032 10032 E AndroidRuntime: \tat android.os.Looper.loop(Looper.java:223)\n09-22 07:25:33.960 10032 10032 E AndroidRuntime: \tat android.app.ActivityThread.main(ActivityThread.java:7656)\n09-22 07:25:33.960 10032 10032 E AndroidRuntime: \tat java.lang.reflect.Method.invoke(Native Method)\n09-22 07:25:33.960 10032 10032 E AndroidRuntime: \tat com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:592)\n09-22 07:25:33.960 10032 10032 E AndroidRuntime: \tat com.android.internal.os.ZygoteInit.main(ZygoteInit.java:947)\n=== AndroidRuntime E ===\n--------- beginning of main\n--------- beginning of kernel\n--------- beginning of system\n--------- beginning of crash\n09-22 07:25:33.960 10032 10032 E AndroidRuntime: FATAL EXCEPTION: main\n09-22 07:25:33.960 10032 10032 E AndroidRuntime: Process: com.google.android.videos, PID: 10032\n09-22 07:25:33.960 10032 10032 E AndroidRuntime: android.app.RemoteServiceException: Context.startForegroundService() did not then call Service.startForeground(): ServiceRecord{ded9efb u0 com.google.android.videos/com.google.android.apps.play.movies.common.service.pinning.TransferService}\n09-22 07:25:33.960 10032 10032 E AndroidRuntime: \tat android.app.ActivityThread$H.handleMessage(ActivityThread.java:2005)\n09-22 07:25:33.960 10032 10032 E AndroidRuntime: \tat android.os.Handler.dispatchMessage(Handler.java:106)\n09-22 07:25:33.960 10032 10032 E AndroidRuntime: \tat android.os.Looper.loop(Looper.java:223)\n09-22 07:25:33.960 10032 10032 E AndroidRuntime: \tat android.app.ActivityThread.main(ActivityThread.java:7656)\n09-22 07:25:33.960 10032 10032 E AndroidRuntime: \tat java.lang.reflect.Method.invoke(Native Method)\n09-22 07:25:33.960 10032 10032 E AndroidRuntime: \tat com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:592)\n09-22 07:25:33.960 10032 10032 E AndroidRuntime: \tat com.android.internal.os.ZygoteInit.main(ZygoteInit.java:947)",
+  "finished_utc": "2026-09-22T07:31:04Z"
+}
