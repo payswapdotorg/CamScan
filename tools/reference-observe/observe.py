@@ -224,7 +224,15 @@ def main() -> int:
                                   "apk_bytes": result["apk"].get("bytes")})
 
         # -- 1 provision (isolated reference env) ------------------------------
-        env = provider.provision(EnvironmentSpec(purpose="reference"))
+        # google_apis image (not the provider default): CamScanner ships
+        # arm64-v8a-only splits; the google_apis x86_64 image carries
+        # libndk_translation.so (abilist includes arm64-v8a) so the splits
+        # match. The default image lacks it -> INSTALL_FAILED_NO_MATCHING_ABIS
+        # (run-002 lesson, 2026-09-22; probe-17 proof).
+        env = provider.provision(EnvironmentSpec(
+            purpose="reference", memory_mb=4096,
+            system_image="system-images;android-30;google_apis;x86_64",
+            extra_sdk_packages=("system-images;android-30;google_apis;x86_64",)))
         env_id = env.env_id
         assert env.avd_name == "camscan-reference", (
             f"reference env must use its own AVD, got {env.avd_name}")
