@@ -290,16 +290,33 @@ sleep 5
             install_cmd = f"{ADB} install -r {remote_apk}"
         install_ok = False
         install = None
+        install_diag = []
         for attempt in range(3):
-            install = provider.execute(env_id, install_cmd, timeout=900)
-            install_ok = "Success" in install.stdout
+            # diagnostics: files present? package service up? (verdicts that
+            # die on stderr are invisible otherwise — run-001 lesson)
+            diag = provider.execute(env_id, f"""
+echo "=== install attempt {attempt + 1} diagnostics ==="
+ls -la /root/*.apk 2>&1 | head -5
+{ADB} shell pm list packages 2>&1 | head -1
+""", timeout=120)
+            install_diag.append(diag.stdout.strip()[-500:])
+            install = provider.execute(env_id, install_cmd, timeout=1200)
+            install_ok = "Success" in (install.stdout or "")
+            if not install_ok:
+                # adb writes failure verdicts to stderr — capture both streams
+                install_diag.append(
+                    f"[attempt {attempt + 1}] exit={install.exit_code} "
+                    f"stdout={install.stdout.strip()[-200:]!r} "
+                    f"stderr={install.stderr.strip()[-400:]!r}")
             if install_ok:
                 break
             # transient package-service flap right after the adbd root/unroot
             # cycle (probe 17: attempt 1 flapped, attempt 2 succeeded)
             time.sleep(90)
+        result["install_diagnostics"] = install_diag
         result["install"] = {"cmd": install_cmd.split(ADB)[-1][:200],
-                             "stdout": install.stdout.strip()[-800:],
+                             "stdout": (install.stdout or "").strip()[-800:],
+                             "stderr": (install.stderr or "").strip()[-800:],
                              "exit_code": install.exit_code,
                              "attempts": attempt + 1}
         if not install_ok:
