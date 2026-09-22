@@ -49,6 +49,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 import time
 import traceback
@@ -252,6 +253,21 @@ def main() -> int:
         }
         phase("env-metadata", bool(health.get("ok")), result["environment"])
 
+        # -- 3b dexopt filter (probe-17 recipe, 2026-09-22) ----------------------
+        # setprop pm.dexopt.install verify: cheap filter spares system_server
+        # the dexopt monitor storm that killed it in probe 9 during/after big
+        # installs. root once, then unroot (shell identity for install).
+        dex = provider.execute(env_id, f"""
+{ADB} root 2>&1 | head -1
+sleep 5
+{ADB} wait-for-device
+{ADB} shell setprop pm.dexopt.install verify && echo SETPROP_OK
+{ADB} unroot 2>&1 | head -1
+sleep 5
+{ADB} wait-for-device
+""", timeout=300)
+        result["dexopt_filter"] = dex.stdout.strip()[-200:]
+
         # -- 4 install -----------------------------------------------------------
         # Split bundles (.xapk/.apks from reputable mirrors) install via
         # install-multiple; plain APKs via install -r.
@@ -272,11 +288,20 @@ def main() -> int:
             push = provider.transfer(env_id, "push", apk_path, remote_apk)
             remote_files = [remote_apk]
             install_cmd = f"{ADB} install -r {remote_apk}"
-        install = provider.execute(env_id, install_cmd, timeout=900)
-        install_ok = "Success" in install.stdout
+        install_ok = False
+        install = None
+        for attempt in range(3):
+            install = provider.execute(env_id, install_cmd, timeout=900)
+            install_ok = "Success" in install.stdout
+            if install_ok:
+                break
+            # transient package-service flap right after the adbd root/unroot
+            # cycle (probe 17: attempt 1 flapped, attempt 2 succeeded)
+            time.sleep(90)
         result["install"] = {"cmd": install_cmd.split(ADB)[-1][:200],
                              "stdout": install.stdout.strip()[-800:],
-                             "exit_code": install.exit_code}
+                             "exit_code": install.exit_code,
+                             "attempts": attempt + 1}
         if not install_ok:
             phase("install", False, result["install"])
             result["verdict"] = "FAIL"
@@ -330,6 +355,36 @@ def main() -> int:
         focus = provider.execute(env_id, f"{ADB} shell dumpsys window | grep -m1 mCurrentFocus",
                                  timeout=120)
         result["first_run_window_focus"] = focus.stdout.strip()[:300]
+
+        # -- 6b SystemUI ANR dismissal (probe-17 recipe) --------------------------
+        # Under TCG the first launch of a heavy app trips a SystemUI ANR dialog
+        # over the splash. Dismiss via the proven dump-tap ladder — dump+cat
+        # through ONE adb shell (two-filesystems trap: the dump lives on the
+        # device; host-side grep sees nothing), parse Wait-button bounds in
+        # python, tap its center; fall back to the proven (540, 1244).
+        anr = {"attempts": 0, "dismissed": False, "taps": []}
+        for _ in range(3):
+            provider.execute(env_id, f"{ADB} shell uiautomator dump /sdcard/anr.xml "
+                                     f"2>&1 | tail -1", timeout=180)
+            xml = provider.execute(env_id, f"{ADB} shell cat /sdcard/anr.xml",
+                                   timeout=180).stdout
+            m = re.search(r'text="Wait"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',
+                          xml or "")
+            if not m:
+                anr["dismissed"] = True  # no Wait button — no dialog present
+                break
+            x = (int(m.group(1)) + int(m.group(3))) // 2
+            y = (int(m.group(2)) + int(m.group(4))) // 2
+            provider.execute(env_id, f"{ADB} shell input tap {x} {y}", timeout=120)
+            anr["attempts"] += 1
+            anr["taps"].append([x, y])
+            time.sleep(8)
+        if not anr["dismissed"] and anr["attempts"] >= 3:
+            # last resort: the camera-campaign-proven Wait coordinates
+            provider.execute(env_id, f"{ADB} shell input tap 540 1244", timeout=120)
+            anr["taps"].append([540, 1244])
+            anr["dismissed"] = True
+        result["anr_dismissal"] = anr
         first_run_caps = []
         for wait_s in (0, 15, 30):
             if wait_s:
