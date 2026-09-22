@@ -299,7 +299,14 @@ sleep 5
         install_ok = False
         install = None
         install_diag = []
-        for attempt in range(5):
+        # retry-until-lucky (probe-24 final substrate truth): the google_apis
+        # image NEVER settles — GMS bg-ANR churn bursts every 5-10 min forever
+        # and kills the package service mid-stream at random. Each attempt is
+        # cheap; the inter-burst gaps are 5-10 min apart, so 8 attempts with
+        # the gated backoff below spans ~30 min of windows (probe 17 and 21b
+        # both succeeded/reached-commit on attempt 2 — luck is real and
+        # bounded retries harvest it).
+        for attempt in range(8):
             # diagnostics: files present? package service up? (verdicts that
             # die on stderr are invisible otherwise — run-001 lesson)
             diag = provider.execute(env_id, f"""
@@ -340,7 +347,21 @@ ls -la /root/*.apk 2>&1 | head -5
             phase("install", False, result["install"])
             result["verdict"] = "FAIL"
             raise BlockedExit()
-        phase("install", True, {"files": [Path(r).name for r in remote_files]})
+        # probe-15 lesson: an adb "Success" verdict does NOT prove the
+        # package landed in the registry (the commit phase can die silently
+        # after a broken pipe). Verify explicitly before declaring victory.
+        registry = provider.execute(
+            env_id, f"{ADB} shell pm path {args.package} 2>&1", timeout=60)
+        registry_ok = (registry.stdout or "").strip().startswith("package:/")
+        result["install"]["registry_check"] = {
+            "stdout": (registry.stdout or "").strip()[-200:],
+            "ok": registry_ok}
+        if not registry_ok:
+            phase("install", False, result["install"]["registry_check"])
+            result["verdict"] = "FAIL"
+            raise BlockedExit()
+        phase("install", True, {"files": [Path(r).name for r in remote_files],
+                                "registry": registry_ok})
 
         # -- 5 package facts ------------------------------------------------------
         pkg = args.package
