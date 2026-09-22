@@ -1,5 +1,5 @@
 # task packets carry transient tokens when needed — never commit
-lab/orchestration/packets/
+lab/orchestration/packets/*token*
 # acceptance-gate local outputs (evidence bytes live in R2; repo keeps results)
 lab/providers/e2b/.acceptance/
 # raw run bytes stay in R2; runs/ holds only manifests+specs, but local noise:
