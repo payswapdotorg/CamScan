@@ -299,7 +299,7 @@ sleep 5
         install_ok = False
         install = None
         install_diag = []
-        for attempt in range(3):
+        for attempt in range(5):
             # diagnostics: files present? package service up? (verdicts that
             # die on stderr are invisible otherwise — run-001 lesson)
             diag = provider.execute(env_id, f"""
@@ -318,9 +318,18 @@ ls -la /root/*.apk 2>&1 | head -5
                     f"stderr={install.stderr.strip()[-400:]!r}")
             if install_ok:
                 break
-            # transient package-service flap right after the adbd root/unroot
-            # cycle (probe 17: attempt 1 flapped, attempt 2 succeeded)
-            time.sleep(90)
+            # run-003 lesson: the device package service can die MID-STREAM
+            # (broken pipe / Can't find service) — random flap, minutes-scale.
+            # Gated backoff: wait for the service to respond again + 30s
+            # settle before the next attempt (probe 17 succeeded on attempt 2).
+            for _ in range(8):  # up to ~120 s service re-settle
+                probe = provider.execute(env_id,
+                                         f"{ADB} shell pm list packages 2>&1 | head -1",
+                                         timeout=60)
+                if (probe.stdout or "").strip().startswith("package:"):
+                    break
+                time.sleep(15)
+            time.sleep(30)
         result["install_diagnostics"] = install_diag
         result["install"] = {"cmd": install_cmd.split(ADB)[-1][:200],
                              "stdout": (install.stdout or "").strip()[-800:],
