@@ -18,8 +18,10 @@ contains at least one ``*.py`` file gets the same alias treatment, and each
 alias resolves only its declared exports (lazily importing the primary
 module); anything else raises ``AttributeError``. ``adb-bridge``'s spec is
 byte-for-byte its original registration — the mechanism is parameterized,
-not changed. Dashed directories without Python files (e.g. ``parity-cli``,
-README-only at branch time) are not registered.
+not changed. Dashed directories without Python files are not registered
+(``parity-cli`` was the README-only placeholder example at CAMSCAN-006
+branch time; CAMSCAN-005 landed its implementation, so it now registers
+through the same generalized path).
 """
 from __future__ import annotations
 

@@ -1,0 +1,12 @@
+{
+  "scenario": "single-document-capture",
+  "description": "Documented CamScanner-only steps masked from parity alignment (see masks/README.md; evidence trail in each reason).",
+  "steps": [
+    {
+      "action": "tap",
+      "target": "premium-upsell-dismiss",
+      "side": "reference",
+      "reason": "CamScanner 7.x shows a premium upsell dialog after save that CamScan has no counterpart for (no premium tier; reference-only UX documented in docs/reference-observations/S004-single-document-capture.md). Masked so step-count parity reflects the shared capture flow only."
+    }
+  ]
+}

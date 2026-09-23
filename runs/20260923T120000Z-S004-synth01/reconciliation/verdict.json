@@ -1,0 +1,13 @@
+{
+  "counts": {
+    "critical": 0,
+    "high": 0,
+    "low": 4,
+    "medium": 1
+  },
+  "generated_utc": "2026-09-23T12:01:04Z",
+  "run_id": "20260923T120000Z-S004-synth01",
+  "scenario": "single-document-capture",
+  "summary": "no critical/high divergence; 1 medium + 4 low divergence(s) — partial parity",
+  "verdict": "PARTIAL"
+}
