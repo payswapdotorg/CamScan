@@ -3,8 +3,9 @@
 Pinned properties:
 
 - S001 (schedulable): a planned line naming the e2b provider + the
-  live driver for env=implementation, and the honest NO-OP
-  ``planned:`` line for env=reference (driver not on record yet);
+  live driver for env=implementation, and — since CAMSCAN-009 — the
+  live reference driver resolution for env=reference
+  (driver=reference-live);
 - S004 (camera_fixture): NO-OP for BOTH envs — no capable provider on
   record, with the scheduler's unsatisfied reason printed verbatim;
 - ``--driver recording`` plans BOTH envs (the recording driver is on
@@ -40,10 +41,10 @@ def test_plan_s001_live_default():
     out = proc.stdout
     assert "plan: S001 application-launch status=UNKNOWN" in out
     assert "providers on record: e2b" in out
-    # reference env: honest NO-OP (driver not on record, documented path)
+    # reference env: the live reference driver resolves (CAMSCAN-009)
     assert ("planned: S001 application-launch env=reference provider=e2b "
-            "NO-OP") in out
-    assert "REFERENCE-INSTALL-2026-09-22.md" in out
+            "driver=reference-live app=com.intsig.camscanner "
+            "steps=1") in out
     # implementation env: provider + live driver on record
     assert ("planned: S001 application-launch env=implementation "
             "provider=e2b driver=e2b-live app=org.payswap.camscan "
@@ -61,7 +62,8 @@ def test_plan_s004_no_capable_provider():
         assert (f"planned: S004 single-document-capture env={env} "
                 "provider=none NO-OP (no capable provider on record: "
                 "e2b: camera_fixture: requirement True not satisfied by "
-                "False)") in out
+                "False; e2b-reference: camera_fixture: requirement True "
+                "not satisfied by False)") in out
     assert "driver=e2b-live" not in out
 
 
@@ -101,7 +103,7 @@ def test_plan_all_covers_corpus():
         assert (f"planned: {stem} {doc['id']} env=implementation "
                 "provider=e2b driver=e2b-live") in out
         assert (f"planned: {stem} {doc['id']} env=reference provider=e2b "
-                "NO-OP") in out
+                "driver=reference-live") in out
     for stem, doc in camera:
         assert (f"planned: {stem} {doc['id']} env=implementation "
                 "provider=none NO-OP") in out

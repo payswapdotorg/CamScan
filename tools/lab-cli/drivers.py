@@ -14,21 +14,31 @@ ALSO owns the teardown invariant: ``teardown`` is invoked on every path
 out of ``execute`` (success, step failure, exception, timeout) — a
 driver never gets to leak a paid environment by raising.
 
-Two drivers ship:
+Three drivers ship:
 
 - :class:`tools.lab_cli.recording.RecordingDriver` — logs the would-be
   calls and writes deterministic synthetic evidence; the pytest-path
   driver (live-provider network calls are out of pytest scope).
 - :class:`tools.lab_cli.e2b_live.E2bLiveDriver` — the live e2b path
-  (lazy ``lab.providers.e2b`` import, ``E2B_API_KEY`` preflight);
-  exercised by the lab later, never by pytest.
+  for the implementation env (lazy ``lab.providers.e2b`` import,
+  ``E2B_API_KEY`` preflight); exercised by the lab later, never by
+  pytest.
+- :class:`tools.lab_cli.reference_live.ReferenceDriver` — the live
+  reference env (official CamScanner) per the probe-17 recipe
+  (CAMSCAN-009): presigned-URL/local XAPK acquisition, the
+  dexopt+install-multiple retry ladder, ANR dismissal; hermetic tests
+  drive it through an injected scripted transport, never the SDK.
 
-Driver availability is **env-aware** (``LIVE_DRIVERS``): today the live
-e2b driver is on record for the *implementation* env only; the reference
-env's install/launch recipe is proven and documented in
-``lab/substrate/REFERENCE-INSTALL-2026-09-22.md`` (probe 17) but its
-driver lands with CAMSCAN-009 — so a live reference run is an honest
-NO-OP ``planned:`` line, never a fabricated observation.
+Driver availability is **env-aware** (``_LIVE_DRIVER_FACTORIES``): the
+live e2b driver is on record for the *implementation* env
+(CAMSCAN-007), and the live reference driver — the probe-17 recipe of
+``lab/substrate/REFERENCE-INSTALL-2026-09-22.md`` — landed with
+CAMSCAN-009 (:class:`tools.lab_cli.reference_live.ReferenceDriver`,
+on record for the e2b base record and the reference env-class record
+alike). A live run whose env has no driver on record — or whose
+scenario has no capable provider on record (S004's camera_fixture
+today) — is still an honest NO-OP ``planned:`` line, never a
+fabricated observation.
 """
 from __future__ import annotations
 
@@ -50,12 +60,14 @@ APP_PACKAGES: dict[str, str] = {
 }
 
 #: Documented-but-not-implemented live driver paths (NO-OP reasons).
-DOCUMENTED_DRIVERS: dict[str, str] = {
-    ("reference", "e2b"): (
-        "reference install/launch recipe documented in "
-        "lab/substrate/REFERENCE-INSTALL-2026-09-22.md (probe 17, "
-        "zero crashes) — driver lands with CAMSCAN-009"),
-}
+#: CAMSCAN-009: the reference-env path LANDED (ReferenceDriver, on
+#: record for e2b + e2b-reference) — the table is empty until a new
+#: documented-but-unimplemented substrate path exists. The honest
+#: NO-OP doctrine is unchanged: a live run with no driver on record
+#: for its env, or no capable provider on record for its scenario
+#: (S004's camera_fixture today), still NO-OPs with a ``planned:``
+#: line — never a fabricated observation.
+DOCUMENTED_DRIVERS: dict[str, str] = {}
 
 
 # ------------------------------------------------------------- requests
@@ -201,8 +213,21 @@ def _register_builtin_live() -> None:
         from tools.lab_cli.e2b_live import E2bLiveDriver
         return E2bLiveDriver()
 
-    # On record: the implementation env on e2b (CAMSCAN-008 provider).
+    def _e2b_reference() -> Any:
+        from tools.lab_cli.reference_live import ReferenceDriver
+        return ReferenceDriver()
+
+    # On record (CAMSCAN-007): the implementation env on e2b.
     register_live_driver("implementation", "e2b", _e2b_implementation)
+    # On record (CAMSCAN-009): the reference env on the e2b substrate —
+    # registered for BOTH the base provider record (e2b — the record
+    # the scheduler's slug-ascending pool policy selects for paired
+    # runs) and the reference env-class record (e2b-reference) so
+    # reference runs resolve under either record without identity
+    # branching. The implementation env stays keyed to the base record
+    # only — an honest NO-OP names the gap if that is ever reached.
+    register_live_driver("reference", "e2b", _e2b_reference)
+    register_live_driver("reference", "e2b-reference", _e2b_reference)
 
 
 _register_builtin_live()
