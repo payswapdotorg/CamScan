@@ -1,0 +1,221 @@
+{
+  "counts": {
+    "critical": 0,
+    "high": 0,
+    "low": 4,
+    "medium": 1
+  },
+  "dimensions": {
+    "actions": {
+      "compared": true,
+      "critical": 0,
+      "entries": 0,
+      "high": 0,
+      "low": 0,
+      "medium": 0
+    },
+    "artifacts": {
+      "compared": true,
+      "critical": 0,
+      "entries": 3,
+      "high": 0,
+      "low": 2,
+      "medium": 1
+    },
+    "bundle": {
+      "compared": true,
+      "critical": 0,
+      "entries": 0,
+      "high": 0,
+      "low": 0,
+      "medium": 0
+    },
+    "environment": {
+      "compared": true,
+      "critical": 0,
+      "entries": 0,
+      "high": 0,
+      "low": 0,
+      "medium": 0
+    },
+    "fixtures": {
+      "compared": true,
+      "critical": 0,
+      "entries": 0,
+      "high": 0,
+      "low": 0,
+      "medium": 0
+    },
+    "outputs": {
+      "compared": true,
+      "critical": 0,
+      "entries": 2,
+      "high": 0,
+      "low": 2,
+      "medium": 0
+    }
+  },
+  "entries": [
+    {
+      "difference": "screenshots/ artifact count differs: reference 6 vs implementation 5 — informational; per-step coverage is checked above",
+      "dimension": "artifacts",
+      "evidence": {
+        "implementation": "runs/20260923T120000Z-S004-synth01/implementation/manifest.json#artifacts",
+        "reference": "runs/20260923T120000Z-S004-synth01/reference/manifest.json#artifacts"
+      },
+      "feature": "artifact-count-screenshots",
+      "id": "artifacts-count-screenshots",
+      "implementation": 5,
+      "path": "artifacts",
+      "reference": 6,
+      "severity": "low"
+    },
+    {
+      "difference": "ui/ artifact count differs: reference 6 vs implementation 4 — informational; per-step coverage is checked above",
+      "dimension": "artifacts",
+      "evidence": {
+        "implementation": "runs/20260923T120000Z-S004-synth01/implementation/manifest.json#artifacts",
+        "reference": "runs/20260923T120000Z-S004-synth01/reference/manifest.json#artifacts"
+      },
+      "feature": "artifact-count-ui",
+      "id": "artifacts-count-ui",
+      "implementation": 4,
+      "path": "artifacts",
+      "reference": 6,
+      "severity": "low"
+    },
+    {
+      "difference": "no ui dump for recorded step 3 ('capture') on the implementation side — the manifest declares no ui/*.xml with that step number (EVIDENCE.md: ui dumps per step)",
+      "dimension": "artifacts",
+      "evidence": {
+        "implementation": "runs/20260923T120000Z-S004-synth01/implementation/manifest.json#artifacts[implementation-step-3]",
+        "reference": "runs/20260923T120000Z-S004-synth01/reference/manifest.json#artifacts[implementation-step-3]"
+      },
+      "feature": "step-evidence-03",
+      "id": "artifacts-step-03-implementation-ui",
+      "implementation": null,
+      "path": "artifacts",
+      "reference": "ui/03-capture.xml",
+      "severity": "medium"
+    },
+    {
+      "difference": "jpg output bytes differ (sha256): reference-only ['bd1d733cbb2b9956376c89b9d4debc3ae092866d0f6b37c2fd7bda31e056813f'], implementation-only ['71b0eb59d2913b5e5c90a5fd692616a6d18e9850388d6161006ced0ac9ef5310'] — recorded, not enforced (output equality is not required)",
+      "dimension": "outputs",
+      "evidence": {
+        "implementation": "runs/20260923T120000Z-S004-synth01/implementation/manifest.json#artifacts",
+        "reference": "runs/20260923T120000Z-S004-synth01/reference/manifest.json#artifacts"
+      },
+      "feature": "output-jpg",
+      "id": "outputs-sha-jpg",
+      "implementation": [
+        "71b0eb59d2913b5e5c90a5fd692616a6d18e9850388d6161006ced0ac9ef5310"
+      ],
+      "path": "artifacts",
+      "reference": [
+        "bd1d733cbb2b9956376c89b9d4debc3ae092866d0f6b37c2fd7bda31e056813f"
+      ],
+      "severity": "low"
+    },
+    {
+      "difference": "pdf output bytes differ (sha256): reference-only ['ef4c69f75dfaf720686299d62541d4ee51ef66f865a48f36699671a76e762773'], implementation-only ['c8bf78563101f656ac9546aefbddea1c73a6b0df72752f2d56c36109c8bf8ac9'] — recorded, not enforced (output equality is not required)",
+      "dimension": "outputs",
+      "evidence": {
+        "implementation": "runs/20260923T120000Z-S004-synth01/implementation/manifest.json#artifacts",
+        "reference": "runs/20260923T120000Z-S004-synth01/reference/manifest.json#artifacts"
+      },
+      "feature": "output-pdf",
+      "id": "outputs-sha-pdf",
+      "implementation": [
+        "c8bf78563101f656ac9546aefbddea1c73a6b0df72752f2d56c36109c8bf8ac9"
+      ],
+      "path": "artifacts",
+      "reference": [
+        "ef4c69f75dfaf720686299d62541d4ee51ef66f865a48f36699671a76e762773"
+      ],
+      "severity": "low"
+    }
+  ],
+  "format": "camscan-parity-diff/1",
+  "generated_utc": "2026-09-23T12:01:04Z",
+  "masks": {
+    "applied": [
+      {
+        "action": "tap",
+        "file": "single-document-capture.json",
+        "reason": "CamScanner 7.x shows a premium upsell dialog after save that CamScan has no counterpart for (no premium tier; reference-only UX documented in docs/reference-observations/S004-single-document-capture.md). Masked so step-count parity reflects the shared capture flow only.",
+        "rule": 1,
+        "side": "reference",
+        "side_removed_steps": [
+          4
+        ],
+        "target": "premium-upsell-dismiss"
+      }
+    ],
+    "enabled": true,
+    "kept_implementation_steps": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "kept_reference_steps": [
+      0,
+      1,
+      2,
+      3,
+      5
+    ],
+    "removed_implementation_steps": [],
+    "removed_reference_steps": [
+      4
+    ],
+    "rules_considered": 1
+  },
+  "run_id": "20260923T120000Z-S004-synth01",
+  "scenario": "single-document-capture",
+  "subjects": {
+    "implementation": {
+      "application": {
+        "package": "org.payswap.camscan",
+        "version_name": "0.1.0"
+      },
+      "manifest": "runs/20260923T120000Z-S004-synth01/implementation/manifest.json",
+      "observation": {
+        "finished_at": "2026-09-23T12:01:04Z",
+        "ok_steps": 5,
+        "started_at": "2026-09-23T12:00:00Z",
+        "steps": 5
+      },
+      "problems": [],
+      "provider": {
+        "emulator_acceleration": "none",
+        "environment_id": "env-e2b-synth-impl",
+        "slug": "e2b"
+      },
+      "r2_uploaded": false,
+      "status": "ok"
+    },
+    "reference": {
+      "application": {
+        "package": "com.intsig.camscanner",
+        "version_name": "7.25.5"
+      },
+      "manifest": "runs/20260923T120000Z-S004-synth01/reference/manifest.json",
+      "observation": {
+        "finished_at": "2026-09-23T12:01:04Z",
+        "ok_steps": 6,
+        "started_at": "2026-09-23T12:00:00Z",
+        "steps": 6
+      },
+      "problems": [],
+      "provider": {
+        "emulator_acceleration": "none",
+        "environment_id": "env-e2b-synth-ref",
+        "slug": "e2b"
+      },
+      "r2_uploaded": false,
+      "status": "ok"
+    }
+  }
+}

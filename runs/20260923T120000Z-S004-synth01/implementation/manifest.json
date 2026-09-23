@@ -1,0 +1,151 @@
+{
+  "action_trace": [
+    {
+      "action": "launch",
+      "result": "activity-resumed",
+      "t_ms": 0,
+      "target": ""
+    },
+    {
+      "action": "tap",
+      "result": "ok",
+      "t_ms": 1400,
+      "target": "scan"
+    },
+    {
+      "action": "capture",
+      "result": "document-detected",
+      "t_ms": 3200,
+      "target": "camera"
+    },
+    {
+      "action": "accept-document",
+      "result": "ok",
+      "t_ms": 9800,
+      "target": "crop-confirm"
+    },
+    {
+      "action": "save",
+      "result": "saved",
+      "t_ms": 11200,
+      "target": "save-button"
+    }
+  ],
+  "application": {
+    "installer_sha256": "9445a2d6fe6c9f0e88028c584c3fa7225fde9ef54dc91f1051999f67358c6a27",
+    "package": "org.payswap.camscan",
+    "version_code": 1,
+    "version_name": "0.1.0"
+  },
+  "artifacts": [
+    {
+      "bytes": 33,
+      "path": "logs/app-events.json",
+      "sha256": "16b52aa0e84345fac84524e25ac24fa61bda6e33ae253a52c041e977e7de18c3"
+    },
+    {
+      "bytes": 44,
+      "path": "logs/logcat.txt",
+      "sha256": "c513b634ccfe2fb9e336c4949d65fbb4030a759d1223e44dea1831c825e22427"
+    },
+    {
+      "bytes": 91,
+      "path": "outputs/document.pdf",
+      "sha256": "c8bf78563101f656ac9546aefbddea1c73a6b0df72752f2d56c36109c8bf8ac9"
+    },
+    {
+      "bytes": 34,
+      "path": "outputs/page-01.jpg",
+      "sha256": "71b0eb59d2913b5e5c90a5fd692616a6d18e9850388d6161006ced0ac9ef5310"
+    },
+    {
+      "bytes": 26,
+      "path": "recordings/screen.mp4",
+      "sha256": "1b5212203ce615d865e323bc7fab7f74ef33e236f03cb736fdfb87a57c35c8e8"
+    },
+    {
+      "bytes": 90,
+      "path": "screenshots/01-launch.png",
+      "sha256": "9ba0068986164f9c4cec8cbabac25c59dffc1b1162edec5343002baa3fe7db78"
+    },
+    {
+      "bytes": 87,
+      "path": "screenshots/02-tap.png",
+      "sha256": "d1442642c66902f74bb4d3bac5391489ed169295f496d060944ca0abafd1524d"
+    },
+    {
+      "bytes": 91,
+      "path": "screenshots/03-capture.png",
+      "sha256": "abd4a405a0d6ec48508dfc725635989e9bb563dbc1f23d25051c60789322c4c6"
+    },
+    {
+      "bytes": 97,
+      "path": "screenshots/04-accept-document.png",
+      "sha256": "b1d123f2e849bc5750798c0a1a083e55785a9bda8c2be9848c6602da3691616f"
+    },
+    {
+      "bytes": 88,
+      "path": "screenshots/05-save.png",
+      "sha256": "8598d92476ba7d50d03d0fe17459199bb76c45592b1fdb5eb561cde981e3aecb"
+    },
+    {
+      "bytes": 108,
+      "path": "ui/01-launch.xml",
+      "sha256": "b2023096989b5f53c3ff793a8f42eeac1396f0d884b2b87e3e39b80197c09b30"
+    },
+    {
+      "bytes": 105,
+      "path": "ui/02-tap.xml",
+      "sha256": "c363c1dd5ccffe40ea2efa727f148980e9b9f7cc1d496c9fa9bbb4f6498237cd"
+    },
+    {
+      "bytes": 117,
+      "path": "ui/04-accept-document.xml",
+      "sha256": "d71ff550bcbb7b075e7ebee54073685166366ec8a41501ec5e56af3b34226a68"
+    },
+    {
+      "bytes": 106,
+      "path": "ui/05-save.xml",
+      "sha256": "938bfbbabfb7d2690a3b814950ac6034b985f541a24ffd33800c005e5b009ea1"
+    }
+  ],
+  "device": {
+    "android_version": "11",
+    "locale": "en-US",
+    "model": "Pixel 4 (AVD pixel_4)",
+    "permission_baseline": {
+      "android.permission.CAMERA": true
+    },
+    "screen": "1080x2280@440dpi",
+    "timezone": "UTC"
+  },
+  "finished_at": "2026-09-23T12:01:04Z",
+  "fixtures": [
+    {
+      "id": "clean-a4",
+      "sha256": "d0b13b27d7ede73deff0a7a704fa63c2b6e2b7f53d2ff2fcadb01faad1514b0e"
+    }
+  ],
+  "provider": {
+    "capabilities": {
+      "adb": true,
+      "android_cli": true,
+      "android_emulator": true,
+      "android_sdk": true,
+      "android_studio": false,
+      "camera_fixture": true,
+      "emulator_acceleration": "none",
+      "gui": true,
+      "persistent": false,
+      "recording": true,
+      "screenshots": true,
+      "snapshot": true
+    },
+    "environment_id": "env-e2b-synth-impl",
+    "slug": "e2b"
+  },
+  "run_id": "20260923T120000Z-S004-synth01",
+  "scenario": "single-document-capture",
+  "started_at": "2026-09-23T12:00:00Z",
+  "subject": "implementation"
+}
