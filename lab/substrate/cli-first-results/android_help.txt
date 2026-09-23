@@ -1,0 +1,40 @@
+Usage: android [-Vhv] [--sdk=PARAM] [COMMAND]
+  -h, --help       Show the help message for this command
+      --sdk=PARAM  Path to the Android SDK
+  -v, --verbose    Enable verbose output for troubleshooting
+  -V, --version    Print version information and exit
+Commands:
+  completion  Installs shell autocomplete configuration for the Android CLI in
+              the current user profile
+  create      Create a new Android project from available templates. Allows
+              specifying project name, output directory, minSdk, and dry-run
+              execution
+  describe    Analyzes an Android project to generate descriptive metadata. This
+              command identifies and outputs the paths to JSON files that detail
+              the project's structure, including build targets and their
+              corresponding output artifact locations (e.g., APKs). This
+              information enables other tools and commands to locate build
+              artifacts efficiently
+  docs        Android documentation commands for searching and fetching
+              developer documentation from the official knowledge base
+  emulator    Manage Android Virtual Devices (AVDs). Includes commands to start,
+              stop, list, and view details about emulators
+  help        Shows the help of all commands
+  info        Print environment information including SDK location, connected
+              devices, and configuration variables. Use specific fields to
+              narrow the output
+  init        Initializes the environment for the Android CLI. Sets up required
+              configurations, directories, and default skills
+  install     Install an Android Application (one or more APKs) to a connected
+              device or emulator without activating any components using
+              incremental optimizations for faster deployment than adb
+  layout      Returns the layout tree of an application
+  run         Build, deploy, and launch an Android application on a connected
+              device or emulator
+  screen      Commands to view the device
+  sdk         Manage the Android SDK installation. Includes commands to install,
+              update, remove, and list available and installed SDK packages
+  skills      Manage Android CLI skills. Includes commands to install, remove,
+              list, and search for skills by keyword
+  studio      Android Studio commands
+  update      Update the Android CLI to the latest version

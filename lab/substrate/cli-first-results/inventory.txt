@@ -1,0 +1,6 @@
+PRETTY_NAME="Ubuntu 22.04.5 LTS"
+NAME="Ubuntu"
+8
+Mem:            7955         119        7110           1         726        7598
+/dev/root          25064  5053     19739  21% /
+openjdk version "17.0.20.1" 2026-08-18

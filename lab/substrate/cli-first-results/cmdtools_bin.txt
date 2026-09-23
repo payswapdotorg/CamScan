@@ -1,0 +1,14 @@
+total 5036
+drwxr-xr-x 2 root root    4096 Sep 23 02:15 .
+drwxr-xr-x 4 root root     128 Sep 23 02:15 ..
+-rwxr-xr-x 1 root root 5065056 Jan  1  2010 android
+-rwxr-xr-x 1 root root    5767 Jan  1  2010 apkanalyzer
+-rwxr-xr-x 1 root root    5760 Jan  1  2010 avdmanager
+-rwxr-xr-x 1 root root    5661 Jan  1  2010 d8
+-rwxr-xr-x 1 root root    5726 Jan  1  2010 lint
+-rwxr-xr-x 1 root root    5699 Jan  1  2010 profgen
+-rwxr-xr-x 1 root root    5661 Jan  1  2010 r8
+-rwxr-xr-x 1 root root    5754 Jan  1  2010 resourceshrinker
+-rwxr-xr-x 1 root root    5699 Jan  1  2010 retrace
+-rwxr-xr-x 1 root root    5755 Jan  1  2010 screenshot2
+-rwxr-xr-x 1 root root    8365 Jan  1  2010 sdkmanager

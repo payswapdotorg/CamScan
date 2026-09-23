@@ -1,8 +1,8 @@
 {
   "slug": "e2b",
   "version": "0.2.0",
-  "generated_utc": "2026-09-23T01:05:00Z",
-  "verified_utc": "2026-09-21T15:33:50Z",
+  "generated_utc": "2026-09-23T02:30:00Z",
+  "verified_utc": "2026-09-23T02:25:42Z",
   "gui": true,
   "persistent": false,
   "android_sdk": true,
@@ -25,8 +25,8 @@
     "screenshots": "proven at the 2026-09-21 TCG substrate gate (42,803-byte PNG captured)",
     "acceptance_gate": "PASS 2026-09-21T151742Z — full lifecycle provision->destroy with zero manual repairs; evidence at r2:camscan-parity-evidence/providers/e2b/acceptance/20260921T151742Z",
     "camera_recipe": "working camera recipe (proven rounds 5-10): AVD with -c 2048M sdcard (avdmanager), launch WITHOUT -no-audio (camera2 crashes with it), animation scales 0, ANR dismissal via on-device uiautomator dump + Wait tap, camera-app onboarding walked with 2 NEXT taps at (540,2080)",
-    "android_sdk": "bootstrap.py installs cmdline-tools latest + platform-tools + emulator + system-images;android-30;default;x86_64 + platforms;android-30 + build-tools;33.0.2 — all via sdkmanager (terminal-only); verified at the 2026-09-21 acceptance gate",
-    "android_cli": "known-good path: sdkmanager/avdmanager from cmdline-tools (proven at the 2026-09-21 acceptance gate). Newer unified `android` CLI: CLI-first experiment pending (lab/substrate/); the capability means terminal-usable Android tooling, whichever CLI generation provides it. Android Studio is NOT required anywhere in the lab (CLI-first directive 2026-09-23)",
-    "gradle": "gradlew wrapper (Gradle 8.9 / AGP 8.7.3 / JDK 17) — proven by the CAMSCAN-001 worker delivery build in an E2B desktop sandbox (APK archived to R2); fresh re-verification in the CLI-first experiment pending"
+    "android_sdk": "VERIFIED end-to-end 2026-09-23T02:25Z by the CLI-first experiment: fresh E2B desktop sandbox provisioned SDK via the unified android CLI (7 packages, 4728MB, 40s) — terminal-only, zero Android Studio",
+    "android_cli": "VERIFIED end-to-end 2026-09-23T02:25Z by the CLI-first experiment (lab/substrate/CLI-FIRST-EXPERIMENT-2026-09-23.md): unified `android` CLI v1.0.16406183 present in cmdline-tools build 16111833 (newest of 25; known-good bootstrap pins 11076708); `android sdk install` installed the full 7-package set in 40s exit 0; `android emulator create` is profile-based (no -n/-k/-d/-c) so avdmanager remains the precise AVD path; agent-oriented by design (its help recommends itself for agents). Known-good sdkmanager/avdmanager bootstrap retained as the default (complement, not replace)",
+    "gradle": "VERIFIED end-to-end 2026-09-23T02:25Z by the CLI-first experiment: ./gradlew assembleDebug on a fresh sandbox (Gradle 8.9 wrapper, JDK 17.0.20.1) built app-debug.apk in 91s exit 0; then adb install + launch to confirmed foreground (mCurrentFocus=org.payswap.camscan/.MainActivity)"
   }
 }

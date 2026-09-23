@@ -1,0 +1,18 @@
+Usage: android emulator [-h] [COMMAND]
+Manage Android Virtual Devices (AVDs). Includes commands to start, stop, list,
+and view details about emulators
+
+Options:
+  -h, --help       Show the help message for this command
+
+android options:
+      --sdk=PARAM  Path to the Android SDK
+  -v, --verbose    Enable verbose output for troubleshooting
+  -V, --version    Print version information and exit
+Commands:
+  create  Creates a virtual device
+  list    Lists available virtual devices
+  remove  Delete a virtual device
+  start   Launches the specified virtual device. This command will return when
+          the emulator is fully started and ready to use
+  stop    Stops the specified virtual device
