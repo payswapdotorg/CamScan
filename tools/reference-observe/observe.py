@@ -280,8 +280,43 @@ sleep 5
         # -- 4 install -----------------------------------------------------------
         # Split bundles (.xapk/.apks from reputable mirrors) install via
         # install-multiple; plain APKs via install -r.
+        # 2026-09-23: CAMSCAN_APK_URL env — in-sandbox download path. Pushing
+        # the 162MB base split through the e2b files API stalls in an httpx
+        # retry loop (all bytes acked, POST response never settles — observed
+        # 20+ min). The sandbox pulling from object storage (R2 presigned URL)
+        # is faster and avoids the SDK write path entirely. sha256-verified
+        # in-sandbox against the recorded artifact hash before install.
         remote_files: list[str] = []
-        if apk_path.suffix.lower() in (".xapk", ".apks"):
+        apk_url = os.environ.get("CAMSCAN_APK_URL", "")
+        if apk_url and apk_path.suffix.lower() in (".xapk", ".apks"):
+            dl = provider.execute(env_id, f"""
+cd /root
+curl -fsSL -o bundle.dl '{apk_url}'
+sha256sum bundle.dl
+mkdir -p xapk
+cd xapk
+unzip -o ../bundle.dl '*.apk' 2>&1 | tail -3
+ls -la /root/xapk/*.apk
+""", timeout=900)
+            want_sha = (result.get("apk") or {}).get("sha256", "")
+            got_sha = ""
+            for ln in dl.stdout.splitlines():
+                if "bundle.dl" in ln and len(ln.split()) >= 1:
+                    got_sha = ln.split()[0]
+                    break
+            if want_sha and got_sha != want_sha:
+                phase("install", False, {"reason": "in-sandbox download sha mismatch",
+                                         "want": want_sha, "got": got_sha})
+                raise BlockedExit()
+            splits_names = [p.strip().split("/")[-1]
+                            for p in dl.stdout.splitlines()
+                            if p.strip().endswith(".apk") and p.startswith("-")]
+            remote_files = [f"/root/xapk/{n}" for n in splits_names]
+            result["install_splits"] = [
+                {"file": n, "bytes": 0, "sha256": ""} for n in splits_names]
+            result["apk_delivery"] = "in-sandbox-url-download"
+            install_cmd = f"{ADB} install-multiple -r " + " ".join(remote_files)
+        elif apk_path.suffix.lower() in (".xapk", ".apks"):
             splits_dir = workdir / "splits"
             splits = extract_split_bundle(apk_path, splits_dir)
             result["install_splits"] = [
