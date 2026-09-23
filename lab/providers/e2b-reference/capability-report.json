@@ -1,0 +1,33 @@
+{
+  "slug": "e2b-reference",
+  "version": "0.1.0",
+  "generated_utc": "2026-09-23T18:00:00Z",
+  "verified_utc": "2026-09-22T11:40:00Z",
+  "gui": true,
+  "persistent": false,
+  "android_sdk": true,
+  "android_cli": true,
+  "android_emulator": true,
+  "emulator_acceleration": "none",
+  "adb": true,
+  "gradle": true,
+  "camera_fixture": false,
+  "screenshots": true,
+  "recording": true,
+  "snapshot": true,
+  "android_studio": false,
+  "notes": {
+    "environment_class": "the REFERENCE env (official CamScanner, black-box, observable behavior only) on the e2b substrate: google_apis;android-30;x86_64 system image @ 4096 MB — the image class that carries libndk_translation for the app's arm64-v8a-only splits (run-002 lesson 2026-09-22: the default image dies INSTALL_FAILED_NO_MATCHING_ABIS; probe-17 proof) — own AVD camscan-reference (never shared with the implementation env)",
+    "device_profile": "pixel_4 / Android 11 (API 30) / 1080x2280 / en-US / UTC — the equivalent-profile requirement (CAMSCAN-004) for run-pair comparability with the implementation env",
+    "emulator_acceleration": "QEMU TCG (-accel off) — substrate truth shared with the e2b record; no /dev/kvm in E2B Firecracker microVMs, never kvm",
+    "camera_fixture": "camera2 runs LIVE on this env class (AOSP camera2 + virtualscene back camera; viewfinder renders — CAMSCAN-008 rounds 5-10 recipe) but deterministic fixture injection is NOT proven (poster mechanisms accepted-not-confirmed; same gap as the e2b record, lab/substrate/CAMERA-FIXTURE-2026-09-21.md) — camera_fixture stays false (honest); capture-flow scenarios stay BLOCKED until injection is proven",
+    "install_recipe": "probe-17 (lab/substrate/REFERENCE-INSTALL-2026-09-22.md, 2026-09-22T10:43-11:40Z, zero crashes): setprop pm.dexopt.install verify BEFORE adb install-multiple -r with sandbox-side split paths; pm install-create/write/commit sessions are DEAD (binder staging dies under TCG); dynamic launcher resolution; SystemUI-ANR dump-tap dismissal ladder after launch; driver: tools/lab-cli/reference_live.py (CAMSCAN-009)",
+    "reference_app": "com.intsig.camscanner 7.25.5.2609020000 — XAPK 221499725 B, sha256 7ef8e46525a1210bbaa332d5f5d560ce30d768b4375ea92265d2e292d25dba65, archived at r2:camscan-parity-evidence/reference/camscanner/ (recorded: docs/reference-observations/session-manifest.json, static-apk-analysis.md); delivered in-sandbox via presigned-URL curl (CAMSCAN_APK_URL) or local --apk push fallback",
+    "verified_utc_provenance": "probe 17 decisive round (install + launch + splash render, crash buffer EMPTY) completed 2026-09-22T11:40:00Z; the CAMSCAN-004 observation campaign + tools/reference-observe/observe.py are the harness lineage",
+    "screenshots": "splash + first-run captures proven in probe 17 / the CAMSCAN-004 campaign (same capture path as the e2b record)",
+    "recording": "substrate-level screenrecord under TCG — proven at the e2b acceptance gate 2026-09-21T151742Z on the same sandbox template; not separately re-verified on the google_apis image",
+    "snapshot": "substrate-level e2b pause/resume — proven at the e2b acceptance gate 2026-09-21T151742Z (sandbox-level capability, image-independent)",
+    "gradle": "same E2B desktop template as the e2b record (gradlew wrapper proven by CAMSCAN-001); the reference env installs nothing from source — capability is substrate-level",
+    "persistent": "fresh sandbox + fresh AVD per run (destroyed in teardown) — a fresh provision is fresh-install state by construction"
+  }
+}

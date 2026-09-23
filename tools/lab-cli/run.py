@@ -98,6 +98,17 @@ def load_provider_reports(repo_root: Path) -> list[dict[str, Any]]:
         if not isinstance(doc, dict) or not doc.get("slug"):
             raise LabCliError(f"provider report malformed: {path}")
         reports.append(doc)
+    # Pool-order policy (CAMSCAN-009): slug-ascending. The scheduler
+    # picks the first ELIGIBLE record in pool order, so the order IS
+    # the selection policy: a base provider record ("e2b") must precede
+    # its environment-class refinements ("e2b-reference") or adding an
+    # env-class record could silently flip the paired run's substrate
+    # record. Glob order is NOT trusted: it is implementation-sensitive
+    # (string sort puts "e2b-reference/" before "e2b/" because '-' <
+    # '/', while Path-object sort happens to keep "e2b" first on 3.12)
+    # — the explicit slug sort makes the policy deterministic either
+    # way.
+    reports.sort(key=lambda report: str(report.get("slug", "")))
     return reports
 
 

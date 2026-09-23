@@ -59,9 +59,9 @@ Stages:
    `camera_fixture: requirement True not satisfied by e2b: False` — the
    honest BLOCKED state for the 9 capture-flow scenarios today). When a
    capable provider exists but no **live driver** is on record for that
-   env (the reference env today: its install/launch recipe is proven and
-   documented in `lab/substrate/REFERENCE-INSTALL-2026-09-22.md`, the
-   driver lands with CAMSCAN-009), the same honest NO-OP.
+   env, the same honest NO-OP (no such env today: the reference env's
+   live driver landed with CAMSCAN-009 — see
+   [the reference live driver](#the-reference-live-driver-camscan-009)).
 3. **Evidence per EVIDENCE.md** — each subject executes into a
    single-subject staging dir, is bundled by `tools/evidence-cli`
    (hashes, sidecars, manifest), then assembled into the paired layout
@@ -156,10 +156,12 @@ fields, never content-addressed).
 `tools/lab-cli/drivers.py` (`register_live_driver(env, provider_slug,
 factory)`) — or land a new provider (report its capabilities under
 `lab/providers/<slug>/capability-report.json` and the scheduler picks
-it up with zero identity branching). Reference-env driver: the proven
-recipe is `lab/substrate/REFERENCE-INSTALL-2026-09-22.md` (dexopt
-filter + `install-multiple` + dynamic launcher resolution + ANR
-ladder); until it lands, live reference runs NO-OP honestly.
+it up with zero identity branching). The reference-env driver is this
+path's worked example: the proven recipe
+`lab/substrate/REFERENCE-INSTALL-2026-09-22.md` became
+`tools/lab-cli/reference_live.py` (CAMSCAN-009), registered for both
+the `e2b` base record and the `e2b-reference` env-class record — see
+[the reference live driver](#the-reference-live-driver-camscan-009)).
 
 ### The RecordingDriver
 
@@ -171,6 +173,103 @@ claims (the manifest carries the resolved provider's capabilities and
 an explicitly `-recording-` environment id), runs no network, needs no
 credentials — the pytest path. Deliberate-divergence fixtures are
 parity-cli's own (`runs/20260923T120000Z-S004-synth01`).
+
+### The reference live driver (CAMSCAN-009)
+
+`run --env reference` (driver kind `live`) resolves
+`tools/lab-cli/reference_live.py` — the `ReferenceDriver` — which puts
+the **official CamScanner** (com.intsig.camscanner, black-box,
+observable behavior only) through the probe-17 recipe
+(`lab/substrate/REFERENCE-INSTALL-2026-09-22.md`; the
+`tools/reference-observe/observe.py` lessons are its spec):
+
+1. **provision** — the reference env's OWN profile (never shared with
+   the implementation env): `google_apis;android-30;x86_64` image
+   @ 4096 MB (the image class carrying `libndk_translation` for the
+   app's arm64-v8a-only splits — the run-002 lesson), AVD
+   `camscan-reference`, TCG boot (provider-owned budget), package
+   service settle (`pm list packages` answers; +60 s);
+2. **dexopt filter** — `setprop pm.dexopt.install verify` BEFORE any
+   install (root → setprop → unroot): the cheap filter eliminates the
+   dexopt monitor storm that killed `system_server` in probe 9;
+3. **install** — XAPK acquisition in-sandbox from a presigned URL
+   (`CAMSCAN_APK_URL` — the proven delivery; the e2b files-API push
+   of the 221 MB bundle stalls in an httpx retry loop),
+   sha256-verified in-sandbox (the local `--apk`'s hash when present,
+   else the recorded archive hash), splits unzipped; or local `--apk`
+   extraction + push as the fallback. Then `adb install-multiple -r`
+   with sandbox-side paths through the GMS-churn retry ladder
+   (background install + `EXIT_n` marker, a 6-min outcome window per
+   attempt — never a 20-min hang; package-service re-settle probes
+   between failed attempts; 8 bounded attempts; sandbox death → clean
+   abort with the sandbox destroyed; `pm path` registry verification
+   after Success — probe 15's silent-commit-death lesson);
+4. **launch** — dynamic launcher resolution (`cmd package
+   resolve-activity` — never statically-derived components), patient
+   process wait, and the SystemUI-ANR dump-tap dismissal ladder after
+   launch (uiautomator dump → Wait-button bounds → center tap; the
+   proven `(540, 1244)` fallback);
+5. **execute** — scenario steps through adb-bridge verbs, per-step
+   screenshot + ui-dump captures, final logcat, discovered dumpsys
+   package facts — into the single-subject staging dir this pipeline
+   bundles.
+
+Every retry/wait constant in the recipe is provenance-pinned in the
+module (probe-17 / run-003 / run-005 lessons / observe.py lines — no
+bare numbers). Like the implementation driver it is **lab-exercised,
+never pytest-exercised**: the hermetic tests drive it through an
+injected scripted transport (call order, ladder state machine,
+registry flip, teardown invariant), never the e2b SDK.
+
+Two deliberate deviations from the implementation driver: no
+`provider.reset` (its reinstall path is a single-APK `adb install -r`
+— DEAD for split bundles, probe 16 — and its wipe relaunch is
+redundant on a fresh sandbox, which is fresh-install state by
+construction), and permission baselines use the full
+`pm grant <pkg> <perm>` form.
+
+**The reference env's own capability record**
+(`lab/providers/e2b-reference/capability-report.json` — honest
+values: pixel_4 / Android 11 / TCG `none` / camera2-live-but-
+fixture-false) sits where scheduler discovery reads it. See contract
+concern 4 for the env-dimension limitation and the pool-order policy
+that keeps the base `e2b` record first.
+
+### The lead execution recipe — S001–S004 reference runs
+
+The live execution is the LEAD's (the only E2B_API_KEY holder); the
+driver + registry wiring + hermetic proof are this delivery. Verbatim:
+
+```text
+E2B_API_KEY=<lead-held> python3 tools/lab-cli/main.py run S001 --env reference \
+    --apk <camscanner-7.25.5.xapk>   # or CAMSCAN_APK_URL=<presigned>
+E2B_API_KEY=<lead-held> python3 tools/lab-cli/main.py run S002 --env reference \
+    --apk <camscanner-7.25.5.xapk>   # or CAMSCAN_APK_URL=<presigned>
+E2B_API_KEY=<lead-held> python3 tools/lab-cli/main.py run S003 --env reference \
+    --apk <camscanner-7.25.5.xapk>   # or CAMSCAN_APK_URL=<presigned>
+E2B_API_KEY=<lead-held> python3 tools/lab-cli/main.py run S004 --env reference \
+    --apk <camscanner-7.25.5.xapk>   # honestly NO-OPs: camera_fixture
+```
+
+- The XAPK is archived at
+  `r2:camscan-parity-evidence/reference/camscanner/CamScanner_7.25.5.2609020000_apkcombo.com.xapk`
+  — 221499725 bytes, sha256
+  `7ef8e46525a1210bbaa332d5f5d560ce30d768b4375ea92265d2e292d25dba65`
+  (recorded in-repo: `docs/reference-observations/session-manifest.json`,
+  `docs/reference-observations/static-apk-analysis.md`). For URL
+  delivery, presign that object and export `CAMSCAN_APK_URL`; the
+  driver sha256-verifies the download in-sandbox before installing.
+- S001–S003 resolve (prefix `--plan` to preview the resolution
+  lines); S004 honestly NO-OPs with a `planned:` line naming
+  `camera_fixture` from both on-record reports.
+- TCG time scales: boot ~7–40 min (provider-owned budget), the
+  install ladder usually succeeds on attempt 1–2 (probe 17: attempt
+  2), the whole run fits the 60-min E2B sandbox window (polls renew
+  the lifetime; sandbox death aborts cleanly for a fresh run).
+- S002+ steps referencing reference-app controls (`tap: scan` …) fail
+  loud (`UnknownTargetError`) until the seed registry's reserved
+  CamScanner scope is populated from the live dumps these very runs
+  capture — the designed discovery loop (contract concern 3).
 
 ## Step → verb mapping table
 
@@ -209,7 +308,12 @@ parity-cli compare consumed it (incl. parity-cli's own `--check`
 staleness gate), the teardown invariant (a stub driver whose execute
 raises still gets torn down), report aggregation on a synthetic runs
 tree built from the committed 005 demo pair + real parity-cli gap
-yamls, CLI exit codes, and byte-level determinism. Test modules carry
+yamls, CLI exit codes, and byte-level determinism — plus the
+reference live driver's contract suite (CAMSCAN-009,
+`test_labcli_reference.py`: scripted-transport call order +
+install-ladder state machine + registry flip + scheduler S001–S004 +
+teardown invariant; the live path itself stays lab-exercised, never
+pytest-exercised) — 74 tests today. Test modules carry
 `test_labcli_*` names + a `labcli_helpers` module so combined
 multi-tool pytest invocations (`pytest tools/lab-cli tools/parity-cli
 tools/adb-bridge`) collect cleanly — note `tools/parity-cli` +
@@ -224,12 +328,24 @@ today (pre-existing; per-directory runs are the CI convention).
    because `docs[-1]["stem"]` is skipped on the early `continue`)
    instead of printing a clean gate message. Lead-owned file — filed
    in the CAMSCAN-007 report, not fixed here.
-2. **Reference-env driver**: `lab/substrate/REFERENCE-INSTALL-2026-09-22.md`
-   documents the proven recipe; the driver is CAMSCAN-009's deliverable.
-   Until then, live reference runs NO-OP with a `planned:` line naming
-   the document — never a fabricated observation.
+2. **Reference-env driver — LANDED (CAMSCAN-009)**:
+   `tools/lab-cli/reference_live.py` implements the proven recipe;
+   `run --env reference` resolves `driver=reference-live` for every
+   scenario with a capable provider on record (S001–S003 today). The
+   honest NO-OP doctrine is unchanged — S004 still NO-OPs on
+   `camera_fixture`, never a fabricated observation.
 3. **Design-contract targets**: the mapping table names control ids the
    seed registry does not carry yet (`scan`, `rotate_button`, …). Live
    runs of those steps fail loud (`UnknownTargetError`) — an honest
    BLOCKED, mirroring the registry's own note that ids come from live
    dumps / CAMSCAN-010, never invention.
+4. **Env-scoped capability records (CAMSCAN-009)**: the capability
+   vocabulary is env-agnostic — a per-env record
+   (`lab/providers/e2b-reference/capability-report.json`, the
+   reference env's own profile) can only exist as a peer provider
+   record in the scheduler's discovery pool. The runner's pool-order
+   policy (slug-ascending, `run.py`) keeps the base `e2b` record
+   first so an env-class record never silently flips a paired run's
+   substrate record — but a first class env dimension (or an explicit
+   ranking API in `scheduler.py`) is a lead-owned contract decision,
+   filed here, not decided in a worker delivery.
