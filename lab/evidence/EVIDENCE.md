@@ -1,22 +1,41 @@
-# Evidence model (v0)
+# Evidence model (v0.1)
 
 Every scenario execution produces an evidence bundle under `runs/<run-id>/`:
 
 ```
 runs/<run-id>/
   scenario.yaml                 # verbatim copy of the scenario executed
-  manifest.json                 # the bundle contract (below)
   reference/                    # run against CamScanner
+    manifest.json               # subject: "reference" (the bundle contract)
     screenshots/  *.png         # numbered per step
     recordings/   *.mp4 | *.webm
     ui/           *.xml         # UI hierarchy dumps (per step)
     logs/         logcat.txt app-events.json
     outputs/      *.pdf *.jpg *.txt (+ sha256 sidecars)
   implementation/               # run against CamScan (same layout)
+    manifest.json               # subject: "implementation"
   reconciliation/
     diff.json                   # Worker 3's structured comparison
     verdict.json                # PASS | PARTIAL | FAIL | BLOCKED | NOT OBSERVED
 ```
+
+### Run-dir layout decision (lead, 2026-09-23 — resolves the v0 drawing ambiguity)
+
+The v0 tree drew ONE `manifest.json` at the run root alongside BOTH subject
+subtrees, while the manifest schema carries `subject: reference |
+implementation` (one manifest = one subject). Resolution:
+
+- There is NO run-root manifest. Each subject subtree (`reference/`,
+  `implementation/`) is a COMPLETE single-subject bundle: its own
+  `manifest.json` at the subtree root, own artifacts, own sidecars.
+- `scenario.yaml` lives at the RUN root (one copy, shared by both subjects);
+  per-subject manifests reference the scenario by id.
+- `tools/evidence-cli bundle <subject-dir>` operates per subject subtree
+  (`runs/<run-id>/reference`, `runs/<run-id>/implementation`) — the
+  single-subject model applies per invocation.
+- `tools/parity-cli compare <run-id>` reads BOTH subject manifests from the
+  run dir and writes `reconciliation/`.
+- R2 keys remain `runs/<run-id>/<subject>/<path>` (unchanged).
 
 ## manifest.json contract
 
