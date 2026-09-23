@@ -51,23 +51,33 @@ CAPABILITY_REPORT_PATH = REPO_ROOT / "lab" / "providers" / "e2b" / "capability-r
 #: unverified (false) and are flipped ONLY by the empirically probed values
 #: recorded in the committed capability-report.json (written by the
 #: acceptance gate). `emulator_acceleration` is "none" — TCG — never "kvm".
+#: v0.2 (CLI-first 2026-09-23): android_sdk / android_cli / gradle are
+#: first-class true (bootstrap installs the SDK via sdkmanager/avdmanager;
+#: gradlew-wrapper builds proven by the CAMSCAN-001 worker delivery).
+#: android_studio stays FALSE — and is optional metadata, never matchable.
 STATIC_CAPABILITIES: dict[str, Any] = {
     "slug": "e2b",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "gui": True,                # screen content observable (screenshot + UI dump)
     "persistent": False,        # sandbox destroyed after run
+    "android_sdk": True,        # cmdline-tools + platform-tools + platforms + build-tools
+    "android_cli": True,        # sdkmanager/avdmanager path (known-good bootstrap)
     "android_emulator": True,
     "emulator_acceleration": "none",
     "adb": True,
+    "gradle": True,             # gradlew wrapper path — proven by worker builds
     "camera_fixture": False,    # probed by acceptance (virtualscene poster path)
     "screenshots": True,
     "recording": False,         # probed by acceptance (screenrecord under TCG)
     "snapshot": False,          # probed by acceptance (e2b pause/resume)
-    "android_studio": False,    # implementation env is a separate worker sandbox
+    "android_studio": False,    # OPTIONAL metadata: no IDE anywhere in the lab
     "notes": {
         "gui": "swiftshader_indirect rendering; screen content capturable without a display",
         "emulator_acceleration": "QEMU TCG (-accel off); no /dev/kvm in E2B Firecracker microVMs",
         "camera_fixture": "virtualscene back camera; deterministic poster injection probed at acceptance",
+        "android_sdk": "bootstrap.py installs cmdline-tools latest + platform-tools + emulator + system-images;android-30;default;x86_64 + platforms;android-30 + build-tools;33.0.2 — all via sdkmanager (terminal-only)",
+        "android_cli": "known-good path: sdkmanager/avdmanager from cmdline-tools (proven at the 2026-09-21 acceptance gate). Newer unified `android` CLI: experiment pending (lab/substrate/) — the capability means terminal-usable Android tooling, whichever CLI generation provides it",
+        "gradle": "gradlew wrapper (Gradle 8.9 / AGP 8.7.3 / JDK 17) — proven by the CAMSCAN-001 worker delivery build in an E2B desktop sandbox (APK archived to R2); no IDE involved",
     },
 }
 

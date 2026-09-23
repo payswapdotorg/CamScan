@@ -4,8 +4,15 @@ These are the machine-readable form of the LabProvider interface contract in
 `lab/providers/LABPROVIDER.md`. Pure stdlib — importable from CI validators
 and the provider scheduler without any substrate SDK installed.
 
-Semantics notes (v0.1):
+Semantics notes (v0.2 — CLI-first, operator directive 2026-09-23):
 
+- CLI-first Android: the canonical worker environment is terminal-only
+  (android_sdk / android_cli / android_emulator / adb / gradle).
+  `android_studio` is NOT part of the matchable vocabulary anymore — it
+  survives ONLY as optional environment metadata in capability reports
+  (see capabilities.schema.json) and MUST never appear in scenario
+  `meta.requires` (validate_requirement rejects it as unknown — the
+  mechanical enforcement of "never require Android Studio").
 - Timeouts: three distinct layers, never conflated:
     * provider-level budgets (bootstrap/boot/renewal) — owned by the provider
       implementation, calibrated for its substrate (e.g. TCG cold boot);
@@ -28,17 +35,25 @@ from typing import Any, Optional
 # ---------------------------------------------------------------- capability
 
 #: Known capability keys — the vocabulary shared by reports and requirements.
+#: v0.2 (CLI-first): android_sdk / android_cli / gradle added as first-class
+#: capabilities; android_studio REMOVED from the matchable vocabulary
+#: (optional report metadata only — never a scenario requirement).
 CAPABILITY_KEYS: tuple[str, ...] = (
     "gui",                 # screen content observable (screenshot + UI hierarchy)
     "persistent",          # environment survives across runs
+    "android_sdk",         # Android SDK installed (cmdline-tools + platform-tools
+    #                        # + platforms + build-tools) — CLI-installable
+    "android_cli",         # terminal-accessible Android CLI tooling
+    #                        # (sdkmanager/avdmanager and/or the newer unified
+    #                        # `android` CLI) — the CLI-first worker stack
     "android_emulator",    # can run an Android emulator at all
     "emulator_acceleration",  # enum: none | kvm | hvf
     "adb",                 # Android Debug Bridge access
+    "gradle",              # Gradle build capability (wrapper distribution usable)
     "camera_fixture",      # deterministic virtual-camera injection
     "screenshots",         # still-frame capture of the device screen
     "recording",           # video capture of the device screen
     "snapshot",            # environment state snapshot/restore
-    "android_studio",      # IDE/toolchain present (implementation env)
 )
 
 #: Enum-valued capabilities and their allowed values.

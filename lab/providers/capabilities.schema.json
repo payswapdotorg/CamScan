@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "lab/providers/capabilities.schema.json",
-  "title": "LabProvider capability report (v0.1)",
-  "description": "Machine-verifiable capability report emitted by every LabProvider. Scenario meta.requires is validated against the same vocabulary; matching is done by lab/providers/scheduler.py. Reports must state substrate truth (e.g. the e2b TCG provider reports emulator_acceleration 'none' — never 'kvm').",
+  "title": "LabProvider capability report (v0.2)",
+  "description": "Machine-verifiable capability report emitted by every LabProvider. Scenario meta.requires is validated against the same vocabulary; matching is done by lab/providers/scheduler.py. Reports must state substrate truth (e.g. the e2b TCG provider reports emulator_acceleration 'none' — never 'kvm'). v0.2 (CLI-first, operator directive 2026-09-23): android_sdk / android_cli / gradle are first-class required capabilities; android_studio is demoted to OPTIONAL environment metadata — it must never appear in scenario meta.requires and never gate scheduling.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,14 +12,16 @@
     "verified_utc",
     "gui",
     "persistent",
+    "android_sdk",
+    "android_cli",
     "android_emulator",
     "emulator_acceleration",
     "adb",
+    "gradle",
     "camera_fixture",
     "screenshots",
     "recording",
-    "snapshot",
-    "android_studio"
+    "snapshot"
   ],
   "properties": {
     "slug": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
@@ -32,14 +34,29 @@
     },
     "gui": { "type": "boolean" },
     "persistent": { "type": "boolean" },
+    "android_sdk": {
+      "type": "boolean",
+      "description": "Android SDK installed and CLI-installable (cmdline-tools + platform-tools + platforms + build-tools)"
+    },
+    "android_cli": {
+      "type": "boolean",
+      "description": "terminal-accessible Android CLI tooling (sdkmanager/avdmanager and/or the newer unified 'android' CLI) — the CLI-first worker stack; never requires an IDE"
+    },
     "android_emulator": { "type": "boolean" },
     "emulator_acceleration": { "enum": ["none", "kvm", "hvf"] },
     "adb": { "type": "boolean" },
+    "gradle": {
+      "type": "boolean",
+      "description": "Gradle build capability (wrapper distribution usable from the terminal)"
+    },
     "camera_fixture": { "type": "boolean" },
     "screenshots": { "type": "boolean" },
     "recording": { "type": "boolean" },
     "snapshot": { "type": "boolean" },
-    "android_studio": { "type": "boolean" },
+    "android_studio": {
+      "type": "boolean",
+      "description": "OPTIONAL environment metadata only (IDE present for optional human debugging/inspection). NOT a matchable capability, NOT a scenario requirement, never gates scheduling — CLI-first architecture."
+    },
     "notes": {
       "type": "object",
       "additionalProperties": { "type": "string" },

@@ -42,7 +42,7 @@ class LabProvider(Protocol):
     def report(self, env: EnvironmentId) -> HealthReport: ...
 ```
 
-## Capability set (v0.1 — typed, machine-verifiable)
+## Capability set (v0.2 — typed, machine-verifiable, CLI-first)
 
 Capability reports are typed mappings validated against
 `capabilities.schema.json` (JSON Schema, CI-enforced). Scenario
@@ -50,18 +50,31 @@ Capability reports are typed mappings validated against
 (boolean; enum scalar; `{allowed: [...]}`); matching lives in `scheduler.py`
 (`provider_matches` / `select_provider` / `pair_compatible`).
 
+**v0.2 (operator directive 2026-09-23 — CLI-first Android):** the canonical
+worker environment is terminal-only. `android_sdk`, `android_cli`,
+`android_emulator`, `adb`, and `gradle` are first-class capabilities;
+`android_studio` is **optional environment metadata only** — it is NOT part of
+the matchable vocabulary, MUST never appear in scenario `meta.requires`
+(`validate_requirement` rejects it as an unknown capability — the mechanical
+enforcement), and never gates scheduling. Android Studio may remain an
+optional human debugging/inspection environment; it is never a prerequisite
+for agent execution, parity scenarios, CI, or provider capability matching.
+
 ```yaml
-capabilities:                # provider capability report
+capabilities:                # provider capability report (v0.2)
   gui: true                  # screen content observable (screenshot + UI hierarchy)
   persistent: false          # environment survives across runs
+  android_sdk: true          # SDK installed and CLI-installable (cmdline-tools + platform-tools + platforms + build-tools)
+  android_cli: true          # terminal-usable Android CLI tooling (sdkmanager/avdmanager and/or the newer unified `android` CLI)
   android_emulator: true
   emulator_acceleration: none   # enum: none | kvm | hvf — substrate TRUTH
   adb: true
+  gradle: true               # Gradle build capability (gradlew wrapper distribution usable)
   camera_fixture: false      # deterministic virtual-camera injection
   screenshots: true
   recording: true
   snapshot: true
-  android_studio: false      # IDE/toolchain present (implementation env)
+  android_studio: false      # OPTIONAL METADATA (never matchable, never required)
 ```
 
 Scenario `meta.requires` must be satisfiable by the provider's reported

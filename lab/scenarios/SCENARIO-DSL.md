@@ -35,13 +35,15 @@ assertions:
 meta:
   timeout_seconds: 1800        # REQUIRED (int >= 60)
   step_timeout_seconds: 120    # REQUIRED (int >= 30)
-  requires:                    # REQUIRED typed mapping (v0.1 — not a string list)
+  requires:                    # REQUIRED typed mapping (v0.2 — not a string list)
     gui: true
     adb: true
     android_emulator: true
+    android_sdk: true          # CLI-first execution stack (2026-09-23 directive)
+    android_cli: true
     emulator_acceleration:
       allowed: [none]
-    camera_fixture: true       # only when the flow opens the camera
+    camera_fixture: true       # only when the flow genuinely captures through the camera
   owner: reference-discovery | lead | reconciliation | implementation
   notes: string
 ```
@@ -63,13 +65,17 @@ meta:
 A scenario that cannot finish within `timeout_seconds` is `BLOCKED
 (timeout)`, never silently truncated.
 
-## Typed capability requirements (v0.1)
+## Typed capability requirements (v0.2 — CLI-first)
 
 `meta.requires` is a mapping of capability → requirement, validated against
 the same vocabulary as provider capability reports
 (`lab/providers/capabilities.schema.json`):
 
-- boolean capabilities (`gui`, `adb`, `camera_fixture`, …) take booleans;
+- boolean capabilities (`gui`, `adb`, `android_sdk`, `android_cli`,
+  `gradle`, `camera_fixture`, …) take booleans;
+- `android_studio` is NOT a capability requirement — it is optional
+  environment metadata in reports only; declaring it in `meta.requires`
+  is a validation error (CLI-first rule, 2026-09-23);
 - enum capabilities take a scalar or a typed form:
 
 ```yaml

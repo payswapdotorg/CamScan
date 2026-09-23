@@ -27,6 +27,8 @@ meta:
     gui: true
     adb: true
     android_emulator: true
+    android_sdk: true
+    android_cli: true
     emulator_acceleration:
       allowed:
       - none
