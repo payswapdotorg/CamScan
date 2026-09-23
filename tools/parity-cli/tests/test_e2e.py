@@ -189,7 +189,7 @@ def test_bundle_step_evidence_missing_detected(tmp_path: Path) -> None:
             (stage / "implementation" / "ui" / "03-capture.xml").unlink()
         result = bundle_run(stage, fixtures_ref=REPO_ROOT)
         assert result.ok, result.problems
-    run_dir = _assemble_paired_run(tmp_path, run_id)
+    _assemble_paired_run(tmp_path, run_id)
     masks = tmp_path / "masks-empty"
     masks.mkdir()
     result = compare_run(run_id, runs_dir=tmp_path / "runs",

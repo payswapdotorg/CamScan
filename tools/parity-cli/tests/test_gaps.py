@@ -4,9 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
-from helpers import (build_pair, build_repo, compare_pair,
-                     default_artifacts)
+from helpers import build_pair, build_repo, compare_pair, default_artifacts
 from tools.parity_cli.gaps import gap_documents, render_gap_yaml, write_gaps
 from tools.parity_cli.model import ParityCliError
 

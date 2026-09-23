@@ -5,11 +5,8 @@ import json
 from pathlib import Path
 
 import pytest
-
-from helpers import (DEFAULT_TRACE, TRACE_WITH_UPSELL, compare_pair,
-                     entry_ids)
-from tools.parity_cli.masks import (DEFAULT_MASKS_DIR, apply_masks,
-                                    load_masks)
+from helpers import DEFAULT_TRACE, TRACE_WITH_UPSELL, compare_pair, entry_ids
+from tools.parity_cli.masks import DEFAULT_MASKS_DIR, apply_masks, load_masks
 from tools.parity_cli.model import ParityCliError
 
 

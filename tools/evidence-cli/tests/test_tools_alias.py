@@ -42,10 +42,14 @@ def test_evidence_cli_alias_reexports_api():
         getattr(pkg, "nonexistent_name")  # noqa: B009
 
 
-def test_py_less_dashed_dir_not_registered():
-    # parity-cli is README-only at branch time → no alias module
-    with pytest.raises(ModuleNotFoundError):
-        import tools.parity_cli  # noqa: F401
+def test_parity_cli_alias_registered():
+    # CAMSCAN-005 landed parity-cli's implementation → the generalized
+    # dashed-dir alias registers it (the README-only placeholder era that
+    # the old not-registered assertion pinned is over).
+    import tools.parity_cli as pkg
+    assert pkg.__name__ == "tools.parity_cli"
+    import tools.parity_cli.compare as compare_mod
+    assert hasattr(compare_mod, "compare_run")
 
 
 def test_sibling_aliases_register_and_import():

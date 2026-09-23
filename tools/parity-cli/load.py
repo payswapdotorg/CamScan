@@ -27,7 +27,7 @@ clock, so identical evidence yields byte-identical outputs.
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -186,7 +186,7 @@ def scenario_fields_for_run(run_dir: Path) -> dict[str, Any]:
 # ------------------------------------------------------------ timestamps
 
 def _canonical_utc(dt: datetime) -> str:
-    return dt.astimezone(timezone.utc).strftime(UTC_FORMAT)
+    return dt.astimezone(UTC).strftime(UTC_FORMAT)
 
 
 def _parse_stamp(value: Any) -> datetime | None:
@@ -227,7 +227,7 @@ def derive_generated_utc(bundles: dict[str, Bundle],
         try:
             parsed = datetime.strptime(
                 f"{date_part}T{time_part}", "%Y%m%dT%H%M%S"
-            ).replace(tzinfo=timezone.utc)
+            ).replace(tzinfo=UTC)
             return _canonical_utc(parsed)
         except ValueError:
             pass

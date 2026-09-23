@@ -44,11 +44,24 @@ from tools.evidence_cli.jsonio import dump as jsonio_dump
 from tools.evidence_cli.jsonio import dumps_deterministic
 
 from . import masks as masks_mod
-from .load import (derive_generated_utc, load_bundles, resolve_run_dir,
-                   scenario_of_bundles)
-from .model import (DIMENSIONS, DIMENSION_ORDER, Bundle, CompareResult,
-                    DiffEntry, SEVERITIES, classify_result, result_literal,
-                    slug, step_label)
+from .load import (
+    derive_generated_utc,
+    load_bundles,
+    resolve_run_dir,
+    scenario_of_bundles,
+)
+from .model import (
+    DIMENSION_ORDER,
+    DIMENSIONS,
+    SEVERITIES,
+    Bundle,
+    CompareResult,
+    DiffEntry,
+    classify_result,
+    result_literal,
+    slug,
+    step_label,
+)
 
 #: diff.json self-describing format tag.
 DIFF_FORMAT = "camscan-parity-diff/1"
@@ -110,7 +123,7 @@ def _step_artifacts(manifest: dict[str, Any],
 
 
 def _category_counts(manifest: dict[str, Any]) -> dict[str, int]:
-    counts = {name: 0 for name in COUNTED_CATEGORIES}
+    counts = dict.fromkeys(COUNTED_CATEGORIES, 0)
     counts["outputs"] = 0
     for art in manifest.get("artifacts") or []:
         if not isinstance(art, dict):
@@ -614,7 +627,7 @@ def _dimensions_doc(entries: list[DiffEntry],
     out: dict[str, Any] = {}
     for dimension in DIMENSIONS:
         dim_entries = [e for e in entries if e.dimension == dimension]
-        counts = {severity: 0 for severity in SEVERITIES}
+        counts = dict.fromkeys(SEVERITIES, 0)
         for entry in dim_entries:
             counts[entry.severity] += 1
         out[dimension] = {
@@ -626,7 +639,7 @@ def _dimensions_doc(entries: list[DiffEntry],
 
 
 def _counts(entries: list[DiffEntry]) -> dict[str, int]:
-    counts = {severity: 0 for severity in SEVERITIES}
+    counts = dict.fromkeys(SEVERITIES, 0)
     for entry in entries:
         counts[entry.severity] += 1
     return counts

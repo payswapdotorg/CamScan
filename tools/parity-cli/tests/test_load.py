@@ -5,13 +5,15 @@ import json
 from pathlib import Path
 
 import pytest
-
-from tools.parity_cli.load import (derive_generated_utc, load_bundles,
-                                   parse_scenario_yaml, resolve_run_dir,
-                                   run_number)
-from tools.parity_cli.model import ParityCliError
-
 from helpers import RUN_ID, SCENARIO_S004, base_manifest, build_pair
+from tools.parity_cli.load import (
+    derive_generated_utc,
+    load_bundles,
+    parse_scenario_yaml,
+    resolve_run_dir,
+    run_number,
+)
+from tools.parity_cli.model import ParityCliError
 
 
 def test_resolve_run_dir_missing(tmp_path: Path) -> None:

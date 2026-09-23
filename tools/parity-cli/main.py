@@ -30,12 +30,11 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:  # script-mode bootstrap
     sys.path.insert(0, str(_REPO_ROOT))
 
-from tools.parity_cli.compare import compare_run  # noqa: E402
-from tools.parity_cli.gaps import write_gaps  # noqa: E402
-from tools.parity_cli.ledger import update_ledger  # noqa: E402
-from tools.parity_cli.load import resolve_run_dir  # noqa: E402
-from tools.parity_cli.model import (DIMENSIONS, ParityCliError,  # noqa: E402
-                                    SEVERITIES)
+from tools.parity_cli.compare import compare_run
+from tools.parity_cli.gaps import write_gaps
+from tools.parity_cli.ledger import update_ledger
+from tools.parity_cli.load import resolve_run_dir
+from tools.parity_cli.model import DIMENSIONS, SEVERITIES, ParityCliError
 
 
 def _add_common(parser: argparse.ArgumentParser) -> None:

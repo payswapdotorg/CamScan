@@ -70,12 +70,7 @@ def default_artifacts(trace: list[dict[str, Any]] | None = None,
             marker = f"{prefix}-{path}" if prefix else path
             entries.append({"path": path, "sha256": synth_sha(marker),
                             "bytes": 256})
-    entries.append({"path": "logs/logcat.txt",
-                    "sha256": synth_sha("logcat"), "bytes": 512})
-    entries.append({"path": "logs/app-events.json",
-                    "sha256": synth_sha("app-events"), "bytes": 128})
-    entries.append({"path": "recordings/screen.mp4",
-                    "sha256": synth_sha("screen"), "bytes": 2048})
+    entries.extend(({"path": "logs/logcat.txt", "sha256": synth_sha("logcat"), "bytes": 512}, {"path": "logs/app-events.json", "sha256": synth_sha("app-events"), "bytes": 128}, {"path": "recordings/screen.mp4", "sha256": synth_sha("screen"), "bytes": 2048}))
     for name in ("document.pdf", "page-01.jpg"):
         marker = f"{prefix}-outputs/{name}" if prefix else f"outputs/{name}"
         entries.append({"path": f"outputs/{name}",

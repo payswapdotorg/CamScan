@@ -72,9 +72,7 @@ class MaskRule:
             return False
         if self.target is not None and step.get("target") != self.target:
             return False
-        if self.index is not None and index != self.index:
-            return False
-        return True
+        return not (self.index is not None and index != self.index)
 
 
 @dataclass

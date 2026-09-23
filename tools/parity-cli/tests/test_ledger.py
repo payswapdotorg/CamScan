@@ -5,8 +5,7 @@ import json
 from pathlib import Path
 
 import pytest
-
-from helpers import (build_pair, build_repo, compare_pair, ledger_doc)
+from helpers import build_pair, build_repo, compare_pair, ledger_doc
 from tools.evidence_cli.jsonio import dump as jsonio_dump
 from tools.evidence_cli.jsonio import load as jsonio_load
 from tools.parity_cli.ledger import VERDICT_TO_STATUS, update_ledger

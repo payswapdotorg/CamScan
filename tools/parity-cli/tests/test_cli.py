@@ -5,7 +5,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from helpers import RUN_ID, build_pair, build_repo
 from tools.parity_cli.main import main
 

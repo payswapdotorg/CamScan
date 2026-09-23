@@ -8,10 +8,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from helpers import DEFAULT_TRACE, compare_pair, default_artifacts, entry_ids
 from tools.parity_cli.verdict import compute_verdict, verdict_doc
-
-from helpers import (DEFAULT_TRACE, compare_pair, default_artifacts,
-                     entry_ids)
 
 
 def _diff(counts: dict[str, int], ref: str = "ok", impl: str = "ok"

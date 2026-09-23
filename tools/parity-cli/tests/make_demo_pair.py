@@ -37,8 +37,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from tools.evidence_cli.bundle import bundle_run  # noqa: E402
-from tools.evidence_cli.jsonio import load as jsonio_load  # noqa: E402
+from tools.evidence_cli.bundle import bundle_run
+from tools.evidence_cli.jsonio import load as jsonio_load
 
 RUN_ID = "20260923T120000Z-S004-synth01"
 SCENARIO_FILE = (_REPO_ROOT / "lab" / "scenarios"
