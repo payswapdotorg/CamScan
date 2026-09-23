@@ -62,6 +62,7 @@ sys.path.insert(0, str(REPO_ROOT))
 APK_PACKAGE_DEFAULT = "com.intsig.camscanner"
 
 from lab.providers.types import CaptureKind, EnvironmentSpec, Interaction  # noqa: E402
+from lab.providers.types import CommandResult  # noqa: E402
 from lab.providers.e2b import E2BProvider, E2BProviderConfig  # noqa: E402
 from lab.providers.e2b.bootstrap import ADB  # noqa: E402
 
@@ -299,6 +300,7 @@ sleep 5
         install_ok = False
         install = None
         install_diag = []
+        sandbox_death = None
         # retry-until-lucky (probe-24 final substrate truth): the google_apis
         # image NEVER settles — GMS bg-ANR churn bursts every 5-10 min forever
         # and kills the package service mid-stream at random. Each attempt is
@@ -306,7 +308,30 @@ sleep 5
         # the gated backoff below spans ~30 min of windows (probe 17 and 21b
         # both succeeded/reached-commit on attempt 2 — luck is real and
         # bounded retries harvest it).
+        #
+        # run-005 lessons (2026-09-23T024052Z, sandbox igj6mqwz):
+        #   (a) a hung install stream eats the whole 20-min command timeout
+        #       with no renewal opportunity — the sandbox expired mid-command
+        #       and the loop then burned ~50 min hammering the corpse. Fix:
+        #       run each install in the BACKGROUND with an EXIT_n marker file
+        #       (probe-21b pattern) and poll lightly — polls renew the
+        #       sandbox lifetime and a hang costs one 6-min outcome window,
+        #       not 20 min.
+        #   (b) sandbox death ("sandbox was not found" / "sandbox timeout" /
+        #       "ended before the stream completed") is NOT a retryable
+        #       install failure. Abort at once with verdict
+        #       BLOCKED/sandbox_death — a fresh run gets a fresh 60-min
+        #       window (E2B hard cap; set_timeout renewals cannot extend
+        #       past it, as run-005 + probe-24 both died at exactly ~60 min).
+        def _sandbox_dead(res) -> bool:
+            blob = f"{res.stdout or ''}\n{res.stderr or ''}"
+            return ("sandbox was not found" in blob
+                    or "sandbox timeout" in blob
+                    or "ended before the stream completed" in blob)
+
         for attempt in range(8):
+            if sandbox_death:
+                break
             # diagnostics: files present? package service up? (verdicts that
             # die on stderr are invisible otherwise — run-001 lesson)
             diag = provider.execute(env_id, f"""
@@ -314,17 +339,72 @@ echo "=== install attempt {attempt + 1} diagnostics ==="
 ls -la /root/*.apk 2>&1 | head -5
 {ADB} shell pm list packages 2>&1 | head -1
 """, timeout=120)
+            if _sandbox_dead(diag):
+                sandbox_death = (diag.stderr or diag.stdout or "").strip()[-300:]
+                install_diag.append(f"[attempt {attempt + 1}] SANDBOX-DEAD: "
+                                    f"{sandbox_death}")
+                break
             install_diag.append(diag.stdout.strip()[-500:])
-            install = provider.execute(env_id, install_cmd, timeout=1200)
-            install_ok = "Success" in (install.stdout or "")
-            if not install_ok:
+            # background install with EXIT marker (probe-21b pattern)
+            launcher = provider.execute(env_id, f"""
+rm -f /root/install.out
+({install_cmd} > /root/install.out 2>&1; echo "EXIT_$?" >> /root/install.out) &
+echo LAUNCHED
+""", timeout=60)
+            if _sandbox_dead(launcher):
+                sandbox_death = (launcher.stderr or launcher.stdout or "").strip()[-300:]
+                install_diag.append(f"[attempt {attempt + 1}] SANDBOX-DEAD: "
+                                    f"{sandbox_death}")
+                break
+            install = launcher
+            install_ok = False
+            outcome_seen = False
+            deadline = time.time() + 360  # 6-min outcome window per attempt
+            while time.time() < deadline:
+                time.sleep(20)
+                poll = provider.execute(
+                    env_id, "cat /root/install.out 2>&1 | tail -4", timeout=60)
+                if _sandbox_dead(poll):
+                    sandbox_death = (poll.stderr or poll.stdout or "").strip()[-300:]
+                    break
+                out = (poll.stdout or "")
+                if "EXIT_" in out:
+                    mres = re.search(r"EXIT_(-?\d+)", out)
+                    ec = int(mres.group(1)) if mres else -1
+                    # fetch the full outcome file for the record
+                    full = provider.execute(
+                        env_id, "cat /root/install.out 2>&1", timeout=60)
+                    body = (full.stdout or out).strip()
+                    install = CommandResult(
+                        exit_code=ec, stdout=body,
+                        stderr="" if ec == 0 else body[-400:],
+                        command=install_cmd)
+                    install_ok = ("Success" in body and ec == 0)
+                    outcome_seen = True
+                    break
+            if sandbox_death:
+                install_diag.append(f"[attempt {attempt + 1}] SANDBOX-DEAD: "
+                                    f"{sandbox_death}")
+                break
+            if not outcome_seen:
+                # outcome window elapsed with no EXIT marker — kill the
+                # zombie stream and record a timeout (cheap, no 20-min hang)
+                provider.execute(
+                    env_id, "pkill -f 'adb install' 2>&1; echo KILLED",
+                    timeout=60)
+                install = CommandResult(
+                    exit_code=-1, stdout="", stderr="outcome window elapsed",
+                    command=install_cmd)
+                install_diag.append(f"[attempt {attempt + 1}] "
+                                    f"outcome-window-timeout")
+            if install_ok:
+                break
+            if install is not None:
                 # adb writes failure verdicts to stderr — capture both streams
                 install_diag.append(
                     f"[attempt {attempt + 1}] exit={install.exit_code} "
-                    f"stdout={install.stdout.strip()[-200:]!r} "
-                    f"stderr={install.stderr.strip()[-400:]!r}")
-            if install_ok:
-                break
+                    f"stdout={(install.stdout or '').strip()[-200:]!r} "
+                    f"stderr={(install.stderr or '').strip()[-400:]!r}")
             # run-003 lesson: the device package service can die MID-STREAM
             # (broken pipe / Can't find service) — random flap, minutes-scale.
             # Gated backoff: wait for the service to respond again + 30s
@@ -333,11 +413,27 @@ ls -la /root/*.apk 2>&1 | head -5
                 probe = provider.execute(env_id,
                                          f"{ADB} shell pm list packages 2>&1 | head -1",
                                          timeout=60)
+                if _sandbox_dead(probe):
+                    sandbox_death = (probe.stderr or probe.stdout or "").strip()[-300:]
+                    break
                 if (probe.stdout or "").strip().startswith("package:"):
                     break
                 time.sleep(15)
+            if sandbox_death:
+                break
             time.sleep(30)
         result["install_diagnostics"] = install_diag
+        if sandbox_death:
+            result["install"] = {
+                "cmd": install_cmd.split(ADB)[-1][:200],
+                "stderr": sandbox_death,
+                "exit_code": -1,
+                "attempts": attempt + 1,
+                "sandbox_death": True}
+            phase("install", False, result["install"])
+            result["verdict"] = "BLOCKED"
+            result["blocked_reason"] = "sandbox_death"
+            raise BlockedExit()
         result["install"] = {"cmd": install_cmd.split(ADB)[-1][:200],
                              "stdout": (install.stdout or "").strip()[-800:],
                              "stderr": (install.stderr or "").strip()[-800:],
