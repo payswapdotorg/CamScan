@@ -44,14 +44,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-
 from labcli_helpers import REPO_ROOT, run_cli
-from lab.providers.types import (
-    Artifact,
-    CaptureKind,
-    CommandResult,
-    Interaction,
-)
 from tools.evidence_cli.jsonio import load as jsonio_load
 from tools.lab_cli import drivers as driver_registry
 from tools.lab_cli.drivers import (
@@ -68,12 +61,19 @@ from tools.lab_cli.reference_live import (
     RETRY_BACKOFF_S,
     SERVICE_SETTLE_POLL_S,
     ReferenceDriver,
-    _Native,
     _file_sha256,
+    _Native,
 )
 from tools.lab_cli.run import load_provider_reports
 from tools.lab_cli.scenarios import LabCliError, resolve_scenario
 from tools.lab_cli.steps import plan_steps
+
+from lab.providers.types import (
+    Artifact,
+    CaptureKind,
+    CommandResult,
+    Interaction,
+)
 
 RUN_ID = "20260924T000000Z-S001-live"
 
@@ -259,7 +259,7 @@ def _make_xapk(path: Path) -> Path:
 
 
 def _make_driver(provider: ScriptedProvider,
-                 apk: "str | Path | None" = None) \
+                 apk: str | Path | None = None) \
         -> tuple[ReferenceDriver, FakeClock]:
     clock = FakeClock()
     driver = ReferenceDriver(apk=apk, provider=provider,
@@ -267,7 +267,7 @@ def _make_driver(provider: ScriptedProvider,
     return driver, clock
 
 
-def _provision_request(lines: list[str], *, apk: "str | Path | None" = None,
+def _provision_request(lines: list[str], *, apk: str | Path | None = None,
                        subject: str = "reference",
                        scenario_id: str = "S001") -> ProvisionRequest:
     scenario = resolve_scenario(scenario_id, REPO_ROOT / "lab" / "scenarios")
@@ -542,8 +542,8 @@ def test_execute_launch_anr_dismissal_and_evidence(monkeypatch, tmp_path):
     # the ANR ladder's ui dumps: round 1 shows the Wait button over
     # the splash, round 2 the dialog is gone (observe.py 6b shape)
     provider.ui_xmls = [
-        '<hierarchy rotation="0"><node text="Wait" '
-        'bounds="[420,1180][660,1310]"/></hierarchy>',
+        ('<hierarchy rotation="0"><node text="Wait" '
+         'bounds="[420,1180][660,1310]"/></hierarchy>'),
         '<hierarchy rotation="0"><node text="CamScanner"/></hierarchy>',
     ]
     driver, _clock = _make_driver(provider, apk=xapk)

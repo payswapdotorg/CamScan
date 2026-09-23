@@ -295,7 +295,7 @@ class ReferenceDriver:
 
     slug = "reference-live"
 
-    def __init__(self, apk: "str | Path | None" = None, *,
+    def __init__(self, apk: str | Path | None = None, *,
                  provider: Any = None,
                  sleep: Callable[[float], None] = time.sleep,
                  monotonic: Callable[[], float] = time.monotonic) -> None:
@@ -358,7 +358,7 @@ class ReferenceDriver:
                  f"(boot_s={boot.get('boot_s')})")
             self._boot_settle(provider, env_id, ADB, emit)
             self._apply_dexopt_filter(provider, env_id, ADB, emit)
-            remote_files, install_cmd, delivery = self._acquire_bundle(
+            _remote_files, install_cmd, delivery = self._acquire_bundle(
                 provider, env_id, ADB, apk, apk_url, emit)
             self._install_ladder(provider, env_id, ADB, install_cmd, emit)
             self._registry_verify(provider, env_id, ADB, emit)
@@ -368,7 +368,7 @@ class ReferenceDriver:
         except LabCliError:
             self._destroy_quietly(provider, env_id, emit)
             raise
-        except Exception as exc:  # noqa: BLE001 — wrap for the CLI layer
+        except Exception as exc:
             self._destroy_quietly(provider, env_id, emit)
             raise LabCliError(
                 f"reference provisioning failed: {type(exc).__name__}: "
@@ -575,7 +575,7 @@ sleep 5
         emit("  reference: dexopt filter set (pm.dexopt.install=verify)")
 
     def _acquire_bundle(self, provider: Any, env_id: str, adb: str,
-                        apk: "Path | None", apk_url: str,
+                        apk: Path | None, apk_url: str,
                         emit: Callable[[str], None]) \
             -> tuple[list[str], str, str]:
         """Stage the bundle's APKs as SANDBOX-side files; returns
@@ -829,7 +829,7 @@ echo LAUNCHED
         own failures)."""
         try:
             provider.destroy(env_id)
-        except Exception as exc:  # noqa: BLE001, S110 — never raises
+        except Exception as exc:  # noqa: BLE001 — never raises
             emit(f"  reference: destroy after failure failed ({exc})")
 
     # ---------------------------------------------------------------- verbs
