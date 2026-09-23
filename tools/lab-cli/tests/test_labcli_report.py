@@ -24,7 +24,6 @@ import shutil
 from pathlib import Path
 
 from labcli_helpers import DEMO_PAIR, DEMO_PAIR_ID, REPO_ROOT, run_cli
-
 from tools.parity_cli.compare import compare_run
 from tools.parity_cli.gaps import write_gaps
 

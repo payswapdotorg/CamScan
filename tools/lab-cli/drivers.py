@@ -32,9 +32,10 @@ NO-OP ``planned:`` line, never a fabricated observation.
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Optional, Protocol
+from typing import Any, Protocol
 
 from tools.lab_cli.scenarios import Scenario
 
@@ -69,7 +70,7 @@ class ProvisionRequest:
     provider_report: dict[str, Any]   # the scheduler's chosen record
     step_timeout_s: int               # meta.step_timeout_seconds
     timeout_s: int                    # meta.timeout_seconds
-    apk: Optional[Path] = None        # local APK (implementation live)
+    apk: Path | None = None        # local APK (implementation live)
     emit: Callable[[str], None] = print
 
 
@@ -77,7 +78,7 @@ class ProvisionRequest:
 class ExecutionRequest:
     """Everything a driver needs to execute + capture ONE subject."""
 
-    handle: "DriverHandle"
+    handle: DriverHandle
     run_id: str
     subject: str
     scenario: Scenario
@@ -123,11 +124,11 @@ class SubjectRunResult:
     problems: list[str] = field(default_factory=list)
 
     @classmethod
-    def noop(cls, subject: str, reason: str) -> "SubjectRunResult":
+    def noop(cls, subject: str, reason: str) -> SubjectRunResult:
         return cls(subject=subject, ok=True, planned_noop=True, reason=reason)
 
     @classmethod
-    def failed(cls, subject: str, reason: str) -> "SubjectRunResult":
+    def failed(cls, subject: str, reason: str) -> SubjectRunResult:
         return cls(subject=subject, ok=False, reason=reason)
 
 
@@ -172,7 +173,7 @@ class RunDriver(Protocol):
 
 # ---------------------------------------------------------------- registry
 
-def live_driver_reason(env: str, provider_slug: str) -> Optional[str]:
+def live_driver_reason(env: str, provider_slug: str) -> str | None:
     """Why no live driver is on record for (env, provider) — or None."""
     if (env, provider_slug) in _LIVE_DRIVER_FACTORIES:
         return None
@@ -208,7 +209,7 @@ _register_builtin_live()
 
 
 def resolve_driver(env: str, provider_slug: str, kind: str) \
-        -> tuple[Optional[RunDriver], str]:
+        -> tuple[RunDriver | None, str]:
     """Resolve a driver for (env, provider) by kind.
 
     Returns (driver, reason): driver is None when none is on record

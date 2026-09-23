@@ -30,25 +30,27 @@ Honesty rules:
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
 
-from lab.providers.scheduler import select_provider
 from tools.evidence_cli.jsonio import load as jsonio_load
 from tools.lab_cli import evidence as ev
 from tools.lab_cli.drivers import (
     APP_PACKAGES,
     ENVS,
     DriverHandle,
-    ProvisionRequest,
     ExecutionRequest,
+    ProvisionRequest,
     SubjectRunResult,
     resolve_driver,
 )
 from tools.lab_cli.scenarios import LabCliError, Scenario, list_scenarios
 from tools.lab_cli.steps import plan_steps, render_plan_line
+
+from lab.providers.scheduler import select_provider
 
 
 @dataclass
@@ -63,11 +65,11 @@ class RunOptions:
     driver_kind: str = "live"               # live | recording
     stamp: str = ""                         # YYYYMMDDTHHMMSSZ (default: now)
     suffix: str = ""                        # default: the driver slug
-    apk: Optional[Path] = None
+    apk: Path | None = None
     registry: Any = None                    # adb-bridge TargetRegistry
     emit: Callable[[str], None] = print
     clock: Callable[[], str] = field(
-        default_factory=lambda: lambda: datetime.now(timezone.utc)
+        default_factory=lambda: lambda: datetime.now(UTC)
         .strftime(ev.UTC_FORMAT))
 
 
@@ -170,7 +172,7 @@ def run_scenario(scenario: Scenario, opts: RunOptions) -> int:
     reports = load_provider_reports(opts.repo_root)
     chosen, reasons = select_provider(scenario.requires, reports)
 
-    stamp = opts.stamp or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = opts.stamp or datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     suffix = opts.suffix or opts.driver_kind
     run_id = ev.new_run_id(scenario.stem, suffix, stamp)
     run_dir = Path(opts.runs_dir) / run_id

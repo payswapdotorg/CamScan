@@ -20,7 +20,6 @@ from __future__ import annotations
 import shutil
 
 from labcli_helpers import (
-    REPO_ROOT,
     copy_control_plane,
     corrupt_scenario,
     run_cli,

@@ -32,11 +32,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-import yaml  # noqa: E402
-from jsonschema import Draft7Validator  # noqa: E402
+import yaml
+from jsonschema import Draft7Validator
 
-from lab.providers.scheduler import validate_requirements  # noqa: E402
-from lab.providers.types import CAPABILITY_KEYS  # noqa: E402
+from lab.providers.scheduler import validate_requirements
+from lab.providers.types import CAPABILITY_KEYS
 
 SCEN = ROOT / "lab" / "scenarios"
 LEDGER = ROOT / "lab" / "parity-ledger" / "ledger.json"

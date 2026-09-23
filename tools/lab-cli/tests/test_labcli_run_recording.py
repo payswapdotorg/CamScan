@@ -19,16 +19,13 @@ Pinned properties:
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from labcli_helpers import REPO_ROOT, run_cli
-
 from tools.evidence_cli.jsonio import load as jsonio_load
 from tools.evidence_cli.schema import validate_manifest
 from tools.lab_cli.drivers import (
     DriverHandle,
-    ExecutionRequest,
     ProvisionRequest,
 )
 from tools.lab_cli.evidence import execution_window
@@ -117,7 +114,7 @@ def run_cli_check(runs: Path, run_id: str):
 
 
 def test_recording_run_single_env_skips_compare(tmp_path):
-    proc, runs, gaps = _run_recording(tmp_path, "S001", "--env",
+    proc, runs, _gaps = _run_recording(tmp_path, "S001", "--env",
                                        "implementation")
     assert proc.returncode == 0, proc.stdout + proc.stderr
     run_dir = runs / f"{STAMP}-S001-recording"
@@ -165,7 +162,6 @@ def test_live_driver_requires_api_key_before_any_provisioning(monkeypatch):
     network, no SDK needed to prove the refusal (credentials come from
     the environment only, never from code/git)."""
     import pytest
-
     from tools.lab_cli.drivers import ProvisionRequest
     from tools.lab_cli.e2b_live import E2bLiveDriver
     from tools.lab_cli.scenarios import LabCliError
@@ -188,7 +184,6 @@ def test_live_driver_env_guard(monkeypatch):
     reference-env live run is refused loudly (the NO-OP planned: line
     in the runner covers it before the driver is even constructed)."""
     import pytest
-
     from tools.lab_cli.drivers import ProvisionRequest
     from tools.lab_cli.e2b_live import E2bLiveDriver
     from tools.lab_cli.scenarios import LabCliError
@@ -217,7 +212,7 @@ class _ExplodingDriver:
                             provider_slug="stub",
                             environment_id="env-stub")
 
-    def execute(self, handle, request):  # noqa: ANN001
+    def execute(self, handle, request):
         raise RuntimeError("substrate exploded")
 
     def teardown(self, handle, error: str = "", emit=print) -> None:

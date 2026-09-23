@@ -27,8 +27,9 @@ import hashlib
 import json
 import struct
 import zlib
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from tools.evidence_cli.jsonio import dump as jsonio_dump
 from tools.lab_cli.drivers import (

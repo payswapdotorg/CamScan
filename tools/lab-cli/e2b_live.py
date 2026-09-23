@@ -31,8 +31,9 @@ from __future__ import annotations
 
 import os
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from tools.lab_cli.drivers import (
     DriverHandle,
@@ -329,7 +330,7 @@ class E2bLiveDriver:
                     code = line.split("versionCode=")[1].split()[0]
                     if code.isdigit():
                         facts["version_code"] = int(code)
-        except Exception:  # noqa: BLE001 — facts are best-effort, never fatal
+        except Exception:  # noqa: BLE001, S110 — facts are best-effort, never fatal
             pass
         return facts
 

@@ -17,10 +17,8 @@ Pinned properties:
 """
 from __future__ import annotations
 
-import yaml
-
 import pytest
-
+import yaml
 from labcli_helpers import REPO_ROOT, run_cli
 
 SCEN_DIR = REPO_ROOT / "lab" / "scenarios"

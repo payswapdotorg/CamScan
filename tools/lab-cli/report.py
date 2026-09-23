@@ -33,9 +33,10 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-
 from tools.evidence_cli.jsonio import (
     dumps_deterministic,
+)
+from tools.evidence_cli.jsonio import (
     load as jsonio_load,
 )
 from tools.evidence_cli.schema import RUN_ID_RE, SUBJECTS

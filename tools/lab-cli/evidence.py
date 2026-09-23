@@ -29,9 +29,10 @@ from __future__ import annotations
 
 import re
 import shutil
-from datetime import datetime, timedelta, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from tools.evidence_cli.bundle import bundle_run
 from tools.evidence_cli.jsonio import load as jsonio_load
@@ -55,11 +56,11 @@ def parse_stamp(stamp: str) -> datetime:
         raise LabCliError(
             f"stamp {stamp!r} must match YYYYMMDDTHHMMSSZ (UTC)")
     return datetime.strptime(stamp, "%Y%m%dT%H%M%SZ").replace(
-        tzinfo=timezone.utc)
+        tzinfo=UTC)
 
 
 def format_utc(moment: datetime) -> str:
-    return moment.astimezone(timezone.utc).strftime(UTC_FORMAT)
+    return moment.astimezone(UTC).strftime(UTC_FORMAT)
 
 
 def new_run_id(stem: str, suffix: str, stamp: str) -> str:
@@ -201,7 +202,7 @@ def cleanup_staging(runs_dir: Path, run_id: str) -> None:
     root = stage_root(runs_dir, run_id)
     try:
         shutil.rmtree(root, ignore_errors=True)
-    except Exception:  # noqa: BLE001 — teardown path, never raises
+    except Exception:  # noqa: BLE001, S110 — teardown path, never raises
         pass
     parent = Path(runs_dir) / ".staging"
     try:

@@ -137,8 +137,7 @@ def resolve_scenario(query: str, scen_dir: Path) -> Scenario:
     """Resolve one scenario by kebab id, ``S###`` stem, or file name."""
     scen_dir = Path(scen_dir)
     query = query.strip()
-    if query.endswith(".yaml"):
-        query = query[: -len(".yaml")]
+    query = query.removesuffix(".yaml")
     for scenario in list_scenarios(scen_dir):
         if query in (scenario.id, scenario.stem, scenario.file.stem):
             return scenario
