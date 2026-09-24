@@ -612,6 +612,31 @@ echo LAUNCHED
                 break
         launch = None
         launch_diag = []
+        # probe-29 (2026-09-24, run 20260924T135903Z forensics): timestamp
+        # every ladder line — the attempt-2 postmortem had to reconstruct
+        # the timeline from file mtimes; hh:mm:ss prefixes make the next
+        # postmortem a read, not an inference.
+        def _ldiag(s: str) -> None:
+            launch_diag.append(time.strftime("%H:%M:%S ") + s)
+        # probe-29: the install's background dexopt (verify filter on a
+        # 162 MB base + 59 MB arm64 split under ~130 MB free) steals the
+        # exact CPU the cold start needs — attempt 2's am start was
+        # ACCEPTED (no resolution error) yet the app process never spawned
+        # through a 90 s WaitTime + a 6.7-min patient poll while logcat
+        # showed system_server slow-dispatch storms. Gate the ladder on
+        # dex2oat quiescence (bounded — fresh windows land installs fast
+        # and the verifier is usually already done).
+        for _ in range(24):  # ≤ 4 min at 10 s cadence
+            try:
+                dx = provider.execute(
+                    env_id, f"{ADB} shell ps -A | grep -c dex2oat", timeout=60)
+                if (dx.stdout or "").strip() in ("0", ""):
+                    break
+            except Exception:  # noqa: BLE001 — best-effort gate
+                break
+            time.sleep(10)
+        else:
+            _ldiag("dex2oat still running after 4 min — proceeding anyway")
         if comp:
             result["first_launch_cmd"] = f"am start -W -n {comp} (ladder)"
             for attempt in range(4):
@@ -638,13 +663,12 @@ rm -f /root/launch.out
 echo LAUNCHED
 """, timeout=60)
                 except Exception as _le:  # noqa: BLE001 — transport death
-                    launch_diag.append(f"[attempt {attempt + 1}] TRANSPORT-DEAD: "
-                                       f"{type(_le).__name__}: {_le}"[:200])
-                if bg is None or "LAUNCHED" not in (bg.stdout or ""):
-                    if bg is not None:
-                        launch_diag.append(f"[attempt {attempt + 1}] "
-                                           f"launcher-echo missing: "
-                                           f"{(bg.stdout or bg.stderr or '').strip()[-150:]!r}")
+                    _ldiag(f"[attempt {attempt + 1}] TRANSPORT-DEAD: "
+                           f"{type(_le).__name__}: {_le}"[:200])
+                if bg is not None and "LAUNCHED" not in (bg.stdout or ""):
+                    _ldiag(f"[attempt {attempt + 1}] "
+                           f"launcher-echo missing: "
+                           f"{(bg.stdout or bg.stderr or '').strip()[-150:]!r}")
                 outcome_seen = False
                 deadline = time.time() + 180  # 3-min outcome window
                 while time.time() < deadline:
@@ -653,8 +677,8 @@ echo LAUNCHED
                         poll = provider.execute(
                             env_id, "cat /root/launch.out 2>&1 | tail -6", timeout=60)
                     except Exception as _le:  # noqa: BLE001
-                        launch_diag.append(f"[attempt {attempt + 1}] POLL-DEAD: "
-                                           f"{type(_le).__name__}"[:120])
+                        _ldiag(f"[attempt {attempt + 1}] POLL-DEAD: "
+                               f"{type(_le).__name__}"[:120])
                         poll = None
                     if poll is None:
                         break
@@ -676,15 +700,41 @@ echo LAUNCHED
                         break
                 if poll is not None and outcome_seen:
                     body = (launch.stdout or "")
-                    launch_diag.append(f"[attempt {attempt + 1}] exit={launch.exit_code} "
-                                       f"stdout={body[-250:]!r}")
+                    _ldiag(f"[attempt {attempt + 1}] exit={launch.exit_code} "
+                           f"stdout={body[-250:]!r}")
+                    # probe-29: 'Error type 3 / does not exist' means the am
+                    # tool's OWN PackageManager query came back blind — while
+                    # resolve-activity had answered minutes earlier and the
+                    # activity-service gate never dropped (attempt 2: quiesce
+                    # 'Can't find service: package' → facts resolve OK →
+                    # attempts 2-3 blind → attempt 4 resolved). The PM binder
+                    # endpoint FLAPS on the same minutes cadence as the
+                    # install broken-pipe bursts. Capture the blind-state
+                    # evidence so the next postmortem can see it directly.
+                    if "does not exist" in body or "Error type 3" in body:
+                        for _label, _cmd in (
+                                ("pm-path", f"{ADB} shell pm path {pkg} | head -2"),
+                                ("resolve-again",
+                                 (f"{ADB} shell cmd package resolve-activity --brief "
+                                  f"-a android.intent.action.MAIN "
+                                  f"-c android.intent.category.LAUNCHER {pkg} | tail -1")),
+                                ("activity-table",
+                                 (f"{ADB} shell dumpsys package {pkg} "
+                                  f"| grep -m2 mainactivity"))):
+                            try:
+                                _r = provider.execute(env_id, _cmd, timeout=60)
+                                _ldiag(f"[attempt {attempt + 1}] blind-evidence "
+                                       f"{_label}={( _r.stdout or '').strip()[:120]!r}")
+                            except Exception:  # noqa: BLE001
+                                _ldiag(f"[attempt {attempt + 1}] blind-evidence "
+                                       f"{_label}=EXCEPTION")
                     if "Status: ok" in body:
                         launch = CommandResult(
                             exit_code=0, stdout=body, stderr="",
                             command=f"am start -W -n {comp}")
                         break
                     if "brought to the front" in body:
-                        launch_diag.append(
+                        _ldiag(
                             f"[attempt {attempt + 1}] task already fronted — "
                             "treating as up")
                         break
@@ -696,13 +746,15 @@ echo LAUNCHED
                             env_id, "pkill -f 'am start' 2>&1; echo KILLED",
                             timeout=60)
                     except Exception as _ke:  # noqa: BLE001 — best-effort kill
-                        launch_diag.append(
-                            f"[attempt {attempt + 1}] pkill-dead: "
-                            f"{type(_ke).__name__}")
-                    launch_diag.append(f"[attempt {attempt + 1}] "
-                                       "outcome-window-timeout (blocked am start)")
+                        _ldiag(f"[attempt {attempt + 1}] pkill-dead: "
+                               f"{type(_ke).__name__}")
+                    _ldiag(f"[attempt {attempt + 1}] "
+                           "outcome-window-timeout (blocked am start)")
                 # gated backoff: wait for the activity service to respond
-                # again + 30 s settle (install-ladder mirror)
+                # again + settle. probe-29: 30 s clustered all 4 attempts
+                # inside one TCG burst; the regime's inter-burst gaps run
+                # 5-10 min, so a 120 s settle lets the ladder straddle a
+                # full burst cycle (4 attempts now span ~15-20 min).
                 svc_up = False
                 for _ in range(8):
                     try:
@@ -714,15 +766,14 @@ echo LAUNCHED
                             svc_up = True
                             break
                     except Exception as _ge:  # noqa: BLE001 — best-effort gate
-                        launch_diag.append(
-                            f"[attempt {attempt + 1}] gate-dead: "
-                            f"{type(_ge).__name__}")
+                        _ldiag(f"[attempt {attempt + 1}] gate-dead: "
+                               f"{type(_ge).__name__}")
                     time.sleep(15)
-                launch_diag.append(f"[attempt {attempt + 1}] "
-                                   f"activity-service gate: {'up' if svc_up else 'down'}")
+                _ldiag(f"[attempt {attempt + 1}] "
+                       f"activity-service gate: {'up' if svc_up else 'down'}")
                 if not svc_up:
                     break
-                time.sleep(30)
+                time.sleep(120)
             result["first_launch_ladder"] = launch_diag
         else:
             result["first_launch_cmd"] = "monkey (no component resolved)"
