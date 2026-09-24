@@ -615,6 +615,22 @@ echo LAUNCHED
         if comp:
             result["first_launch_cmd"] = f"am start -W -n {comp} (ladder)"
             for attempt in range(4):
+                # probe-28 (2026-09-24, run 20260924T124252Z forensics): the
+                # wrapper execute can fail TRANSIENTLY in-band — the E2B SDK's
+                # request_timeout error TEXT arrives in stdout/stderr (the
+                # provider layer returns it, it does not raise), so "LAUNCHED"
+                # is missing while the sandbox and binder are both fine
+                # (canary __canary_ok__, ps_exit=0 in the same run's death
+                # forensics). The pre-28 ladder hard-broke here — aborting all
+                # 4 attempts on ONE wrapper transient, the exact
+                # single-shot-vs-retry-ladder asymmetry probe-27 fixed for the
+                # am start call itself. Fix: fall through. The poll section
+                # below either finds launch.out (the wrapper DID run
+                # server-side despite the client-side timeout) or burns its
+                # bounded 3-min window; the activity-service gate + settle
+                # then backs off exactly like any other failed attempt, and
+                # only a genuinely dead activity service aborts the ladder.
+                bg = None
                 try:
                     bg = provider.execute(env_id, f"""
 rm -f /root/launch.out
@@ -624,12 +640,11 @@ echo LAUNCHED
                 except Exception as _le:  # noqa: BLE001 — transport death
                     launch_diag.append(f"[attempt {attempt + 1}] TRANSPORT-DEAD: "
                                        f"{type(_le).__name__}: {_le}"[:200])
-                    break
-                if "LAUNCHED" not in (bg.stdout or ""):
-                    launch_diag.append(f"[attempt {attempt + 1}] "
-                                       f"launcher-echo missing: "
-                                       f"{(bg.stdout or bg.stderr or '').strip()[-150:]!r}")
-                    break
+                if bg is None or "LAUNCHED" not in (bg.stdout or ""):
+                    if bg is not None:
+                        launch_diag.append(f"[attempt {attempt + 1}] "
+                                           f"launcher-echo missing: "
+                                           f"{(bg.stdout or bg.stderr or '').strip()[-150:]!r}")
                 outcome_seen = False
                 deadline = time.time() + 180  # 3-min outcome window
                 while time.time() < deadline:
