@@ -581,11 +581,27 @@ echo LAUNCHED
             res = provider.execute(env_id, cmd, timeout=180)
             facts[label] = res.stdout.strip()[:4000]
         result["package_facts"] = facts
-        installed_pkg = provider.execute(env_id, f"{ADB} shell pm list packages | grep -i camsc",
-                                         timeout=120).stdout.strip()
+        # probe-33 (2026-09-24, run 20260924T203342Z postmortem): 'pm list
+        # packages' came back BLIND on the post-restore transport flap and
+        # marked the phase False — while resolve-activity had just answered
+        # with our package (PM-endpoint proof of installation). Blindness-
+        # aware retry; a resolved main_activity is accepted as proof when
+        # the package listing itself stays unreadable.
+        installed_pkg = ""
+        for _ in range(4):
+            installed_pkg = provider.execute(
+                env_id, f"{ADB} shell pm list packages | grep -i camsc",
+                timeout=120).stdout.strip()
+            if pkg in installed_pkg:
+                break
+            time.sleep(15)
+        _main_act = (facts.get("main_activity") or "").strip()
+        _resolved_line = _main_act.splitlines()[-1] if _main_act else ""
+        resolved_ok = _resolved_line.startswith(pkg + "/")
         result["installed_packages"] = installed_pkg
-        phase("package-facts", pkg in installed_pkg,
-              {"resolved_main_activity": facts.get("main_activity", "")})
+        phase("package-facts", pkg in installed_pkg or resolved_ok,
+              {"resolved_main_activity": facts.get("main_activity", ""),
+               "pm_list_blind": pkg not in installed_pkg and resolved_ok})
 
         # -- 6 first run ------------------------------------------------------------
         baseline_storage = ls_snapshot(provider, env_id, pkg)
