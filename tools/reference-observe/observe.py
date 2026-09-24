@@ -319,13 +319,25 @@ ls -la /root/xapk/*.apk
 """, timeout=900)
             want_sha = (result.get("apk") or {}).get("sha256", "")
             got_sha = ""
+            # probe-29b: accept ONLY a real sha256sum line (<64-hex> bundle.dl).
+            # The pre-29b parse took the FIRST line containing "bundle.dl" —
+            # on a failed download (expired presigned URL -> curl -f 403
+            # silent-fail) the first such line in stdout was UNZIP's error
+            # (its 2>&1 is piped into stdout; sha256sum's error goes to
+            # stderr), so the mismatch read got='unzip:' — technically
+            # caught, diagnostically misleading.
             for ln in dl.stdout.splitlines():
-                if "bundle.dl" in ln and len(ln.split()) >= 1:
-                    got_sha = ln.split()[0]
+                parts = ln.split()
+                if (len(parts) >= 2 and parts[1].endswith("bundle.dl")
+                        and len(parts[0]) == 64
+                        and all(c in "0123456789abcdef" for c in parts[0])):
+                    got_sha = parts[0]
                     break
             if want_sha and got_sha != want_sha:
-                phase("install", False, {"reason": "in-sandbox download sha mismatch",
-                                         "want": want_sha, "got": got_sha})
+                phase("install", False, {
+                    "reason": "in-sandbox download sha mismatch",
+                    "want": want_sha, "got": got_sha,
+                    "download_tail": (dl.stdout or "")[-200:]})
                 raise BlockedExit()
             splits_names = [p.strip().split("/")[-1]
                             for p in dl.stdout.splitlines()
