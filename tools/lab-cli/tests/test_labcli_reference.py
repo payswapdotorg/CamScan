@@ -520,9 +520,14 @@ def test_install_outcome_window_timeout_kills_zombie(monkeypatch,
     xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
     provider = ScriptedProvider()
     # attempt 1's outcome file NEVER shows a verdict: the 6-min window
-    # elapses, the zombie stream is killed, attempt 2 succeeds
+    # elapses, the window-edge registry check (probe-23) sees an EMPTY
+    # registry (first scripted pm path), the zombie stream is killed,
+    # attempt 2 succeeds (the post-Success registry verify then reads
+    # the second scripted pm path)
     provider.on("cat /root/install.out",
                 *([""] * 25), "Success\nEXIT_0\n", "Success\nEXIT_0\n")
+    provider.on("pm path", "",
+                "package:/data/app/~~xyz/com.intsig.camscanner-1/base.apk\n")
     lines: list[str] = []
     driver, _clock = _make_driver(provider, apk=xapk)
     driver.provision(_provision_request(lines, apk=xapk))
@@ -530,6 +535,33 @@ def test_install_outcome_window_timeout_kills_zombie(monkeypatch,
     assert any("pkill" in c for c in exec_log)
     assert len([c for c in exec_log if "install-multiple" in c]) == 2
     assert any("outcome-window timeout" in line for line in lines)
+
+
+def test_install_probe23_edge_registry_saves_window(monkeypatch, tmp_path):
+    """probe-23: under degraded TCG the commit lands while the adb
+    stream is still running — the window-edge registry check must
+    declare Success without a second attempt (observed live 2026-09-24:
+    registry showed the package ~2 min before the window edge)."""
+    monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
+    monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
+    xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
+    provider = ScriptedProvider()
+    # attempt 1's outcome file NEVER shows an adb verdict — but the
+    # commit DID land: the first pm path (the edge check) answers good
+    provider.on("cat /root/install.out", *([""] * 25))
+    provider.on("pm path",
+                "package:/data/app/~~xyz/com.intsig.camscanner-1/base.apk\n")
+    lines: list[str] = []
+    driver, _clock = _make_driver(provider, apk=xapk)
+    driver.provision(_provision_request(lines, apk=xapk))
+    exec_log = provider.exec_log
+    # saved at the edge: ONE install launch, zombie killed, no retry
+    assert len([c for c in exec_log if "install-multiple" in c]) == 1
+    assert any("pkill" in c for c in exec_log)
+    assert any("Success (probe-23" in line for line in lines)
+    assert not any("outcome-window timeout" in line for line in lines)
+    # the caller's explicit registry verification still ran afterwards
+    assert sum(1 for c in exec_log if "pm path com.intsig.camscanner" in c) >= 2
 
 
 # ------------------------------------------------------------------- execute

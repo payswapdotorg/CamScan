@@ -731,9 +731,12 @@ ls -la /root/xapk/*.apk
         """The GMS-churn install retry ladder (probe-17 step 3 + the
         run-003/run-005 lessons): each attempt runs in the BACKGROUND
         with an EXIT_n marker file (probe-21b pattern) and a bounded
-        outcome window; failed attempts are separated by package-service
-        re-settle probes; sandbox death aborts cleanly; Success is
-        followed by the caller's explicit registry verification."""
+        outcome window; the window edge checks the REGISTRY before
+        declaring a timeout (probe-23: a landed commit outlives the adb
+        stream under degraded TCG); failed attempts are separated by
+        package-service re-settle probes; sandbox death aborts cleanly;
+        Success is followed by the caller's explicit registry
+        verification."""
         attempts = 0
         while attempts < INSTALL_MAX_ATTEMPTS:
             attempts += 1
@@ -806,6 +809,33 @@ echo LAUNCHED
                     emit(f"  reference: install attempt {attempts}: "
                          f"failed (exit {code}) — {body_tail}")
             else:
+                # probe-23 (2026-09-24): under degraded TCG the package-
+                # manager COMMIT can land minutes before the adb client
+                # stream returns (observed live: the registry showed the
+                # package ~2 min before the outcome-window edge while adb
+                # was still streaming). Check the registry at the window
+                # edge BEFORE declaring the timeout — a committed package
+                # IS success; killing the lingering adb stream afterwards
+                # is harmless (the commit is durable).
+                reg = provider.execute(
+                    env_id,
+                    f"{adb} shell pm path {REFERENCE_PACKAGE} 2>&1 "
+                    "| head -1",
+                    timeout=POLL_TIMEOUT_S)
+                if _sandbox_dead(reg):
+                    raise LabCliError(
+                        "reference: sandbox death at window-edge registry "
+                        f"check: "
+                        f"{(reg.stderr or reg.stdout or '').strip()[-300:]} "
+                        "(clean abort)")
+                if (reg.stdout or "").strip().startswith("package:/"):
+                    provider.execute(
+                        env_id, "pkill -f 'adb install' 2>&1; echo KILLED",
+                        timeout=POLL_TIMEOUT_S)
+                    emit(f"  reference: install attempt {attempts}: "
+                         "Success (probe-23: registry-verified at window "
+                         "edge, lingering adb stream killed)")
+                    return
                 # run-005 lesson (a): the outcome window elapsed with no
                 # EXIT marker — kill the zombie stream (cheap, no hang)
                 provider.execute(

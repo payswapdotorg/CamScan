@@ -61,3 +61,20 @@ install window), encoded in `tools/lab-cli/reference_live.py`.
   more retries.
 - Boot-time degradation across consecutive sandboxes (470 → 487 → 585 s)
   is the leading indicator to watch.
+
+## probe-23 (2026-09-24, follow-up): the commit outlives the adb stream
+
+With probe-22 active (GMS quiesced, zero "Lost network stack" suicides,
+package service healthy throughout), the first live window still showed
+`outcome-window timeout` verdicts: under degraded TCG the
+package-manager COMMIT lands minutes before the adb client stream
+returns — observed live: `pm list packages` showed com.intsig.camscanner
+at 01:54 while attempt 2's adb process was still streaming and its
+6-minute outcome window expired at ~01:56 with no EXIT_n marker.
+
+Ladder fix (probe-23, commit on main): at the outcome-window edge,
+BEFORE declaring a timeout, poll `pm path com.intsig.camscanner` — a
+committed package IS success (the vmdl staging dir never shows in
+`pm list`; registry presence means the commit completed); the lingering
+adb stream is then killed harmlessly and the caller's probe-15 registry
+verification double-confirms.
