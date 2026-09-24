@@ -277,6 +277,25 @@ sleep 5
 """, timeout=300)
         result["dexopt_filter"] = dex.stdout.strip()[-200:]
 
+        # -- 3c GMS quiesce (probe-22, 2026-09-24) ------------------------------
+        # Post-boot GMS churn under degraded TCG bg-ANRs
+        # com.android.networkstack; ConnectivityModuleConnector then
+        # crashes system_server ("Lost network stack") and the package
+        # service stays dead through the minutes-long restart — the
+        # install ladder burns inside that loop. Disable the churn
+        # sources for the install window; re-enabled before first run
+        # (install-time quiesce only, observation fidelity unchanged).
+        quiesced = []
+        for gms_pkg in ("com.google.android.gms",
+                        "com.google.android.apps.wellbeing",
+                        "com.android.vending"):
+            q = provider.execute(
+                env_id,
+                f"{ADB} shell pm disable-user --user 0 {gms_pkg} 2>&1 | tail -1",
+                timeout=90)
+            quiesced.append((gms_pkg, (q.stdout or "").strip()[:120]))
+        result["gms_quiesce"] = quiesced
+
         # -- 4 install -----------------------------------------------------------
         # Split bundles (.xapk/.apks from reputable mirrors) install via
         # install-multiple; plain APKs via install -r.
@@ -493,6 +512,18 @@ echo LAUNCHED
             raise BlockedExit()
         phase("install", True, {"files": [Path(r).name for r in remote_files],
                                 "registry": registry_ok})
+
+        # -- 4b GMS restore (probe-22): re-enable before observation, then
+        # settle so the re-enabled processes spin up BEFORE the first
+        # launch (binder churn lands outside the fragile window).
+        restored = []
+        for gms_pkg, _ in quiesced:
+            r = provider.execute(
+                env_id, f"{ADB} shell pm enable {gms_pkg} 2>&1 | tail -1",
+                timeout=60)
+            restored.append((gms_pkg, (r.stdout or "").strip()[:120]))
+        result["gms_restore"] = restored
+        time.sleep(60)
 
         # -- 5 package facts ------------------------------------------------------
         pkg = args.package
