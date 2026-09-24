@@ -143,6 +143,21 @@ BOOT_SETTLE_S = 60
 SERVICE_SETTLE_MAX_PROBES = 8
 SERVICE_SETTLE_POLL_S = 15                      # observe.py L456 (sleep 15)
 
+#: probe-22 (2026-09-24 night-regime forensics): the GMS churn sources
+#: disabled BEFORE the install ladder and re-enabled after the registry
+#: verification. Post-boot GMS churn under degraded TCG bg-ANRs
+#: com.android.networkstack; ConnectivityModuleConnector then commits
+#: system_server suicide ("Lost network stack") and the minutes-long
+#: framework restart leaves the package service dead — the install
+#: ladder burns all 8 attempts inside that loop. Install-time quiesce
+#: only: the OBSERVED app behavior still runs with GMS present.
+GMS_QUIESCE_PKGS = (
+    "com.google.android.gms",
+    "com.google.android.apps.wellbeing",
+    "com.android.vending",
+)
+GMS_QUIESCE_TIMEOUT_S = 90
+
 #: observe.py L459: after the service re-settles, sleep 30 before the next
 #: attempt (probe 17 succeeded on attempt 2 after ~90 s total).
 RETRY_BACKOFF_S = 30
@@ -358,10 +373,12 @@ class ReferenceDriver:
                  f"(boot_s={boot.get('boot_s')})")
             self._boot_settle(provider, env_id, ADB, emit)
             self._apply_dexopt_filter(provider, env_id, ADB, emit)
+            self._quiesce_gms(provider, env_id, ADB, emit)
             _remote_files, install_cmd, delivery = self._acquire_bundle(
                 provider, env_id, ADB, apk, apk_url, emit)
             self._install_ladder(provider, env_id, ADB, install_cmd, emit)
             self._registry_verify(provider, env_id, ADB, emit)
+            self._restore_gms(provider, env_id, ADB, emit)
             launcher = self._resolve_launcher(provider, env_id, ADB, emit)
             self._grant_preconditions(provider, env_id, ADB,
                                       request.scenario, emit)
@@ -574,6 +591,56 @@ sleep 5
                 f"{(res.stdout or res.stderr or '')[-200:]}")
         emit("  reference: dexopt filter set (pm.dexopt.install=verify)")
 
+    def _quiesce_gms(self, provider: Any, env_id: str, adb: str,
+                     emit: Callable[[str], None]) -> None:
+        """probe-22 step 2.5: disable the GMS churn sources (gms,
+        wellbeing, vending) BEFORE the install ladder — the fragile
+        install window runs without the background binder storm that
+        bg-ANRs the networkstack module. Best-effort per package (a
+        missing vending image is fine); sandbox death still aborts
+        cleanly (never hammer a corpse)."""
+        for pkg in GMS_QUIESCE_PKGS:
+            res = provider.execute(
+                env_id,
+                f"{adb} shell pm disable-user --user 0 {pkg} 2>&1 | tail -1",
+                timeout=GMS_QUIESCE_TIMEOUT_S)
+            if _sandbox_dead(res):
+                raise LabCliError(
+                    "reference: sandbox death during GMS quiesce "
+                    f"({pkg}): "
+                    f"{(res.stderr or res.stdout or '').strip()[-300:]} "
+                    "(clean abort — a fresh run gets a fresh 60-min "
+                    "window)")
+            emit(f"  reference: GMS quiesce {pkg}: "
+                 f"{(res.stdout or '').strip()[:80] or '(no output)'}")
+        emit("  reference: GMS churn sources quiesced for the install "
+             "window (probe-22)")
+
+    def _restore_gms(self, provider: Any, env_id: str, adb: str,
+                     emit: Callable[[str], None]) -> None:
+        """probe-22: re-enable the quiesced GMS packages after the
+        install lands (registry verified) so scenario observation runs
+        with GMS present, then settle so the re-enabled processes spin
+        up BEFORE the app launch (their binder churn lands outside the
+        launch window). Best-effort: failures are emitted, never fatal
+        (the app itself does not require GMS to launch — probe-17)."""
+        for pkg in GMS_QUIESCE_PKGS:
+            res = provider.execute(
+                env_id, f"{adb} shell pm enable {pkg} 2>&1 | tail -1",
+                timeout=POLL_TIMEOUT_S)
+            if _sandbox_dead(res):
+                raise LabCliError(
+                    "reference: sandbox death during GMS restore "
+                    f"({pkg}): "
+                    f"{(res.stderr or res.stdout or '').strip()[-300:]} "
+                    "(clean abort — a fresh run gets a fresh 60-min "
+                    "window)")
+            emit(f"  reference: GMS restore {pkg}: "
+                 f"{(res.stdout or '').strip()[:80] or '(no output)'}")
+        emit("  reference: GMS restored for observation (+"
+             f"{BOOT_SETTLE_S}s settle)")
+        self._sleep(BOOT_SETTLE_S)
+
     def _acquire_bundle(self, provider: Any, env_id: str, adb: str,
                         apk: Path | None, apk_url: str,
                         emit: Callable[[str], None]) \
@@ -726,9 +793,18 @@ echo LAUNCHED
                     break
                 self._sleep(OUTCOME_POLL_S)
             if outcome_seen:
-                emit(f"  reference: install attempt {attempts}: "
-                     f"{'Success' if install_ok else 'failed'} "
-                     f"(exit {code if not install_ok else 0})")
+                if install_ok:
+                    emit(f"  reference: install attempt {attempts}: "
+                         "Success")
+                else:
+                    # run-001 lesson, applied to the ladder (2026-09-24
+                    # forensics: the adb stderr explaining the failure is
+                    # in install.out — emit it, verdicts that die on
+                    # stderr are invisible otherwise)
+                    body_tail = " | ".join(
+                        body.strip().splitlines()[-2:])[-160:]
+                    emit(f"  reference: install attempt {attempts}: "
+                         f"failed (exit {code}) — {body_tail}")
             else:
                 # run-005 lesson (a): the outcome window elapsed with no
                 # EXIT marker — kill the zombie stream (cheap, no hang)

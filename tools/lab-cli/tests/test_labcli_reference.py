@@ -373,9 +373,9 @@ def test_provision_recipe_order_local_xapk(monkeypatch, tmp_path):
     assert any("dexopt filter set" in line for line in lines)
     assert any("package registered" in line for line in lines)
     assert any("launcher resolved dynamically" in line for line in lines)
-    # the only wait on the happy path: the +60 s boot settle (probe-17
-    # step 1) — the install succeeded on attempt 1 with no retries
-    assert clock.slept == [BOOT_SETTLE_S]
+    # probe-17 step 1 (+60 s boot settle) + probe-22 GMS restore settle
+    # (+60 s after re-enabling gms/wellbeing/vending, before launch)
+    assert clock.slept == [BOOT_SETTLE_S, BOOT_SETTLE_S]
 
 
 # ---------------------------------------------------------------- acquisition
@@ -462,8 +462,9 @@ def test_install_ladder_fail_resettle_retry_success(monkeypatch, tmp_path):
     between = exec_log[installs[0]:installs[1]]
     assert len([c for c in between if "pm list packages" in c]) >= 2
     # the documented wait pattern: boot settle → probe poll → backoff
+    # → probe-22 GMS restore settle (after the retry succeeds)
     assert clock.slept == [BOOT_SETTLE_S, SERVICE_SETTLE_POLL_S,
-                           RETRY_BACKOFF_S]
+                           RETRY_BACKOFF_S, BOOT_SETTLE_S]
     # poll + full fetch per attempt (the outcome window's two reads)
     assert len([c for c in exec_log
                 if "cat /root/install.out" in c]) == 4
