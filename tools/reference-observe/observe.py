@@ -583,6 +583,8 @@ echo LAUNCHED
         result["first_launch_monkey"] = launch.stdout.strip()[-300:]
         proc_line = ""
         last_ps = ""
+        last_ps_err = ""
+        last_ps_exit = None
         # probe-24 (2026-09-24): 120 s was NOT enough for the cold start
         # under the night TCG regime (observed: install landed via the
         # probe-23 edge check, monkey injected the launch event, and the
@@ -590,19 +592,57 @@ echo LAUNCHED
         # while the process was still coming up). 40 polls x 10 s ≈
         # 6.7 min, affordable now that probe-23 lands installs ~20 min
         # into the window.
+        # probe-25 (2026-09-24): an EMPTY ps read is ambiguous — "the app
+        # process never spawned" vs "the adb read itself died" (broken
+        # pipe, exactly the install-ladder failure mode under the same
+        # regime; 2026-09-24T032659Z burned 13 min of patient polls on
+        # an undifferentiated empty). Capture exit/stderr per poll and,
+        # on failure, a death-forensics bundle: canary echo (is the adb
+        # stream alive at all?), system ps head (is the process list
+        # itself listing?), and a logcat tail (system_server ANR/suicide
+        # screams here). Infra death vs app death must not look alike.
         for _ in range(40):
             time.sleep(10)
             ps = provider.execute(env_id, f"{ADB} shell ps -A | grep {pkg} | head -1",
                                   timeout=120)
             last_ps = (ps.stdout or "").strip()[:200]
+            last_ps_err = (getattr(ps, "stderr", "") or "").strip()[-200:]
+            last_ps_exit = getattr(ps, "exit_code", None)
             if pkg in (ps.stdout or ""):
                 proc_line = last_ps.splitlines()[0]
                 break
         result["first_run_process"] = proc_line
         result["first_run_last_ps"] = last_ps
         if not proc_line:
+            forensics = {"ps_exit": last_ps_exit, "ps_err": last_ps_err}
+            try:
+                canary = provider.execute(env_id, f"{ADB} shell echo __canary_ok__",
+                                          timeout=60)
+                forensics["canary"] = (canary.stdout or "").strip()[:80]
+                forensics["canary_exit"] = getattr(canary, "exit_code", None)
+            except Exception:  # noqa: BLE001 — best-effort forensics
+                forensics["canary"] = "EXCEPTION"
+            try:
+                system_ps = provider.execute(env_id, f"{ADB} shell ps -A | head -3",
+                                             timeout=60)
+                forensics["system_ps_head"] = (system_ps.stdout or "").strip()[:300]
+            except Exception:  # noqa: BLE001
+                forensics["system_ps_head"] = "EXCEPTION"
+            try:
+                cat = provider.execute(
+                    env_id, f"{ADB} shell logcat -d -t 200 2>&1 | tail -15",
+                    timeout=120)
+                forensics["logcat_tail"] = (cat.stdout or "").strip()[-1200:]
+            except Exception:  # noqa: BLE001
+                forensics["logcat_tail"] = "EXCEPTION"
+            result["first_run_death_forensics"] = forensics
             phase("first-run", False, {"monkey": result["first_launch_monkey"],
-                                       "last_ps": last_ps})
+                                       "last_ps": last_ps,
+                                       "ps_exit": last_ps_exit,
+                                       "ps_err": last_ps_err,
+                                       "canary": forensics.get("canary", ""),
+                                       "logcat_tail": forensics.get(
+                                           "logcat_tail", "")[-400:]})
             result["verdict"] = "FAIL"
             raise BlockedExit()
         focus = provider.execute(env_id, f"{ADB} shell dumpsys window | grep -m1 mCurrentFocus",
