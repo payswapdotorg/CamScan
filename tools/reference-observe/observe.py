@@ -582,16 +582,27 @@ echo LAUNCHED
                     f"2>&1 | tail -3", timeout=300)
         result["first_launch_monkey"] = launch.stdout.strip()[-300:]
         proc_line = ""
-        for _ in range(12):  # up to ~120 s for first process start under TCG
+        last_ps = ""
+        # probe-24 (2026-09-24): 120 s was NOT enough for the cold start
+        # under the night TCG regime (observed: install landed via the
+        # probe-23 edge check, monkey injected the launch event, and the
+        # app process took >120 s to appear — the run died at first-run
+        # while the process was still coming up). 40 polls x 10 s ≈
+        # 6.7 min, affordable now that probe-23 lands installs ~20 min
+        # into the window.
+        for _ in range(40):
             time.sleep(10)
             ps = provider.execute(env_id, f"{ADB} shell ps -A | grep {pkg} | head -1",
                                   timeout=120)
-            if pkg in ps.stdout:
-                proc_line = ps.stdout.strip().splitlines()[0]
+            last_ps = (ps.stdout or "").strip()[:200]
+            if pkg in (ps.stdout or ""):
+                proc_line = last_ps.splitlines()[0]
                 break
         result["first_run_process"] = proc_line
+        result["first_run_last_ps"] = last_ps
         if not proc_line:
-            phase("first-run", False, {"monkey": result["first_launch_monkey"]})
+            phase("first-run", False, {"monkey": result["first_launch_monkey"],
+                                       "last_ps": last_ps})
             result["verdict"] = "FAIL"
             raise BlockedExit()
         focus = provider.execute(env_id, f"{ADB} shell dumpsys window | grep -m1 mCurrentFocus",

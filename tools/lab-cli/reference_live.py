@@ -204,9 +204,10 @@ PKG_FACTS_TIMEOUT_S = 180
 #: observe.py L612 (svc/pm commands): 120 s per pm command.
 GRANT_TIMEOUT_S = 120
 
-#: observe.py L529: "up to ~120 s for first process start under TCG"
-#: = 12 polls x 10 s (ndk_translation interpreting arm64 is slow).
-PROCESS_WAIT_ROUNDS = 12
+#: probe-24 (2026-09-24): the night TCG regime needs ~6-7 min for the
+#: cold-start process to appear (observe.py L529 originally 12 x 10 s —
+#: the app process took >120 s while the run was already failing).
+PROCESS_WAIT_ROUNDS = 40
 PROCESS_WAIT_S = 10
 
 #: observe.py L552 / L567: ANR-dismissal ladder — up to 3 dump→tap
