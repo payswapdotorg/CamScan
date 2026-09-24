@@ -624,6 +624,7 @@ echo LAUNCHED
                 break
         launch = None
         launch_diag = []
+        am_confirmed = ""  # probe-30: set when am itself reports our activity up
         # probe-29 (2026-09-24, run 20260924T135903Z forensics): timestamp
         # every ladder line — the attempt-2 postmortem had to reconstruct
         # the timeline from file mtimes; hh:mm:ss prefixes make the next
@@ -651,6 +652,13 @@ echo LAUNCHED
             _ldiag("dex2oat still running after 4 min — proceeding anyway")
         if comp:
             result["first_launch_cmd"] = f"am start -W -n {comp} (ladder)"
+            # probe-30 (2026-09-24, run 20260924T152953Z): am start -W's own
+            # output is AUTHORITATIVE launch evidence — 'Status: ok' with
+            # 'Activity: <pkg>/...' reports the AMS's own state (the app's
+            # activity cannot be top-most without its process). Track it:
+            # the patient ps poll below can be transport-blind (in-band
+            # timeout text on every read) and must not veto the AMS.
+            am_confirmed = ""
             for attempt in range(4):
                 # probe-28 (2026-09-24, run 20260924T124252Z forensics): the
                 # wrapper execute can fail TRANSIENTLY in-band — the E2B SDK's
@@ -741,6 +749,8 @@ echo LAUNCHED
                                 _ldiag(f"[attempt {attempt + 1}] blind-evidence "
                                        f"{_label}=EXCEPTION")
                     if "Status: ok" in body:
+                        if f"Activity: {pkg}" in body:
+                            am_confirmed = body[-400:]
                         launch = CommandResult(
                             exit_code=0, stdout=body, stderr="",
                             command=f"am start -W -n {comp}")
@@ -816,6 +826,19 @@ echo LAUNCHED
         # stream alive at all?), system ps head (is the process list
         # itself listing?), and a logcat tail (system_server ANR/suicide
         # screams here). Infra death vs app death must not look alike.
+        # probe-30 (2026-09-24, run 20260924T152953Z postmortem): that run
+        # had the app UP — attempt 4's am start returned 'Status: ok',
+        # 'Activity: com.intsig.camscanner/.mainmenu.mainactivity.MainActivity',
+        # 'delivered to currently running top-most instance', TotalTime 0 —
+        # and then ALL 40 patient ps reads came back transport-blind
+        # (exit -1, in-band sandbox-timeout text; canary/system-ps/logcat
+        # forensics ALL empty), so the pre-30 poll scored 'process absent'
+        # and FAILED a launched app. Blindness detection: a read whose
+        # exit is -1 or whose text carries the SDK timeout signature is
+        # NOT an absence observation — skip it, count it. If am already
+        # confirmed the launch, its evidence outranks the (blind) ps poll.
+        n_blind = 0
+        n_clean_absent = 0
         for _ in range(40):
             time.sleep(10)
             ps = provider.execute(env_id, f"{ADB} shell ps -A | grep {pkg} | head -1",
@@ -823,11 +846,31 @@ echo LAUNCHED
             last_ps = (ps.stdout or "").strip()[:200]
             last_ps_err = (getattr(ps, "stderr", "") or "").strip()[-200:]
             last_ps_exit = getattr(ps, "exit_code", None)
+            if (last_ps_exit == -1
+                    or "timeout" in last_ps_err.lower()
+                    or "You can modify" in last_ps
+                    or "request_timeout" in last_ps):
+                n_blind += 1
+                continue
             if pkg in (ps.stdout or ""):
                 proc_line = last_ps.splitlines()[0]
                 break
+            n_clean_absent += 1
         result["first_run_process"] = proc_line
         result["first_run_last_ps"] = last_ps
+        result["first_run_ps_reads"] = {"blind": n_blind,
+                                         "clean_absent": n_clean_absent}
+        if not proc_line and am_confirmed:
+            # the AMS itself reported the app top-most with Status: ok —
+            # a blind ps window cannot overrule it. Record the am evidence
+            # and continue to the evidence phases (best-effort: if the
+            # transport stays blind the captures fail and the run FAILs
+            # honestly; if it recovers, the run earns its PASS).
+            proc_line = (f"am-confirmed: Status: ok, top-most {pkg} instance "
+                         f"(ps reads: {n_blind} blind / {n_clean_absent} "
+                         f"clean-absent)")
+            result["first_run_process"] = proc_line
+            result["first_run_am_confirmation"] = am_confirmed
         if not proc_line:
             forensics = {"ps_exit": last_ps_exit, "ps_err": last_ps_err}
             try:
