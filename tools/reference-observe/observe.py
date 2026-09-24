@@ -588,9 +588,22 @@ echo LAUNCHED
         # on this substrate (probe 17, 2026-09-22: splash rendered, zero
         # crashes). The component comes from the package-facts
         # resolve-activity fact (last line, starts with pkg/). Fallback
-        # to monkey only when no component resolved. A transport
-        # exception on am start skips the fallback (the sandbox is
-        # dying) and lets the probe-25 forensics bundle run.
+        # to monkey only when no component resolved.
+        #
+        # probe-27 (2026-09-24, attempts 075022Z + 090119Z forensics):
+        # the launch binder call dies EXACTLY like the install one —
+        # 'cmd: Failure calling service activity: Broken pipe (32)' —
+        # while the adb canary stays alive (probe-25: __canary_ok__,
+        # ps_exit=0). The install ladder PROVED this failure class is
+        # transient (retry-until-lucky + gated backoff harvests the
+        # 5-10-min inter-burst gaps); the launch was single-shot — that
+        # asymmetry killed both runs. Mirror the install ladder: am
+        # start in the BACKGROUND with an EXIT_n marker (a blocked am
+        # start costs one bounded window, not an 8-min hang), outcome
+        # window per attempt, activity-service gate (am get-current-user)
+        # + 30 s settle between attempts. 'brought to the front' counts
+        # as up (the task already exists). Ladder exhaustion falls
+        # through to the patient poll + probe-25 forensics.
         comp = ""
         for _ln in (facts.get("main_activity") or "").strip().splitlines():
             _ln = _ln.strip()
@@ -598,20 +611,112 @@ echo LAUNCHED
                 comp = _ln
                 break
         launch = None
+        launch_diag = []
         if comp:
-            try:
-                launch = provider.execute(
-                    env_id, f"{ADB} shell am start -W -n {comp}", timeout=600)
-                result["first_launch_cmd"] = f"am start -W -n {comp}"
-            except Exception as _le:  # noqa: BLE001 — transport death ≠ verdict
-                result["first_launch_cmd"] = (
-                    f"am start -W TRANSPORT-DEAD: {type(_le).__name__}: {_le}"[:300])
+            result["first_launch_cmd"] = f"am start -W -n {comp} (ladder)"
+            for attempt in range(4):
+                try:
+                    bg = provider.execute(env_id, f"""
+rm -f /root/launch.out
+({ADB} shell am start -W -n {comp} > /root/launch.out 2>&1; echo "EXIT_$?" >> /root/launch.out) &
+echo LAUNCHED
+""", timeout=60)
+                except Exception as _le:  # noqa: BLE001 — transport death
+                    launch_diag.append(f"[attempt {attempt + 1}] TRANSPORT-DEAD: "
+                                       f"{type(_le).__name__}: {_le}"[:200])
+                    break
+                if "LAUNCHED" not in (bg.stdout or ""):
+                    launch_diag.append(f"[attempt {attempt + 1}] "
+                                       f"launcher-echo missing: "
+                                       f"{(bg.stdout or bg.stderr or '').strip()[-150:]!r}")
+                    break
+                outcome_seen = False
+                deadline = time.time() + 180  # 3-min outcome window
+                while time.time() < deadline:
+                    time.sleep(20)
+                    try:
+                        poll = provider.execute(
+                            env_id, "cat /root/launch.out 2>&1 | tail -6", timeout=60)
+                    except Exception as _le:  # noqa: BLE001
+                        launch_diag.append(f"[attempt {attempt + 1}] POLL-DEAD: "
+                                           f"{type(_le).__name__}"[:120])
+                        poll = None
+                    if poll is None:
+                        break
+                    if "EXIT_" in (poll.stdout or ""):
+                        mres = re.search(r"EXIT_(-?\d+)",
+                                         poll.stdout or "")
+                        ec = int(mres.group(1)) if mres else -1
+                        try:
+                            full = provider.execute(
+                                env_id, "cat /root/launch.out 2>&1", timeout=60)
+                            body = (full.stdout or poll.stdout or "").strip()
+                        except Exception:  # noqa: BLE001
+                            body = (poll.stdout or "").strip()
+                        launch = CommandResult(
+                            exit_code=ec, stdout=body,
+                            stderr="" if ec == 0 else body[-400:],
+                            command=f"am start -W -n {comp}")
+                        outcome_seen = True
+                        break
+                if poll is not None and outcome_seen:
+                    body = (launch.stdout or "")
+                    launch_diag.append(f"[attempt {attempt + 1}] exit={launch.exit_code} "
+                                       f"stdout={body[-250:]!r}")
+                    if "Status: ok" in body:
+                        launch = CommandResult(
+                            exit_code=0, stdout=body, stderr="",
+                            command=f"am start -W -n {comp}")
+                        break
+                    if "brought to the front" in body:
+                        launch_diag.append(
+                            f"[attempt {attempt + 1}] task already fronted — "
+                            "treating as up")
+                        break
+                elif poll is not None:
+                    # bounded window elapsed with no EXIT marker — kill the
+                    # blocked am start (a hang costs one 3-min window, not 8)
+                    try:
+                        provider.execute(
+                            env_id, "pkill -f 'am start' 2>&1; echo KILLED",
+                            timeout=60)
+                    except Exception as _ke:  # noqa: BLE001 — best-effort kill
+                        launch_diag.append(
+                            f"[attempt {attempt + 1}] pkill-dead: "
+                            f"{type(_ke).__name__}")
+                    launch_diag.append(f"[attempt {attempt + 1}] "
+                                       "outcome-window-timeout (blocked am start)")
+                # gated backoff: wait for the activity service to respond
+                # again + 30 s settle (install-ladder mirror)
+                svc_up = False
+                for _ in range(8):
+                    try:
+                        gate = provider.execute(
+                            env_id,
+                            f"{ADB} shell am get-current-user 2>&1 | head -1",
+                            timeout=60)
+                        if ((gate.stdout or "").strip()).isdigit():
+                            svc_up = True
+                            break
+                    except Exception as _ge:  # noqa: BLE001 — best-effort gate
+                        launch_diag.append(
+                            f"[attempt {attempt + 1}] gate-dead: "
+                            f"{type(_ge).__name__}")
+                    time.sleep(15)
+                launch_diag.append(f"[attempt {attempt + 1}] "
+                                   f"activity-service gate: {'up' if svc_up else 'down'}")
+                if not svc_up:
+                    break
+                time.sleep(30)
+            result["first_launch_ladder"] = launch_diag
         else:
             result["first_launch_cmd"] = "monkey (no component resolved)"
-        if launch is None and not comp:
-            launch = provider.execute(
-                env_id, f"{ADB} shell monkey -p {pkg} -c android.intent.category.LAUNCHER 1 "
-                        f"2>&1 | tail -3", timeout=300)
+            try:
+                launch = provider.execute(
+                    env_id, f"{ADB} shell monkey -p {pkg} -c android.intent.category.LAUNCHER 1 "
+                            f"2>&1 | tail -3", timeout=300)
+            except Exception:  # noqa: BLE001 — transport death ≠ verdict
+                launch = None
         result["first_launch_monkey"] = (launch.stdout if launch else "").strip()[-300:]
         proc_line = ""
         last_ps = ""
