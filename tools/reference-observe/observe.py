@@ -225,6 +225,7 @@ def main() -> int:
                                   "apk_bytes": result["apk"].get("bytes")})
 
         # -- 1 provision (isolated reference env) ------------------------------
+        _window_t0 = time.time()  # probe-32: the 60-min E2B hard cap clock
         # google_apis image (not the provider default): CamScanner ships
         # arm64-v8a-only splits; the google_apis x86_64 image carries
         # libndk_translation.so (abilist includes arm64-v8a) so the splits
@@ -962,80 +963,131 @@ echo LAUNCHED
                                                f"grep -m1 mCurrentFocus", timeout=120
                                    ).stdout.strip()[:300]})
         result["first_run_captures"] = first_run_caps
-        cat = provider.capture(env_id, CaptureKind.logcat)
-        result["first_run_logcat"] = {"path": cat.sandbox_path, "sha256": cat.sha256,
-                                      "bytes": cat.bytes}
-        result["first_run_network_domains"] = network_domains_from_logcat(
-            provider.execute(env_id, f"{ADB} logcat -d", timeout=300).stdout)
+        # probe-32 (2026-09-24, run 20260924T191339Z postmortem): that run banked
+        # 3 screenshot+ui capture pairs and then DIED at the logcat capture —
+        # the sandbox hit its 60-min hard cap mid-dump (RuntimeError raised by
+        # the provider, killing a run one evidence step from completion).
+        # Hardening: each remaining evidence stage is death-tolerant (records
+        # its partial + the error, flow continues), the domains read is
+        # bounded (logcat -d -t 3000 — the full dump of a running system can
+        # take minutes under strain), and a clock guard skips the optional
+        # tail probes (< 8 min left) in favor of the evidence bundle.
+        try:
+            cat = provider.capture(env_id, CaptureKind.logcat)
+            result["first_run_logcat"] = {"path": cat.sandbox_path, "sha256": cat.sha256,
+                                          "bytes": cat.bytes}
+        except Exception as _ce:  # noqa: BLE001 — evidence-stage death tolerance
+            result["first_run_logcat"] = {"error": f"{type(_ce).__name__}: {_ce}"[:200]}
+        try:
+            result["first_run_network_domains"] = network_domains_from_logcat(
+                provider.execute(env_id, f"{ADB} logcat -d -t 3000",
+                                 timeout=180).stdout)
+        except Exception as _de:  # noqa: BLE001
+            result["first_run_network_domains"] = \
+                f"error: {type(_de).__name__}"[:200]
         phase("first-run", True, {"process": proc_line[:80],
                                   "focus": result["first_run_window_focus"],
                                   "domains": result["first_run_network_domains"]})
 
         # -- 7 state scan -------------------------------------------------------------
-        after_storage = ls_snapshot(provider, env_id, pkg)
-        (workdir / "storage_after_first_run.txt").write_text(after_storage)
-        result["storage_changed"] = baseline_storage != after_storage
-        granted = provider.execute(
-            env_id, f"{ADB} shell dumpsys package {pkg} | "
-                    "sed -n '/runtime permissions:/,/Queries:/p' | grep granted=true | head -20",
-            timeout=180).stdout.strip()
-        result["runtime_permissions_granted_after_first_run"] = granted[:2000]
-        phase("state-scan", True, {"storage_changed": result["storage_changed"],
-                                   "granted_runtime_permissions": granted[:600]})
+        try:
+            after_storage = ls_snapshot(provider, env_id, pkg)
+            (workdir / "storage_after_first_run.txt").write_text(after_storage)
+            result["storage_changed"] = baseline_storage != after_storage
+            granted = provider.execute(
+                env_id, f"{ADB} shell dumpsys package {pkg} | "
+                        "sed -n '/runtime permissions:/,/Queries:/p' | grep granted=true | head -20",
+                timeout=180).stdout.strip()
+            result["runtime_permissions_granted_after_first_run"] = granted[:2000]
+            phase("state-scan", True, {"storage_changed": result["storage_changed"],
+                                       "granted_runtime_permissions": granted[:600]})
+        except Exception as _se:  # noqa: BLE001
+            result["state_scan_error"] = f"{type(_se).__name__}: {_se}"[:200]
+            phase("state-scan", False, {"error": result["state_scan_error"]})
 
-        # -- 8 offline probe -------------------------------------------------------------
-        provider.execute(env_id, f"{ADB} shell svc wifi disable", timeout=120)
-        provider.execute(env_id, f"{ADB} shell svc data disable", timeout=120)
-        provider.execute(env_id, f"{ADB} shell am force-stop {pkg}", timeout=120)
-        time.sleep(3)
-        launch2 = provider.execute(
-            env_id, f"{ADB} shell monkey -p {pkg} -c android.intent.category.LAUNCHER 1 "
-                    f"2>&1 | tail -2", timeout=300)
-        time.sleep(20)
-        off_shot = provider.capture(env_id, CaptureKind.screenshot)
-        off_ui = provider.capture(env_id, CaptureKind.ui_hierarchy)
-        off_focus = provider.execute(env_id, f"{ADB} shell dumpsys window | "
-                                             f"grep -m1 mCurrentFocus", timeout=120)
-        result["offline_probe"] = {
-            "monkey": launch2.stdout.strip()[-200:],
-            "screenshot": off_shot.sandbox_path, "screenshot_sha256": off_shot.sha256,
-            "ui_hierarchy": off_ui.sandbox_path, "ui_hierarchy_sha256": off_ui.sha256,
-            "window_focus": off_focus.stdout.strip()[:300]}
-        provider.execute(env_id, f"{ADB} shell svc wifi enable", timeout=120)
-        provider.execute(env_id, f"{ADB} shell svc data enable", timeout=120)
-        phase("offline-probe", True, result["offline_probe"]["window_focus"])
+        # probe-32 clock guard: the optional tail probes (offline + second
+        # run) cost ~5-8 min; with less than that left before the 60-min
+        # hard cap, skip them (recorded) — the evidence bundle still runs.
+        # A skipped tail is NOT a PASS (the full observation includes it);
+        # the verdict is set from phase outcomes below.
+        _mins_left = 60 - (time.time() - _window_t0) / 60 - 1.0
+        if _mins_left < 8:
+            result["tail_probes_skipped"] = (f"window budget: {_mins_left:.1f} min "
+                                             "left — offline/second-run skipped, "
+                                             "evidence bundle prioritized")
+        else:
+            # -- 8 offline probe --------------------------------------------------
+            try:
+                provider.execute(env_id, f"{ADB} shell svc wifi disable", timeout=120)
+                provider.execute(env_id, f"{ADB} shell svc data disable", timeout=120)
+                provider.execute(env_id, f"{ADB} shell am force-stop {pkg}", timeout=120)
+                time.sleep(3)
+                launch2 = provider.execute(
+                    env_id, f"{ADB} shell monkey -p {pkg} -c android.intent.category.LAUNCHER 1 "
+                            f"2>&1 | tail -2", timeout=300)
+                time.sleep(20)
+                off_shot = provider.capture(env_id, CaptureKind.screenshot)
+                off_ui = provider.capture(env_id, CaptureKind.ui_hierarchy)
+                off_focus = provider.execute(env_id, f"{ADB} shell dumpsys window | "
+                                                     f"grep -m1 mCurrentFocus", timeout=120)
+                result["offline_probe"] = {
+                    "monkey": launch2.stdout.strip()[-200:],
+                    "screenshot": off_shot.sandbox_path, "screenshot_sha256": off_shot.sha256,
+                    "ui_hierarchy": off_ui.sandbox_path, "ui_hierarchy_sha256": off_ui.sha256,
+                    "window_focus": off_focus.stdout.strip()[:300]}
+                provider.execute(env_id, f"{ADB} shell svc wifi enable", timeout=120)
+                provider.execute(env_id, f"{ADB} shell svc data enable", timeout=120)
+                phase("offline-probe", True, result["offline_probe"]["window_focus"])
+            except Exception as _oe:  # noqa: BLE001 — evidence-stage death tolerance
+                result["offline_probe_error"] = f"{type(_oe).__name__}: {_oe}"[:200]
+                phase("offline-probe", False, {"error": result["offline_probe_error"]})
 
-        # -- 9 second run (state persistence) ----------------------------------------------
-        provider.interact(env_id, Interaction(kind="press", button="home", label="home"))
-        time.sleep(3)
-        launch3 = provider.execute(
-            env_id, f"{ADB} shell monkey -p {pkg} -c android.intent.category.LAUNCHER 1 "
-                    f"2>&1 | tail -2", timeout=300)
-        time.sleep(15)
-        second_shot = provider.capture(env_id, CaptureKind.screenshot)
-        second_ui = provider.capture(env_id, CaptureKind.ui_hierarchy)
-        result["second_run"] = {
-            "monkey": launch3.stdout.strip()[-200:],
-            "screenshot": second_shot.sandbox_path,
-            "screenshot_sha256": second_shot.sha256,
-            "ui_hierarchy": second_ui.sandbox_path,
-            "ui_hierarchy_sha256": second_ui.sha256,
-            "screenshot_identical_to_first": (
-                second_shot.sha256 == first_run_caps[-1]["screenshot_sha256"])}
-        phase("second-run", True, {"identical_screenshot":
-                                   result["second_run"]["screenshot_identical_to_first"]})
+            # -- 9 second run (state persistence) ----------------------------------
+            try:
+                provider.interact(env_id, Interaction(kind="press", button="home", label="home"))
+                time.sleep(3)
+                launch3 = provider.execute(
+                    env_id, f"{ADB} shell monkey -p {pkg} -c android.intent.category.LAUNCHER 1 "
+                            f"2>&1 | tail -2", timeout=300)
+                time.sleep(15)
+                second_shot = provider.capture(env_id, CaptureKind.screenshot)
+                second_ui = provider.capture(env_id, CaptureKind.ui_hierarchy)
+                result["second_run"] = {
+                    "monkey": launch3.stdout.strip()[-200:],
+                    "screenshot": second_shot.sandbox_path,
+                    "screenshot_sha256": second_shot.sha256,
+                    "ui_hierarchy": second_ui.sandbox_path,
+                    "ui_hierarchy_sha256": second_ui.sha256,
+                    "screenshot_identical_to_first": (
+                        second_shot.sha256 == first_run_caps[-1]["screenshot_sha256"])}
+                phase("second-run", True, {"identical_screenshot":
+                                           result["second_run"]["screenshot_identical_to_first"]})
+            except Exception as _te:  # noqa: BLE001 — evidence-stage death tolerance
+                result["second_run_error"] = f"{type(_te).__name__}: {_te}"[:200]
+                phase("second-run", False, {"error": result["second_run_error"]})
 
-        # -- 10 evidence bundle ------------------------------------------------------------
-        bundle = provider.collect_evidence(env_id, run_id)
-        result["evidence"] = {"local_path": bundle.local_path,
-                              "manifest": bundle.manifest_path,
-                              "files": len(bundle.files),
-                              "trace_events": bundle.trace_events}
-        (workdir / "observation-notes.json").write_text(json.dumps(result, indent=2))
-        phase("evidence", len(bundle.files) >= 4,
-              {"files": len(bundle.files), "trace_events": bundle.trace_events})
+        # -- 10 evidence bundle --------------------------------------------------------
+        # probe-32: the bundle runs whenever the transport lets it (evidence
+        # is banked even on runs that will not PASS); PASS requires the FULL
+        # observation — every phase ok and no budget-skipped tail.
+        try:
+            bundle = provider.collect_evidence(env_id, run_id)
+            result["evidence"] = {"local_path": bundle.local_path,
+                                  "manifest": bundle.manifest_path,
+                                  "files": len(bundle.files),
+                                  "trace_events": bundle.trace_events}
+            (workdir / "observation-notes.json").write_text(json.dumps(result, indent=2))
+            phase("evidence", len(bundle.files) >= 4,
+                  {"files": len(bundle.files), "trace_events": bundle.trace_events})
+        except Exception as _be:  # noqa: BLE001 — bank what we have
+            result["evidence_error"] = f"{type(_be).__name__}: {_be}"[:200]
+            phase("evidence", False, {"error": result["evidence_error"]})
 
-        result["verdict"] = "PASS"
+        if (all(p.get("ok") for p in result.get("phases", []))
+                and not result.get("tail_probes_skipped")):
+            result["verdict"] = "PASS"
+        else:
+            result["verdict"] = "FAIL"
     except BlockedExit:
         pass  # verdict + phases already recorded; result JSON still written below
     except Exception as e:  # noqa: BLE001
