@@ -839,7 +839,16 @@ echo LAUNCHED
         # confirmed the launch, its evidence outranks the (blind) ps poll.
         n_blind = 0
         n_clean_absent = 0
-        for _ in range(40):
+        # probe-31 (2026-09-24, run 20260924T174918Z postmortem): the launch
+        # landed at minute ~54 of the 60-min sandbox window (install churn
+        # 37 min + ladder retries 12 min), and the FULL 40x10 s ps poll then
+        # burned the remaining budget BEFORE the evidence captures could run
+        # — the run died with the app up and zero captures. When am already
+        # confirmed the launch, the ps poll is a NICE-TO-HAVE (a process-line
+        # detail), not the gate: cap it at 12 polls (2 min) and go straight
+        # to the evidence phases while the transport still has minutes left.
+        poll_cap = 12 if am_confirmed else 40
+        for _ in range(poll_cap):
             time.sleep(10)
             ps = provider.execute(env_id, f"{ADB} shell ps -A | grep {pkg} | head -1",
                                   timeout=120)
@@ -859,7 +868,8 @@ echo LAUNCHED
         result["first_run_process"] = proc_line
         result["first_run_last_ps"] = last_ps
         result["first_run_ps_reads"] = {"blind": n_blind,
-                                         "clean_absent": n_clean_absent}
+                                         "clean_absent": n_clean_absent,
+                                         "poll_cap": poll_cap}
         if not proc_line and am_confirmed:
             # the AMS itself reported the app top-most with Status: ok —
             # a blind ps window cannot overrule it. Record the am evidence
