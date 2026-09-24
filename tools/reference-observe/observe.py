@@ -577,10 +577,42 @@ echo LAUNCHED
         # -- 6 first run ------------------------------------------------------------
         baseline_storage = ls_snapshot(provider, env_id, pkg)
         (workdir / "storage_before_first_run.txt").write_text(baseline_storage)
-        launch = provider.execute(
-            env_id, f"{ADB} shell monkey -p {pkg} -c android.intent.category.LAUNCHER 1 "
-                    f"2>&1 | tail -3", timeout=300)
-        result["first_launch_monkey"] = launch.stdout.strip()[-300:]
+        # probe-26 (2026-09-24): launch via the PROVEN probe-17 path —
+        # `am start -W -n <resolved component>` — not component-less
+        # monkey. Monkey only proves event INJECTION ("Events injected:
+        # 1" in 3 straight runs whose process never spawned): under ANR
+        # churn the intent can sit unprocessed while system_server
+        # suicide-cycles. `am start -W` BLOCKS until AM reports the
+        # launch verdict (Status/LaunchState/TotalTime land in the
+        # captured tail) — the exact form that proved this app launches
+        # on this substrate (probe 17, 2026-09-22: splash rendered, zero
+        # crashes). The component comes from the package-facts
+        # resolve-activity fact (last line, starts with pkg/). Fallback
+        # to monkey only when no component resolved. A transport
+        # exception on am start skips the fallback (the sandbox is
+        # dying) and lets the probe-25 forensics bundle run.
+        comp = ""
+        for _ln in (facts.get("main_activity") or "").strip().splitlines():
+            _ln = _ln.strip()
+            if _ln.startswith(pkg + "/"):
+                comp = _ln
+                break
+        launch = None
+        if comp:
+            try:
+                launch = provider.execute(
+                    env_id, f"{ADB} shell am start -W -n {comp}", timeout=600)
+                result["first_launch_cmd"] = f"am start -W -n {comp}"
+            except Exception as _le:  # noqa: BLE001 — transport death ≠ verdict
+                result["first_launch_cmd"] = (
+                    f"am start -W TRANSPORT-DEAD: {type(_le).__name__}: {_le}"[:300])
+        else:
+            result["first_launch_cmd"] = "monkey (no component resolved)"
+        if launch is None and not comp:
+            launch = provider.execute(
+                env_id, f"{ADB} shell monkey -p {pkg} -c android.intent.category.LAUNCHER 1 "
+                        f"2>&1 | tail -3", timeout=300)
+        result["first_launch_monkey"] = (launch.stdout if launch else "").strip()[-300:]
         proc_line = ""
         last_ps = ""
         last_ps_err = ""
