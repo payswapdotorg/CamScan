@@ -963,22 +963,39 @@ echo LAUNCHED
             anr["taps"].append([540, 1244])
             anr["dismissed"] = True
         result["anr_dismissal"] = anr
+        # probe-34 (2026-09-24, run 20260924T225446Z postmortem): the capture
+        # pair loop was the last unwrapped raiser in the post-launch path —
+        # a ui-hierarchy dump that hits the end-of-window transport strain
+        # (RuntimeError from the provider) discarded a run with the app UP
+        # and probe-33's resolve-as-proof already banked. Per-pair tolerance:
+        # a failed pair records its error; the temporal series continues.
         first_run_caps = []
+        _pairs_failed = 0
         for wait_s in (0, 15, 30):
             if wait_s:
                 time.sleep(wait_s)
-            shot = provider.capture(env_id, CaptureKind.screenshot)
-            ui = provider.capture(env_id, CaptureKind.ui_hierarchy)
-            first_run_caps.append({"after_s": wait_s,
-                                   "screenshot": shot.sandbox_path,
-                                   "screenshot_sha256": shot.sha256,
-                                   "ui_hierarchy": ui.sandbox_path,
-                                   "ui_hierarchy_sha256": ui.sha256,
-                                   "window_focus": provider.execute(
-                                       env_id, f"{ADB} shell dumpsys window | "
-                                               f"grep -m1 mCurrentFocus", timeout=120
-                                   ).stdout.strip()[:300]})
+            try:
+                shot = provider.capture(env_id, CaptureKind.screenshot)
+                ui = provider.capture(env_id, CaptureKind.ui_hierarchy)
+                first_run_caps.append({"after_s": wait_s,
+                                       "screenshot": shot.sandbox_path,
+                                       "screenshot_sha256": shot.sha256,
+                                       "ui_hierarchy": ui.sandbox_path,
+                                       "ui_hierarchy_sha256": ui.sha256,
+                                       "window_focus": provider.execute(
+                                           env_id, f"{ADB} shell dumpsys window | "
+                                                   f"grep -m1 mCurrentFocus",
+                                           timeout=120
+                                       ).stdout.strip()[:300]})
+            except Exception as _pe:  # noqa: BLE001 — per-pair tolerance
+                _pairs_failed += 1
+                first_run_caps.append(
+                    {"after_s": wait_s,
+                     "error": f"{type(_pe).__name__}: {_pe}"[:160]})
+                if _pairs_failed >= 2:
+                    break  # transport dying — stop spending windows on it
         result["first_run_captures"] = first_run_caps
+        result["first_run_capture_pairs_failed"] = _pairs_failed
         # probe-32 (2026-09-24, run 20260924T191339Z postmortem): that run banked
         # 3 screenshot+ui capture pairs and then DIED at the logcat capture —
         # the sandbox hit its 60-min hard cap mid-dump (RuntimeError raised by
@@ -1001,9 +1018,14 @@ echo LAUNCHED
         except Exception as _de:  # noqa: BLE001
             result["first_run_network_domains"] = \
                 f"error: {type(_de).__name__}"[:200]
-        phase("first-run", True, {"process": proc_line[:80],
-                                  "focus": result["first_run_window_focus"],
-                                  "domains": result["first_run_network_domains"]})
+        # probe-34: capture quality gates the phase — at least one landed
+        # screenshot+ui pair is first-run evidence; zero pairs is a failed
+        # capture stage (the run continues to bank everything else).
+        _landed_pairs = [c for c in first_run_caps if "screenshot" in c]
+        phase("first-run", bool(_landed_pairs),
+              {"process": proc_line[:80],
+               "focus": result["first_run_window_focus"],
+               "domains": result["first_run_network_domains"]})
 
         # -- 7 state scan -------------------------------------------------------------
         try:
@@ -1075,7 +1097,9 @@ echo LAUNCHED
                     "ui_hierarchy": second_ui.sandbox_path,
                     "ui_hierarchy_sha256": second_ui.sha256,
                     "screenshot_identical_to_first": (
-                        second_shot.sha256 == first_run_caps[-1]["screenshot_sha256"])}
+                        second_shot.sha256 == next(
+                            (c["screenshot_sha256"] for c in reversed(first_run_caps)
+                             if "screenshot_sha256" in c), ""))}
                 phase("second-run", True, {"identical_screenshot":
                                            result["second_run"]["screenshot_identical_to_first"]})
             except Exception as _te:  # noqa: BLE001 — evidence-stage death tolerance
