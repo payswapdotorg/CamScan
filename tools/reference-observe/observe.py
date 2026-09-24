@@ -441,16 +441,41 @@ echo LAUNCHED
                                     f"{sandbox_death}")
                 break
             if not outcome_seen:
-                # outcome window elapsed with no EXIT marker — kill the
-                # zombie stream and record a timeout (cheap, no 20-min hang)
-                provider.execute(
-                    env_id, "pkill -f 'adb install' 2>&1; echo KILLED",
+                # probe-23 (2026-09-24): under degraded TCG the package-
+                # manager COMMIT can land minutes before the adb client
+                # stream returns (observed live: the registry showed the
+                # package while adb was still streaming). Check the
+                # registry at the window edge BEFORE declaring a timeout
+                # — a committed package IS success; killing the lingering
+                # adb stream afterwards is harmless (commit is durable).
+                reg = provider.execute(
+                    env_id,
+                    f"{ADB} shell pm path {args.package} 2>&1 | head -1",
                     timeout=60)
-                install = CommandResult(
-                    exit_code=-1, stdout="", stderr="outcome window elapsed",
-                    command=install_cmd)
-                install_diag.append(f"[attempt {attempt + 1}] "
-                                    f"outcome-window-timeout")
+                if not _sandbox_dead(reg) and \
+                        (reg.stdout or "").strip().startswith("package:/"):
+                    provider.execute(
+                        env_id, "pkill -f 'adb install' 2>&1; echo KILLED",
+                        timeout=60)
+                    install = CommandResult(
+                        exit_code=0, stdout="Success (probe-23 edge check)",
+                        stderr="", command=install_cmd)
+                    install_ok = True
+                    outcome_seen = True
+                    install_diag.append(
+                        f"[attempt {attempt + 1}] probe-23 edge registry "
+                        "check: commit landed, adb stream killed")
+                else:
+                    # outcome window elapsed with no EXIT marker — kill the
+                    # zombie stream and record a timeout (cheap, no 20-min hang)
+                    provider.execute(
+                        env_id, "pkill -f 'adb install' 2>&1; echo KILLED",
+                        timeout=60)
+                    install = CommandResult(
+                        exit_code=-1, stdout="", stderr="outcome window elapsed",
+                        command=install_cmd)
+                    install_diag.append(f"[attempt {attempt + 1}] "
+                                        f"outcome-window-timeout")
             if install_ok:
                 break
             if install is not None:
