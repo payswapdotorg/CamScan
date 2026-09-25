@@ -1,5 +1,7 @@
 """The reference live driver's hermetic contract tests (CAMSCAN-009,
-extended by CAMSCAN-010A — the launch-step port).
+extended by CAMSCAN-010A — the launch-step port, and CAMSCAN-010B —
+the run-metadata gaps: device.screen fallback + package-facts
+blindness tolerance).
 
 No network, no e2b SDK, no credentials, no real sleeps: the driver is
 driven through an injected scripted transport (ScriptedProvider) that
@@ -40,6 +42,18 @@ Pinned properties (the work order's list):
   launch → per-step captures → run-metadata.json (deterministic
   timestamps when the request clock is empty); device-side step
   failures recorded, not raised;
+- CAMSCAN-010B run-metadata gaps: (a) an empty-report identity block
+  falls back to the capability-record-documented pixel_4 geometry and
+  the staged run-metadata passes the REAL evidence-cli bundle
+  pipeline (the exact stage that rejected the finished
+  20260925T091135Z live run on device.screen ''); (b) a blind-then-
+  answering package-facts read lands version_name through the
+  probe-33 bounded retry (timestamped blind-read diagnostics); (c)
+  all-blind package facts fail the run honestly with a readable
+  reason naming every blind read (never an empty placeholder into
+  the bundle validator); (d) a non-empty report resolution is used
+  verbatim — the pinned geometry never overrides a report that
+  answered;
 - teardown: never raises, even when stop and destroy both raise;
 - the registry resolution flip: env=reference resolves
   ReferenceDriver after the CAMSCAN-009 wiring; the pre-009 registry
@@ -62,12 +76,14 @@ from typing import Any
 import pytest
 from labcli_helpers import REPO_ROOT, run_cli
 from tools.evidence_cli.jsonio import load as jsonio_load
+from tools.evidence_cli.schema import SCREEN_RE, validate_manifest
 from tools.lab_cli import drivers as driver_registry
 from tools.lab_cli.drivers import (
     DriverHandle,
     ExecutionRequest,
     ProvisionRequest,
 )
+from tools.lab_cli.evidence import bundle_stage, scenario_copy_for_stage
 from tools.lab_cli.reference_live import (
     BOOT_SETTLE_S,
     DEX2OAT_GATE_MAX_POLLS,
@@ -77,8 +93,13 @@ from tools.lab_cli.reference_live import (
     LAUNCH_PROC_POLL_CAP_CONFIRMED,
     LAUNCH_SETTLE_S,
     OUTCOME_POLL_S,
+    PKG_FACTS_MAX_ATTEMPTS,
+    PKG_FACTS_SETTLE_S,
     PROCESS_WAIT_ROUNDS,
     RECORDED_XAPK_SHA256,
+    REFERENCE_FALLBACK_ANDROID_VERSION,
+    REFERENCE_FALLBACK_DENSITY_DPI,
+    REFERENCE_FALLBACK_SCREEN,
     REFERENCE_MEMORY_MB,
     REFERENCE_SYSTEM_IMAGE,
     RETRY_BACKOFF_S,
@@ -311,11 +332,13 @@ def _make_driver(provider: ScriptedProvider,
 
 def _provision_request(lines: list[str], *, apk: str | Path | None = None,
                        subject: str = "reference",
-                       scenario_id: str = "S001") -> ProvisionRequest:
+                       scenario_id: str = "S001",
+                       provider_report: dict[str, Any] | None = None,
+                       ) -> ProvisionRequest:
     scenario = resolve_scenario(scenario_id, REPO_ROOT / "lab" / "scenarios")
     return ProvisionRequest(
         run_id=RUN_ID, subject=subject, scenario=scenario,
-        provider_report={"slug": "e2b"},
+        provider_report=provider_report or {"slug": "e2b"},
         step_timeout_s=scenario.step_timeout_seconds,
         timeout_s=scenario.timeout_seconds,
         apk=Path(apk) if apk else None, emit=lines.append)
@@ -1113,6 +1136,260 @@ def test_execute_records_launch_failure_with_forensics(monkeypatch,
     assert any("death-forensics" in line for line in diag)
     assert any("launch failed — ladder + death forensics recorded"
                in line for line in lines)
+
+
+# ------------------------------------------ run-metadata gaps (CAMSCAN-010B)
+
+class _EmptyIdentityReportProvider(ScriptedProvider):
+    """The 20260925T091135Z-S001-live report shape (CAMSCAN-010B root
+    cause 1): every identity probe — model, android version, resolution,
+    density — came back empty, so the pre-010B code shipped device.screen
+    '' (and would ship model/android_version '' the same way) into the
+    evidence-cli bundle."""
+
+    def report(self, env_id: str) -> dict[str, Any]:
+        self.ops.append(("report", env_id))
+        return {"ok": True, "android_version": "", "device_model": "",
+                "resolution": "", "density": "", "locale": "",
+                "timezone": "", "avd_name": "camscan-reference"}
+
+
+class _AltGeometryReportProvider(ScriptedProvider):
+    """A report that ANSWERED — with an identity deliberately different
+    from the pinned pixel_4 profile (the 1080x2400@420dpi geometry the
+    parity-cli fixture tests use): the 010B fallback must never override
+    a report that answered (work-order constraint d)."""
+
+    def report(self, env_id: str) -> dict[str, Any]:
+        self.ops.append(("report", env_id))
+        return {"ok": True, "android_version": "12",
+                "device_model": "Pixel 6", "resolution": "1080x2400",
+                "density": "420", "locale": "en-GB", "timezone": "UTC",
+                "avd_name": "camscan-reference"}
+
+
+class _AltGeometryNoDensityProvider(_AltGeometryReportProvider):
+    """Same answered geometry, density probe empty — the pinned pixel_4
+    dpi fills ONLY the hole; the report's WxH still wins."""
+
+    def report(self, env_id: str) -> dict[str, Any]:
+        doc = super().report(env_id)
+        doc["density"] = ""
+        return doc
+
+
+def test_provision_empty_report_identity_falls_back_and_bundles(
+        monkeypatch, tmp_path):
+    """CAMSCAN-010B (a) — the deterministic hole: an empty-report
+    resolution falls back to the capability-record-documented pixel_4
+    geometry (REFERENCE_FALLBACK_SCREEN — lab/providers/e2b-reference/
+    capability-report.json notes.device_profile) and the staged
+    run-metadata passes the REAL evidence-cli bundle pipeline, the exact
+    stage that rejected the finished 20260925T091135Z live run on
+    ``device.screen: must not be empty`` + ``must match WxH@dpi``."""
+    monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
+    monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
+    xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
+    provider = _EmptyIdentityReportProvider()
+    provider.on("cat /root/install.out", "Success\nEXIT_0\n")
+    lines: list[str] = []
+    driver, _clock = _make_driver(provider, apk=xapk)
+    # the manifest's provider block mirrors the REAL on-record e2b
+    # capability report (as run.py passes it — the bundle validator
+    # requires a non-empty capabilities mapping)
+    e2b_report = next(r for r in load_provider_reports(REPO_ROOT)
+                      if r["slug"] == "e2b")
+    # the stage dir is NAMED like the run (bundle_run requires
+    # run_dir.name == run_id — the same shape run.py stages)
+    stage = tmp_path / RUN_ID
+    handle = driver.provision(_provision_request(lines, apk=xapk,
+                                                 provider_report=e2b_report))
+
+    # the fallback chain: report (empty) → provisioned spec → the
+    # capability-record-documented pixel_4 profile — never an empty
+    # string into the manifest
+    assert handle.device["screen"] == REFERENCE_FALLBACK_SCREEN
+    assert SCREEN_RE.match(handle.device["screen"])   # WxH@dpi shape
+    assert handle.device["android_version"] \
+        == REFERENCE_FALLBACK_ANDROID_VERSION
+    assert handle.device["model"] == "pixel_4"   # the spec rung
+    assert handle.device["locale"] == "en-US"    # the spec rung
+    assert handle.device["timezone"] == "UTC"    # the spec rung
+
+    scenario = resolve_scenario("S001", REPO_ROOT / "lab" / "scenarios")
+    plans = plan_steps(scenario.steps, None)
+    request = ExecutionRequest(
+        handle=handle, run_id=RUN_ID, subject="reference",
+        scenario=scenario, step_plans=plans, stage_dir=stage,
+        fixtures=[], started_at="2026-09-24T00:00:00Z",
+        finished_at="2026-09-24T00:05:00Z", emit=lines.append)
+    result = driver.execute(handle, request)
+    assert result.ok is True, result.reason
+
+    doc = jsonio_load(stage / "run-metadata.json")
+    assert doc["device"]["screen"] == REFERENCE_FALLBACK_SCREEN
+
+    # the REAL bundle pipeline (scenario copy → bundle_run → schema
+    # validation): the exact stage that died live must pass with the
+    # fallback in place
+    scenario_copy_for_stage(stage, scenario.file)
+    n_artifacts = bundle_stage(stage, REPO_ROOT)
+    assert n_artifacts == 3          # screenshot + ui dump + logcat
+    manifest = jsonio_load(stage / "manifest.json")
+    assert manifest["device"]["screen"] == REFERENCE_FALLBACK_SCREEN
+    assert manifest["application"]["version_name"] == "7.25.5.2609020000"
+    assert validate_manifest(manifest) == []
+
+
+def test_provision_report_resolution_used_verbatim_no_override(
+        monkeypatch, tmp_path):
+    """CAMSCAN-010B (d) — a non-empty report resolution is used
+    verbatim (no override): the report's own geometry composes through
+    unchanged (WxH@dpi from its own resolution + density probes), and
+    when only the density probe came back empty the pinned pixel_4 dpi
+    fills just the hole — the report's WxH still wins."""
+    monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
+    monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
+    xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
+
+    # both probes answered: the report's identity passes through whole
+    provider = _AltGeometryReportProvider()
+    provider.on("cat /root/install.out", "Success\nEXIT_0\n")
+    driver, _clock = _make_driver(provider, apk=xapk)
+    handle = driver.provision(_provision_request([], apk=xapk))
+    assert handle.device["screen"] == "1080x2400@420dpi"
+    assert handle.device["model"] == "Pixel 6"
+    assert handle.device["android_version"] == "12"
+    assert handle.device["locale"] == "en-GB"
+
+    # density probe empty: pinned dpi, report WxH verbatim
+    provider2 = _AltGeometryNoDensityProvider()
+    provider2.on("cat /root/install.out", "Success\nEXIT_0\n")
+    driver2, _clock2 = _make_driver(provider2, apk=xapk)
+    handle2 = driver2.provision(_provision_request([], apk=xapk))
+    assert handle2.device["screen"] \
+        == f"1080x2400@{REFERENCE_FALLBACK_DENSITY_DPI}dpi"
+
+
+def test_execute_package_facts_blind_then_answering_lands(monkeypatch,
+                                                           tmp_path):
+    """CAMSCAN-010B (b) — the probe-33 lottery fix: the first
+    versionName read comes back transport-blind (the exact post-restore
+    flap class: exit -1, in-band timeout text — never an absence
+    observation), the bounded retry settles and re-reads, and
+    version_name LANDS; the run succeeds with the discovered facts."""
+    monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
+    monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
+    xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
+    provider = ScriptedProvider()
+    provider.on("cat /root/install.out", "Success\nEXIT_0\n")
+    # attempt 1: the blind transport read (probe-30/33 shape);
+    # attempt 2+: the answering dumpsys line (rule repeats the last)
+    provider.on("versionName",
+                CommandResult(-1, "", "Error: request_timeout after "
+                              "60000 ms", 5, "dumpsys"),
+                "    versionName=7.25.5.2609020000\n")
+    driver, clock = _make_driver(provider, apk=xapk)
+    lines: list[str] = []
+    handle = driver.provision(_provision_request(lines, apk=xapk))
+
+    scenario = resolve_scenario("S001", REPO_ROOT / "lab" / "scenarios")
+    plans = plan_steps(scenario.steps, None)
+    stage = tmp_path / "stage"
+    request = ExecutionRequest(
+        handle=handle, run_id=RUN_ID, subject="reference",
+        scenario=scenario, step_plans=plans, stage_dir=stage,
+        fixtures=[], started_at="2026-09-24T00:00:00Z",
+        finished_at="2026-09-24T00:05:00Z", emit=lines.append)
+    result = driver.execute(handle, request)
+
+    assert result.ok is True, result.reason
+    exec_log = provider.exec_log
+    # the bounded retry re-read ONLY the blind fact; the landed fact
+    # was never re-read
+    assert len([c for c in exec_log if "versionName" in c]) == 2
+    assert len([c for c in exec_log if "versionCode" in c]) == 1
+    # exactly one settle between the attempts (probe-33 cadence)
+    assert clock.slept.count(PKG_FACTS_SETTLE_S) == 1
+    # the blind read surfaced on the console (timestamped diag lines
+    # ride the failure path; the console always tells the story)
+    assert any(f"package facts blind on attempt 1/{PKG_FACTS_MAX_ATTEMPTS}"
+               in line and "versionName unreadable" in line
+               for line in lines)
+    # and the landed facts reached the metadata — never an empty field
+    doc = jsonio_load(stage / "run-metadata.json")
+    assert doc["application"]["version_name"] == "7.25.5.2609020000"
+    assert doc["application"]["version_code"] == 2609020000
+
+
+def test_execute_package_facts_all_blind_fails_honestly(monkeypatch,
+                                                         tmp_path):
+    """CAMSCAN-010B (c) — all-blind package facts: after the bounded
+    retries the run FAILS with a readable reason naming every blind
+    read (timestamped, the _ldiag style) — never an empty version_name
+    silently passing into the bundle validator (the 20260925T091135Z
+    evidence-stage death: the entire live chain had succeeded)."""
+    monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
+    monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
+    xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
+    provider = ScriptedProvider()
+    provider.on("cat /root/install.out", "Success\nEXIT_0\n")
+    # every package-facts read is transport-blind, on every attempt
+    # (the rule repeats its single scripted response)
+    blind = CommandResult(-1, "", "Error: request_timeout after 60000 ms",
+                          5, "dumpsys")
+    provider.on("versionName", blind)
+    provider.on("versionCode", blind)
+    driver, clock = _make_driver(provider, apk=xapk)
+    lines: list[str] = []
+    handle = driver.provision(_provision_request(lines, apk=xapk))
+
+    scenario = resolve_scenario("S001", REPO_ROOT / "lab" / "scenarios")
+    plans = plan_steps(scenario.steps, None)
+    stage = tmp_path / "stage"
+    request = ExecutionRequest(
+        handle=handle, run_id=RUN_ID, subject="reference",
+        scenario=scenario, step_plans=plans, stage_dir=stage,
+        fixtures=[], started_at="2026-09-24T00:00:00Z",
+        finished_at="2026-09-24T00:05:00Z", emit=lines.append)
+    result = driver.execute(handle, request)
+
+    # the steps themselves succeeded — the failure is the metadata
+    # stage, and it is honest: readable, naming the blind reads
+    assert result.steps_executed == 1
+    assert result.ok is False
+    assert len(result.problems) == 2
+    headline = result.problems[0]
+    assert (f"package facts unreadable after {PKG_FACTS_MAX_ATTEMPTS} "
+            "bounded attempts") in headline
+    assert "application.version_name" in headline
+    assert "application.version_code" in headline
+    assert "package facts unreadable" in result.reason
+
+    # every blind read named, timestamped (the injected wall clock
+    # pins 00:00:00), and bounded: 2 facts x 4 attempts, 3 settles
+    diagnostics = result.problems[1]
+    assert diagnostics.startswith("package-facts diagnostics ("
+                                  f"{2 * PKG_FACTS_MAX_ATTEMPTS} lines): ")
+    diag_body = diagnostics.split("): ", 1)[1]      # drop the header
+    diag_lines = [part.strip() for part in diag_body.split(" | ")]
+    assert all(re.match(r"^\d{2}:\d{2}:\d{2} \[attempt [1-4]\] "
+                        r"version(Name|Code) read blind ", line)
+               for line in diag_lines)
+    assert all(line.startswith("00:00:00 ") for line in diag_lines)
+    assert "request_timeout" in diagnostics      # the stderr tail named
+    assert len([c for c in provider.exec_log if "versionName" in c]) \
+        == PKG_FACTS_MAX_ATTEMPTS
+    assert len([c for c in provider.exec_log if "versionCode" in c]) \
+        == PKG_FACTS_MAX_ATTEMPTS
+    assert clock.slept.count(PKG_FACTS_SETTLE_S) == PKG_FACTS_MAX_ATTEMPTS - 1
+
+    # the placeholder stays in the written metadata (the run failed —
+    # the runner never bundles a failed subject, so the validator
+    # never sees the empty field; the readable reason is the surface)
+    doc = jsonio_load(stage / "run-metadata.json")
+    assert doc["application"]["version_name"] == ""
+    assert doc["application"]["version_code"] == 0
 
 
 # ------------------------------------------------------------------ teardown
