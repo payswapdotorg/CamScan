@@ -1,0 +1,40 @@
+{
+  "bucket": "camscan-parity-evidence",
+  "manifest_bytes": 2562,
+  "manifest_key": "runs/20260925T210842Z-S002-live/reference/manifest.json",
+  "manifest_sha256": "388d047f53cb53277be3b905a776620f8e1bacb63f9ed67a2bbf9529212e80e9",
+  "objects": [
+    {
+      "bytes": 766231,
+      "key": "runs/20260925T210842Z-S002-live/reference/logs/logcat.txt",
+      "sha256": "9c71129bec886fb7ff6008660c9c5757b9f0957f8857d12a449563b22fc44394",
+      "verified": true
+    },
+    {
+      "bytes": 86346,
+      "key": "runs/20260925T210842Z-S002-live/reference/screenshots/01-launch.png",
+      "sha256": "de5ec8a8a3ef75955e873e665f8ddb8b897d446a3a7cfa84c9aae69a7a49143c",
+      "verified": true
+    },
+    {
+      "bytes": 92287,
+      "key": "runs/20260925T210842Z-S002-live/reference/screenshots/02-complete-onboarding.png",
+      "sha256": "8a420dac6aed18c21680255a451316a104bd490374488eeeb1430765dc7ff2ca",
+      "verified": true
+    },
+    {
+      "bytes": 4146,
+      "key": "runs/20260925T210842Z-S002-live/reference/ui/01-launch.xml",
+      "sha256": "745772e826640b5fe78b5a2c9cd02343a5ceb4dcb3cf05f19ebf9def3be493e5",
+      "verified": true
+    },
+    {
+      "bytes": 4146,
+      "key": "runs/20260925T210842Z-S002-live/reference/ui/02-complete-onboarding.xml",
+      "sha256": "745772e826640b5fe78b5a2c9cd02343a5ceb4dcb3cf05f19ebf9def3be493e5",
+      "verified": true
+    }
+  ],
+  "run_id": "20260925T210842Z-S002-live",
+  "subject": "reference"
+}

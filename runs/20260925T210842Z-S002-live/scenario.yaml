@@ -1,0 +1,38 @@
+# migrated to DSL v0.1 (typed meta.requires + explicit timeouts); previous requires: ['gui', 'adb']
+id: onboarding
+title: First-run onboarding flow
+status: UNKNOWN
+preconditions:
+- fresh-install
+- first-run
+fixture:
+  camera: null
+  sequence: null
+steps:
+- launch
+- complete-onboarding
+assertions:
+  behavior:
+  - onboarding-shown-on-first-run
+  - onboarding-skippable-or-completable
+  ui:
+  - onboarding-controls-visible
+  state:
+  - onboarding-completed-flag-set
+  output: []
+meta:
+  timeout_seconds: 1800
+  step_timeout_seconds: 120
+  requires:
+    gui: true
+    adb: true
+    android_emulator: true
+    android_sdk: true
+    android_cli: true
+    emulator_acceleration:
+      allowed:
+      - none
+  owner: lead
+  notes: Provisional spec from the mission's starting list — pending reference discovery
+    (Worker 2). Status stays UNKNOWN until observed against CamScanner; actual reference
+    behavior may differ.
