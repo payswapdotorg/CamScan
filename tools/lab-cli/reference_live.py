@@ -52,9 +52,10 @@ run-003 / run-005 lessons / observe.py lines; never a bare number):
    the 010B bounded-blindness machinery and stashed on the handle
    (CAMSCAN-010C, ``native.install_time_facts``): the facts are stable
    from registry confirmation, and the 2026-09-25 campaign runs died
-   re-reading them at execute()-end (~51 min sandbox age, instant
-   ``.set_timeout``-advice rejections — the sandbox-lifetime death
-   zone), so the read lives where the system is freshest: BEFORE the
+   re-reading them at execute()-end (sandbox age exactly 3600 s — the
+   E2B Hobby total-lifetime cap, CAMSCAN-010D; instant
+   ``.set_timeout``-advice rejections — the death zone), so the read
+   lives where the system is freshest: BEFORE the
    GMS restore whose post-restore flap is the 010B blindness class.
    The early read is best-effort — provision never fails on it.
 4. LAUNCH — the probe-26..31 machinery (CAMSCAN-010A, ported from
@@ -77,7 +78,12 @@ run-003 / run-005 lessons / observe.py lines; never a bare number):
    patient process poll (probe-24 budget, probe-25 death forensics,
    probe-31-capped at ~2 min when am already confirmed) decides the
    step verdict, and its diagnostics reach the evidence layer
-   (problems/reason + the run-metadata action trace). Then the
+   (problems/reason + the run-metadata action trace) — and since
+   CAMSCAN-010D BOTH process-wait loops (this poll and the
+   post-launch wait) are governed by the E2B Hobby total-lifetime
+   budget: each cuts early when the remaining sandbox lifetime drops
+   below LAUNCH_PROC_BUDGET_RESERVE_S so the evidence phases get
+   their minutes inside the 3600 s cap. Then the
    SystemUI-ANR dismissal ladder after a SUCCESSFUL launch
    (uiautomator dump → Wait-button bounds → center tap; the proven
    (540, 1244) fallback).
@@ -91,7 +97,11 @@ run-003 / run-005 lessons / observe.py lines; never a bare number):
    with the stashed ones; a blind read is never an absence
    observation, and a both-blind run fails the run honestly with the
    combined install-time + late diagnostics instead of shipping empty
-   placeholders into the bundle), the EVIDENCE.md single-subject
+   placeholders into the bundle; CAMSCAN-010D: a read carrying the
+   sandbox-death signature — the exact ``.set_timeout``-advice
+   rejection an expired Hobby sandbox serves — is NOT a blind
+   transient: the retries abort at once and the honest-fail reason
+   names the expiry with age context), the EVIDENCE.md single-subject
    metadata.
 6. TEARDOWN — best-effort stop + destroy on EVERY path; never raises
    (the runner owns the invariant; provision cleans up its own partial
@@ -108,6 +118,24 @@ Two deliberate deviations from the implementation driver:
 - permission baselines are granted by the driver with the full
   ``pm grant <pkg> <perm>`` form (the correct one for app runtime
   permissions).
+
+CAMSCAN-010D — the E2B Hobby total-lifetime budget governor (3600 s
+hard cap): the account is Hobby-tier; the SDK docstring
+(e2b/sandbox_sync/main.py, set_timeout) caps a sandbox's TOTAL
+lifetime at 1 hour (3_600 seconds) for Hobby users, and the
+20260925T110418Z-S001-live postmortem matched it exactly (sandbox
+created ~11:04:24, envd UNAVAILABLE at 12:04:24 = age exactly
+3600 s). set_timeout renewal cannot move that deadline under Hobby,
+so the driver governs its own waits against E2B_TOTAL_LIFETIME_CAP_S
+via ``_Native.sandbox_t0`` (the birth mark captured in provision()
+immediately BEFORE provider.provision): the launch-step process poll
+and the post-launch process wait cut early at
+LAUNCH_PROC_BUDGET_RESERVE_S (the ANR ladder still runs — it is
+required for subsequent steps), and a package-facts read with the
+sandbox-death signature aborts the retries at once (never hammer a
+corpse) and fails the run honestly naming the expiry. A SIGINT
+campaign stop can no longer leak the paid sandbox: provision()'s
+ladder-region cleanup catches BaseException too.
 """
 from __future__ import annotations
 
@@ -335,6 +363,9 @@ ANR_FALLBACK_TAP = (540, 1244)
 #: run-005 lesson (b) (observe.py L361-365): these phrases mean the
 #: SANDBOX died — not a retryable install failure. Abort at once; a
 #: fresh run gets a fresh 60-min window (the E2B hard cap).
+#: CAMSCAN-010D: the "sandbox timeout" entry is the exact signature
+#: the expired Hobby sandbox serves on every read past age 3600 s
+#: (20260925T110418Z postmortem — see E2B_TOTAL_LIFETIME_CAP_S).
 SANDBOX_DEATH_MARKERS: tuple[str, ...] = (
     "sandbox was not found",
     "sandbox timeout",
@@ -415,8 +446,13 @@ PKG_FACTS_SETTLE_S = 15
 # the package-facts read went all-blind with INSTANT rejections
 # (exit=-1, stderr tail "…ling '.set_timeout' on the sandbox with the
 # desired timeout." — the E2B sandbox-lifetime rejection), sandbox age
-# at death ≈ 51 min (slow runs: hostile install windows + launch
-# fights stretch the wall clock; the README's design accepts sandbox
+# at death exactly 3600 s — the E2B Hobby TOTAL-lifetime cap
+# (CAMSCAN-010D, lead-verified 2026-09-25 on postmortem run
+# 20260925T110418Z-S001-live: sandbox created ~11:04:24, envd went
+# UNAVAILABLE at 12:04:24 = age exactly 3600 s; the 010C-era "≈ 51
+# min" figure was the slow-run wall-clock approximation of the same
+# hard cap — slow runs: hostile install windows + launch fights
+# stretch the wall clock; the README's design accepts sandbox
 # death → fresh run, but the FACTS read must not live in the death
 # zone). The facts themselves (application.version_name /
 # version_code) are INSTALL-TIME properties — stable from the moment
@@ -443,6 +479,69 @@ PKG_FACTS_SETTLE_S = 15
 #: note, never a smuggled schema violation).
 PKG_FACTS_PHASE_INSTALL_TIME = "install-time"
 PKG_FACTS_PHASE_LATE = "late"
+
+# ------------------------- total-lifetime budget (CAMSCAN-010D)
+# CAMSCAN-010D (work order "E2B Hobby total-lifetime budget governor
+# — 3600s hard cap"; root cause lead-verified 2026-09-25 on campaign
+# run 20260925T110418Z-S001-live, attempt 1): the E2B account is
+# Hobby-tier — the SDK docstring (e2b/sandbox_sync/main.py,
+# set_timeout) says "The maximum time a sandbox can be kept alive is
+# 24 hours (86_400 seconds) for Pro users and 1 hour (3_600 seconds)
+# for Hobby users." The empirics match EXACTLY: sandbox created
+# ~11:04:24 (provision start 11:04:18), envd went UNAVAILABLE at
+# 12:04:24 = age exactly 3600 s — and the evidence-stage reads were
+# rejected INSTANTLY (exit=-1, ~0.5 s per read, stderr tail "…ling
+# '.set_timeout' on the sandbox with the desired timeout." — the envd
+# Code.UNAVAILABLE → TimeoutException mapping, e2b/envd/rpc.py +
+# exceptions.py format_sandbox_timeout_exception; the "sandbox
+# timeout" entry of SANDBOX_DEATH_MARKERS matches that signature).
+# The provider's renewal machinery (renewal_s=3600 per set_timeout
+# call) is built on a WRONG "per-call cap" reading: under Hobby,
+# set_timeout(3600) at age N still caps TOTAL age at 3600 — renewal
+# is a harmless no-op beyond the initial create-time deadline
+# (run-005 lesson: "a fresh run gets a fresh 60-min window (the E2B
+# hard cap)" — see the provider comment truth-fix in the same work
+# order). This driver therefore governs its own waits against the
+# cap: _Native.sandbox_t0 is the birth mark on the injected
+# monotonic clock (captured in provision() immediately BEFORE
+# provider.provision(spec) — the create/bootstrap minutes count;
+# ordering pinned by test), the _sandbox_age_s /
+# _sandbox_budget_remaining_s helpers read it, and every wait loop
+# below cuts early when the remaining budget drops under the
+# evidence reserve. Same doctrine as the blocks above: every
+# constant cites its SDK-docstring / postmortem / work-order
+# provenance — never a bare number.
+
+#: The E2B Hobby TOTAL-lifetime cap for one sandbox: the SDK
+#: docstring (e2b/sandbox_sync/main.py, set_timeout — "1 hour
+#: (3_600 seconds) for Hobby users") + the 20260925T110418Z-S001-live
+#: postmortem (envd UNAVAILABLE at sandbox age exactly 3600 s; the
+#: instant '.set_timeout'-advice rejections are its signature). NOT a
+#: per-call budget and NOT renewable under Hobby — the total age is
+#: capped from create time, and a fresh run gets a fresh window
+#: (run-005 lesson).
+E2B_TOTAL_LIFETIME_CAP_S = 3600
+
+#: The evidence-phase reserve the process-wait governors defend
+#: (CAMSCAN-010D work order: "size it from the observed evidence-phase
+#: needs: ANR ladder + remaining steps + captures + facts + logcat;
+#: ~480s is the lead's estimate — sanity-check and cite"). Sizing
+#: from the driver's own observed/bounded budgets: the ANR ladder
+#: (ANR_MAX_ROUNDS x ANR_ROUND_SETTLE_S settles + the dump/tap reads
+#: ≈ 120 s worst case) + the remaining scenario steps with their
+#: per-step screenshot + ui-dump captures under TCG (S001-S003: up to
+#: 3 steps x ~60-120 s ≈ 360 s worst case, ~180 s typical) + the late
+#: package-facts read (bounded PKG_FACTS_MAX_ATTEMPTS x
+#: PKG_FACTS_SETTLE_S settles + reads ≈ 100 s typical) + the final
+#: logcat fetch (bounded by the capture window, up to DIAG_TIMEOUT_S)
+#: → ~480 s covers the typical evidence tail with margin without
+#: abandoning a slow cold start too early. The 20260925T110418Z
+#: killer was exactly this class: _post_launch's 400 s process wait
+#: ran at sandbox age ~3200→3600 s (console line "app process not
+#: observed within 400s (TCG slow path)" printed INSIDE the death
+#: zone) and starved steps/captures/facts of the sandbox's final
+#: minutes.
+LAUNCH_PROC_BUDGET_RESERVE_S = 480
 
 
 def _require_api_key() -> str:
@@ -520,11 +619,24 @@ class _Native:
     def __init__(self, provider: Any, env_id: str, adb: str,
                  launcher_component: str,
                  install_time_facts: dict[str, Any] | None = None,
-                 install_time_facts_diag: list[str] | None = None) -> None:
+                 install_time_facts_diag: list[str] | None = None,
+                 sandbox_t0: float = 0.0) -> None:
         self.provider = provider
         self.env_id = env_id
         self.adb = adb
         self.launcher_component = launcher_component
+        # CAMSCAN-010D: the sandbox's birth mark on the driver's
+        # injected monotonic clock — captured in provision()
+        # immediately BEFORE provider.provision(spec) (ordering
+        # pinned by test: the create/bootstrap minutes count toward
+        # the E2B Hobby total-lifetime cap; a mark taken after
+        # provision would understate the age and overstate the
+        # remaining budget, cutting the governors too late). The
+        # budget helpers (_sandbox_age_s /
+        # _sandbox_budget_remaining_s) read it; the 0.0 default only
+        # keeps direct constructions (the teardown contract tests)
+        # valid — a real handle always carries the captured mark.
+        self.sandbox_t0: float = sandbox_t0
         # CAMSCAN-010C: the install-time package-facts stash — ground
         # truth captured right after _registry_verify (see the 010C
         # provenance block above the PKG_FACTS_PHASE_* constants).
@@ -606,6 +718,12 @@ class ReferenceDriver:
         )
         emit("  reference: provisioning e2b sandbox (google_apis image, "
              "TCG boot budget is provider-owned)…")
+        # CAMSCAN-010D: the budget governor's birth mark — the
+        # injected monotonic clock captured immediately BEFORE
+        # provider.provision(spec) so the sandbox create/bootstrap
+        # minutes count toward the E2B Hobby total-lifetime cap
+        # (E2B_TOTAL_LIFETIME_CAP_S). Ordering pinned by test.
+        sandbox_t0 = self._monotonic()
         env = provider.provision(spec)
         env_id = env.env_id
         # CAMSCAN-010C: the install-time facts stash (initialized empty
@@ -635,13 +753,23 @@ class ReferenceDriver:
             # execute() consumes the stash instead of re-reading them
             # at the end of the sandbox's lifetime (the 2026-09-25
             # campaign diagnosis: all-blind INSTANT '.set_timeout'
-            # rejections at ~51 min sandbox age). BEST-EFFORT: a blind
+            # rejections at sandbox age exactly 3600 s — the E2B
+            # Hobby total-lifetime cap, CAMSCAN-010D postmortem run
+            # 20260925T110418Z-S001-live). BEST-EFFORT: a blind
             # early read NEVER fails provision — the late read stays
             # the fallback; the diag rides the handle for the combined
             # honest-failure diagnostics.
-            install_facts, install_facts_diag = self._package_facts(
-                provider, env_id, REFERENCE_PACKAGE, emit,
-                phase=PKG_FACTS_PHASE_INSTALL_TIME)
+            install_facts, install_facts_diag, _early_expired = \
+                self._package_facts(
+                    provider, env_id, REFERENCE_PACKAGE, emit,
+                    phase=PKG_FACTS_PHASE_INSTALL_TIME)
+            # (_early_expired: an install-time read that carried the
+            # sandbox-death signature aborted its retries at once —
+            # the very next _restore_gms read raises the death
+            # LabCliError and provision cleans up; the fast-abort
+            # just saved the bounded-retry budget. Best-effort
+            # doctrine unchanged: the early read never fails
+            # provision by itself.)
             if install_facts:
                 emit("  reference: install-time package facts stashed ("
                      + _facts_brief(install_facts)
@@ -664,6 +792,16 @@ class ReferenceDriver:
             raise LabCliError(
                 f"reference provisioning failed: {type(exc).__name__}: "
                 f"{exc}") from exc
+        except BaseException:  # SIGINT is not an Exception
+            # CAMSCAN-010D: KeyboardInterrupt/SystemExit are
+            # BaseExceptions — ``except Exception`` let a SIGINT
+            # campaign stop sail past this cleanup and LEAK the paid
+            # sandbox (2026-09-25 lead-verified incident, killed
+            # manually via the E2B API minutes later). Destroy
+            # quietly and re-raise the raw signal — the operator's
+            # stop always propagates, the sandbox always dies.
+            self._destroy_quietly(provider, env_id, emit)
+            raise
 
         report = provider.report(env_id) or {}
         # CAMSCAN-010B: the report's identity probes can come back empty
@@ -729,7 +867,8 @@ class ReferenceDriver:
             device=device,
             native=_Native(provider, env_id, ADB, launcher,
                            install_time_facts=install_facts,
-                           install_time_facts_diag=install_facts_diag),
+                           install_time_facts_diag=install_facts_diag,
+                           sandbox_t0=sandbox_t0),
         )
         emit(f"  reference: environment ready ({env_id}, delivery="
              f"{delivery}, launcher={launcher or 'resolved-at-launch'})")
@@ -823,8 +962,9 @@ class ReferenceDriver:
         # CAMSCAN-010C: STASH-FIRST. The install-time stash
         # (native.install_time_facts — captured right after the registry
         # verify, when the system is freshest, precisely because the
-        # 2026-09-25 campaign runs died re-reading the facts ~51 min
-        # into the sandbox's lifetime) is the ground truth for what it
+        # 2026-09-25 campaign runs died re-reading the facts at
+        # exactly 3600 s sandbox age — the E2B Hobby total-lifetime
+        # cap, CAMSCAN-010D) is the ground truth for what it
         # carries: when it carries BOTH facts the late dumpsys read is
         # NOT required. The late read (the 010B machinery, unchanged)
         # runs only for facts the stash could not land, seeded with the
@@ -862,7 +1002,7 @@ class ReferenceDriver:
                 request.emit(
                     "  reference: install-time stash empty (early read "
                     "blind) — the late read runs as the 010B fallback")
-            facts, pkg_diag = self._package_facts(
+            facts, pkg_diag, late_expired = self._package_facts(
                 native.provider, native.env_id,
                 application["package"], request.emit,
                 phase=PKG_FACTS_PHASE_LATE, seed=install_facts)
@@ -871,15 +1011,35 @@ class ReferenceDriver:
             missing = [f"application.{key}"
                        for key in ("version_name", "version_code")
                        if key not in facts]
-            problems.append(
-                f"package facts unreadable after "
-                f"{PKG_FACTS_MAX_ATTEMPTS} bounded attempts at install "
-                f"time AND {PKG_FACTS_MAX_ATTEMPTS} at execute time "
-                "(probe-33 blindness tolerance; CAMSCAN-010C combined "
-                "install-time + late diagnostics) — "
-                + " and ".join(missing)
-                + " blind; the evidence bundle requires the discovered "
-                "facts (never an empty placeholder into the validator)")
+            if late_expired:
+                # CAMSCAN-010D: the late read hit the sandbox-death
+                # signature and the fast-abort stopped the retries —
+                # this is NOT the probe-33 blind-transient story, so
+                # the honest-fail reason names the expiry with age
+                # context (the 20260925T110418Z root cause, readable)
+                # instead of the bounded-attempt counts (which would
+                # be a lie: no retries settled on the corpse).
+                problems.append(
+                    f"sandbox expired (E2B total-lifetime cap "
+                    f"{E2B_TOTAL_LIFETIME_CAP_S}s) at age "
+                    f"~{self._sandbox_age_s(native):.0f}s — reads "
+                    "rejected instantly with the set_timeout-advice "
+                    "signature (run-005 lesson b: never hammer a "
+                    "corpse — no retries settled) — "
+                    + " and ".join(missing)
+                    + " unreadable; the evidence bundle requires the "
+                    "discovered facts (never an empty placeholder "
+                    "into the validator)")
+            else:
+                problems.append(
+                    f"package facts unreadable after "
+                    f"{PKG_FACTS_MAX_ATTEMPTS} bounded attempts at install "
+                    f"time AND {PKG_FACTS_MAX_ATTEMPTS} at execute time "
+                    "(probe-33 blindness tolerance; CAMSCAN-010C combined "
+                    "install-time + late diagnostics) — "
+                    + " and ".join(missing)
+                    + " blind; the evidence bundle requires the discovered "
+                    "facts (never an empty placeholder into the validator)")
             problems.append(
                 f"package-facts diagnostics ("
                 f"{len(install_diag) + len(pkg_diag)} lines: "
@@ -924,6 +1084,31 @@ class ReferenceDriver:
         suffix = f" (error: {error})" if error else ""
         emit(f"  {handle.subject}: destroyed {native.env_id} "
              f"[paid environment released]{suffix}")
+
+    # ------------------------------------- lifetime budget (CAMSCAN-010D)
+
+    def _sandbox_age_s(self, native: _Native) -> float:
+        """CAMSCAN-010D: the sandbox's age in seconds — the monotonic
+        delta from ``_Native.sandbox_t0`` (the birth mark captured in
+        provision() immediately BEFORE provider.provision, so the
+        sandbox create/bootstrap minutes count toward the cap; the
+        ordering is pinned by test). The 20260925T110418Z-S001-live
+        postmortem: envd went UNAVAILABLE at age exactly
+        E2B_TOTAL_LIFETIME_CAP_S — this is the clock that hit
+        3600 s."""
+        return self._monotonic() - native.sandbox_t0
+
+    def _sandbox_budget_remaining_s(self, native: _Native) -> float:
+        """CAMSCAN-010D: the sandbox seconds left under the E2B Hobby
+        total-lifetime cap (E2B_TOTAL_LIFETIME_CAP_S — the SDK
+        docstring's "1 hour (3_600 seconds) for Hobby users" + the
+        20260925T110418Z-S001-live postmortem: envd UNAVAILABLE at
+        age exactly 3600 s). Renewal cannot extend it under Hobby
+        (set_timeout(3600) at age N still caps TOTAL age at 3600 —
+        the provider's renewal machinery is a no-op beyond the
+        create-time deadline), so every wait governor in this driver
+        reads this remaining budget."""
+        return E2B_TOTAL_LIFETIME_CAP_S - self._sandbox_age_s(native)
 
     # ------------------------------------------------------ recipe internals
 
@@ -1348,10 +1533,39 @@ echo LAUNCHED
         """probe-17 steps 5-6: wait for the app's process (ndk_translation
         under TCG is slow), then run the SystemUI-ANR dismissal ladder —
         the first launch of a heavy app trips a SystemUI ANR dialog over
-        the splash; the app task stays alive behind it."""
+        the splash; the app task stays alive behind it.
+
+        CAMSCAN-010D budget governor: the wait is capped not only by
+        PROCESS_WAIT_ROUNDS but by the sandbox's remaining lifetime —
+        before each round the remaining budget (against
+        E2B_TOTAL_LIFETIME_CAP_S via _Native.sandbox_t0) is checked,
+        and when it drops below LAUNCH_PROC_BUDGET_RESERVE_S the wait
+        is cut EARLY with a timestamped line so the evidence phases
+        (ANR ladder + remaining steps + captures + facts + logcat)
+        get the reserve. The ANR ladder itself still runs after the
+        cut — it is REQUIRED for subsequent steps (the SystemUI
+        dialog blocks the app UI). The 20260925T110418Z-S001-live
+        killer was exactly this class: this 400 s wait ran at sandbox
+        age ~3200→3600 s and starved the evidence phases of the
+        sandbox's final minutes."""
         provider, env_id, adb = native.provider, native.env_id, native.adb
         proc_line = ""
+        wait_cut = False
         for _ in range(PROCESS_WAIT_ROUNDS):
+            remaining = self._sandbox_budget_remaining_s(native)
+            if remaining < LAUNCH_PROC_BUDGET_RESERVE_S:
+                # CAMSCAN-010D: cut the wait — the reserve is the
+                # evidence phases' money, and the ANR ladder below
+                # still runs (required for subsequent steps).
+                age = E2B_TOTAL_LIFETIME_CAP_S - remaining
+                emit("  reference: " + time.strftime(
+                    "%H:%M:%S ", time.gmtime(self._wall_time()))
+                    + f"process-wait cut at age {age:.0f}s — reserving "
+                    f"{LAUNCH_PROC_BUDGET_RESERVE_S}s for the evidence "
+                    f"phases — E2B Hobby total-lifetime cap "
+                    f"{E2B_TOTAL_LIFETIME_CAP_S}s")
+                wait_cut = True
+                break
             self._sleep(PROCESS_WAIT_S)
             res = provider.execute(
                 env_id,
@@ -1369,7 +1583,9 @@ echo LAUNCHED
             fields = proc_line.split()
             pid = fields[1] if len(fields) > 1 else ""
             emit(f"  reference: app process up (pid {pid})")
-        else:
+        elif not wait_cut:
+            # (a cut already told the story — the wait ended on the
+            # budget governor, not on absence)
             emit("  reference: app process not observed within "
                  f"{PROCESS_WAIT_ROUNDS * PROCESS_WAIT_S}s (TCG slow "
                  "path)")
@@ -1467,8 +1683,14 @@ echo LAUNCHED
                  "fallback (probe-26: single-shot, event injection only)")
             self._monkey_fallback(bridge, app, step_timeout, _ldiag)
 
-        ok = self._launch_process_poll(provider, env_id, adb, am_confirmed,
-                                       _ldiag, emit)
+        # CAMSCAN-010D: the poll's budget governor reads the remaining
+        # sandbox lifetime against _Native.sandbox_t0 /
+        # E2B_TOTAL_LIFETIME_CAP_S through a remaining-seconds callable
+        # (None would mean ungoverned; the live call always threads it).
+        ok = self._launch_process_poll(
+            provider, env_id, adb, am_confirmed, _ldiag, emit,
+            budget_remaining_s=lambda: self._sandbox_budget_remaining_s(
+                native))
         return ok, diag
 
     def _dex2oat_gate(self, provider: Any, env_id: str, adb: str,
@@ -1683,7 +1905,9 @@ echo LAUNCHED
     def _launch_process_poll(self, provider: Any, env_id: str, adb: str,
                              am_confirmed: str,
                              _ldiag: Callable[[str], None],
-                             emit: Callable[[str], None]) -> bool:
+                             emit: Callable[[str], None], *,
+                             budget_remaining_s: Callable[[], float]
+                             | None = None) -> bool:
         """The patient post-ladder process poll (observe.py's
         first-run poll, the shared verdict machinery for the ladder
         AND the monkey fallback):
@@ -1702,6 +1926,18 @@ echo LAUNCHED
           nice-to-have — cap it at LAUNCH_PROC_POLL_CAP_CONFIRMED ≈
           2 min and leave the transport's minutes for the evidence
           phases;
+        - CAMSCAN-010D budget governor: before each round the
+          remaining sandbox lifetime (``budget_remaining_s``, a
+          remaining-seconds callable threaded from _launch_call
+          against _Native.sandbox_t0 / E2B_TOTAL_LIFETIME_CAP_S;
+          None = ungoverned) is checked, and when it drops below
+          LAUNCH_PROC_BUDGET_RESERVE_S the poll cuts early on BOTH
+          paths — am-confirmed (the AMS evidence already won: spend
+          the reserve on the evidence phases) and unconfirmed (the
+          honest-fail path: the probe-25 death forensics run and the
+          step fails — the 20260925T110418Z-S001-live postmortem: the
+          unconfirmed 400 s path burned the sandbox's final minutes
+          on a run that would honestly fail);
         - probe-25 death forensics on failure: canary echo (is the
           adb stream alive at all?), system ps head (is the process
           list itself listing?), logcat tail (system_server ANR /
@@ -1714,6 +1950,24 @@ echo LAUNCHED
         poll_cap = (LAUNCH_PROC_POLL_CAP_CONFIRMED if am_confirmed
                     else PROCESS_WAIT_ROUNDS)
         for _ in range(poll_cap):
+            # CAMSCAN-010D: the total-lifetime budget governor — the
+            # remaining-seconds callable (None = ungoverned: +inf,
+            # never cuts) is checked BEFORE every round; the age in
+            # the cut line is derived from the callable's remaining
+            # value against E2B_TOTAL_LIFETIME_CAP_S.
+            remaining = (budget_remaining_s() if budget_remaining_s
+                         is not None else float("inf"))
+            if remaining < LAUNCH_PROC_BUDGET_RESERVE_S:
+                age = E2B_TOTAL_LIFETIME_CAP_S - remaining
+                _ldiag(f"process-poll cut at age {age:.0f}s — reserving "
+                       f"{LAUNCH_PROC_BUDGET_RESERVE_S}s for the evidence "
+                       f"phases — E2B Hobby total-lifetime cap "
+                       f"{E2B_TOTAL_LIFETIME_CAP_S}s")
+                emit(f"  reference: process-poll cut at age {age:.0f}s — "
+                     f"reserving {LAUNCH_PROC_BUDGET_RESERVE_S}s for the "
+                     "evidence phases — E2B Hobby total-lifetime cap "
+                     f"{E2B_TOTAL_LIFETIME_CAP_S}s")
+                break
             self._sleep(PROCESS_WAIT_S)
             ps = provider.execute(
                 env_id,
@@ -1850,7 +2104,7 @@ echo LAUNCHED
     def _package_facts(self, provider: Any, env_id: str, package: str,
                        emit: Callable[[str], None], *, phase: str,
                        seed: dict[str, Any] | None = None) \
-            -> tuple[dict[str, Any], list[str]]:
+            -> tuple[dict[str, Any], list[str], bool]:
         """dumpsys package facts (versionName/versionCode) — discovered,
         never statically derived; blindness-tolerant (CAMSCAN-010B, the
         probe-33 port of observe.py commit eeeeb0b). CAMSCAN-010C: the
@@ -1873,12 +2127,27 @@ echo LAUNCHED
         both-blind failure names both diag sets honestly).
         ``seed`` carries facts another stage already landed (the 010C
         stash seeding the late read) — a landed fact is never re-read.
-        Returns ``(facts, diag)``; the caller fails the run honestly —
-        readable reason naming the blind reads — when the facts do not
-        land.
+
+        CAMSCAN-010D dead-sandbox fast-abort: a read whose result
+        carries a SANDBOX-DEATH signature (``_sandbox_dead`` — the
+        "sandbox timeout" marker is the exact signature the
+        20260925T110418Z-S001-live postmortem observed on the
+        expired-sandbox reads: exit=-1, ~0.5 s per read, stderr tail
+        "…ling '.set_timeout' on the sandbox with the desired
+        timeout.") is NOT a probe-33 blind transient — the retries
+        abort AT ONCE (run-005 lesson b: never hammer a corpse) and
+        the third return element flags the expiry so the caller's
+        honest-fail reason names it with age context. The
+        combined-diagnostics doctrine keeps covering genuinely blind
+        (alive-sandbox) reads.
+
+        Returns ``(facts, diag, sandbox_expired)``; the caller fails
+        the run honestly — readable reason naming the blind reads (or
+        the expiry) — when the facts do not land.
         """
         facts: dict[str, Any] = dict(seed or {})
         diag: list[str] = []
+        sandbox_expired = False
 
         def _pdiag(message: str) -> None:
             # the CAMSCAN-010A _ldiag style (probe-29): HH:MM:SS prefix
@@ -1897,9 +2166,21 @@ echo LAUNCHED
                     # landed on an earlier attempt or seeded by the
                     # other stage (the 010C stash) — never re-read
                     continue
-                reason = self._read_package_fact(provider, env_id,
-                                                 package, marker,
-                                                 fact_key, facts)
+                reason, dead = self._read_package_fact(
+                    provider, env_id, package, marker, fact_key, facts)
+                if dead:
+                    # CAMSCAN-010D fast-abort: the sandbox itself is
+                    # dead (the '.set_timeout'-advice rejection the
+                    # expired Hobby sandbox serves) — NOT a probe-33
+                    # blind transient: stop retrying at once (run-005
+                    # lesson b: never hammer a corpse) and let the
+                    # caller fail honestly naming the expiry.
+                    _pdiag(f"[{phase} attempt {attempt}] {marker} read "
+                           f"DEAD — sandbox expired (E2B Hobby "
+                           f"total-lifetime cap "
+                           f"{E2B_TOTAL_LIFETIME_CAP_S}s): {reason}")
+                    sandbox_expired = True
+                    break
                 if reason:
                     # probe-33: a read that errors or answers without
                     # the expected version*= line is BLIND, never an
@@ -1909,6 +2190,14 @@ echo LAUNCHED
                     _pdiag(f"[{phase} attempt {attempt}] {marker} read "
                            f"blind ({reason})")
                     blind.append(marker)
+            if sandbox_expired:
+                emit(f"  reference: {phase} package facts: sandbox-death "
+                     f"signature on the read — aborting the reads at "
+                     f"once (the sandbox expired against the E2B "
+                     f"total-lifetime cap {E2B_TOTAL_LIFETIME_CAP_S}s; "
+                     "never hammer a corpse — run-005 lesson b; the "
+                     "run fails honestly naming the expiry)")
+                break
             if not blind:
                 emit(f"  reference: {phase} package facts landed "
                      f"(version_name={facts['version_name']!r}, "
@@ -1921,22 +2210,34 @@ echo LAUNCHED
                      + f") — settle {PKG_FACTS_SETTLE_S}s and retry "
                      "(probe-33 blindness tolerance)")
                 self._sleep(PKG_FACTS_SETTLE_S)
-        return facts, diag
+        return facts, diag, sandbox_expired
 
     @staticmethod
     def _read_package_fact(provider: Any, env_id: str, package: str,
                            marker: str, fact_key: str,
-                           facts: dict[str, Any]) -> str:
-        """One dumpsys package-fact read; returns ``""`` when the fact
-        landed (recorded into ``facts``) or the blind-read reason."""
+                           facts: dict[str, Any]) -> tuple[str, bool]:
+        """One dumpsys package-fact read; returns ``(reason, dead)`` —
+        reason ``""`` when the fact landed (recorded into ``facts``),
+        else the blind-read reason; ``dead`` True when the result
+        carries a SANDBOX-DEATH signature (CAMSCAN-010D:
+        ``_sandbox_dead`` — SANDBOX_DEATH_MARKERS already includes
+        "sandbox timeout", the exact signature the
+        20260925T110418Z-S001-live postmortem observed on the
+        expired-sandbox reads; a raising transport stays the blind
+        class — the live death signature is the CommandResult shape:
+        exit=-1, stderr carrying the '.set_timeout'-advice text)."""
         try:
             res = provider.execute(
                 env_id,
                 f'dumpsys package {package} | grep -m1 "{marker}"',
                 timeout=PKG_FACTS_TIMEOUT_S)
         except Exception as exc:  # noqa: BLE001 — blindness, not death
-            return (f"transport error {type(exc).__name__}: "
-                    f"{str(exc)[-80:]}")
+            return ((f"transport error {type(exc).__name__}: "
+                     f"{str(exc)[-80:]}"), False)
+        if _sandbox_dead(res):
+            return ((f"exit={res.exit_code} stderr tail="
+                     f"{(res.stderr or res.stdout or '')[-120:]!r}"),
+                    True)
         value = ""
         for line in (res.stdout or "").splitlines():
             if f"{marker}=" not in line:
@@ -1948,13 +2249,13 @@ echo LAUNCHED
         if not value:
             # completed but empty/malformed — the same probe-33
             # blindness class (never an absence observation)
-            return (f"exit={res.exit_code} stdout tail="
-                    f"{(res.stdout or '')[-60:]!r} stderr tail="
-                    f"{(res.stderr or '')[-60:]!r}")
+            return ((f"exit={res.exit_code} stdout tail="
+                     f"{(res.stdout or '')[-60:]!r} stderr tail="
+                     f"{(res.stderr or '')[-60:]!r}"), False)
         if fact_key == "version_code":
             if not value.isdigit():
-                return f"unparseable versionCode {value!r}"
+                return f"unparseable versionCode {value!r}", False
             facts[fact_key] = int(value)
         else:
             facts[fact_key] = value
-        return ""
+        return "", False
