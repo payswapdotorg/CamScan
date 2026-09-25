@@ -6,7 +6,9 @@ The bootstrap recipe is baked, not rediscovered — see `bootstrap.py`.
 
 Long-operation handling (explicit, never a single short timeout):
   - sandbox lifetime is renewed opportunistically before every operation and
-    on a fixed cadence during boot polling (per-call cap 1 h, repeated);
+    on a fixed cadence during boot polling (Hobby tier caps TOTAL lifetime
+    at 1 h — renewal past the create-time deadline is a harmless no-op;
+    CAMSCAN-010D, see renewal_s below);
   - TCG cold boot has its own budget (default 2400 s; measured 410 s);
   - every execute/interact/capture takes an explicit per-call timeout. The
     scenario runner passes `meta.step_timeout_seconds` here; scenario-level
@@ -85,8 +87,23 @@ STATIC_CAPABILITIES: dict[str, Any] = {
 @dataclass
 class E2BProviderConfig:
     template: str = "desktop"
-    sandbox_lifetime_s: int = 3600       # initial sandbox lifetime
-    renewal_s: int = 3600                # per renewal call (API cap 1 h)
+    # CAMSCAN-010D truth-fix (comments only — no behavior change): the
+    # E2B account is Hobby-tier and the cap is on TOTAL sandbox age,
+    # not per call. The SDK docstring (e2b/sandbox_sync/main.py,
+    # set_timeout) says "The maximum time a sandbox can be kept alive
+    # is 24 hours (86_400 seconds) for Pro users and 1 hour (3_600
+    # seconds) for Hobby users." The 20260925T110418Z-S001-live
+    # postmortem matched it exactly (sandbox created ~11:04:24, envd
+    # UNAVAILABLE at 12:04:24 = age exactly 3600 s). The create-time
+    # timeout below IS the whole budget under Hobby.
+    sandbox_lifetime_s: int = 3600       # total lifetime — the Hobby cap (3600 s)
+    # renewal_s: under Hobby, set_timeout(3600) at age N still caps
+    # TOTAL age at 3600 s — the old "per renewal call (API cap 1 h)"
+    # reading was WRONG; renewal past the create-time deadline is a
+    # harmless no-op (run-005 lesson: a fresh run gets a fresh 60-min
+    # window). Kept: the calls are harmless and would extend lifetime
+    # on a Pro-tier account.
+    renewal_s: int = 3600                # renewal ask (no-op beyond the Hobby TOTAL-age cap)
     renewal_interval_s: float = 240.0    # opportunistic renewal cadence
     boot_budget_s: int = 2400            # TCG cold-boot budget (measured 410 s)
     boot_poll_s: float = 20.0

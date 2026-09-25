@@ -2,7 +2,8 @@
 extended by CAMSCAN-010A — the launch-step port, and CAMSCAN-010B —
 the run-metadata gaps: device.screen fallback + package-facts
 blindness tolerance, and CAMSCAN-010C — the early package-facts
-stash: install-time ground truth).
+stash: install-time ground truth, and CAMSCAN-010D — the E2B Hobby
+total-lifetime budget governor: 3600 s hard cap).
 
 No network, no e2b SDK, no credentials, no real sleeps: the driver is
 driven through an injected scripted transport (ScriptedProvider) that
@@ -69,6 +70,21 @@ Pinned properties (the work order's list):
   blind-then-answering retry contract keeps passing unchanged — the
   bounded retry now runs at install time and the stash serves
   execute() (the late-read-only path is the fallback);
+- CAMSCAN-010D total-lifetime budget governor (E2B Hobby: 3600 s hard
+  cap, E2B_TOTAL_LIFETIME_CAP_S): _Native.sandbox_t0 is captured in
+  provision() immediately BEFORE provider.provision (ordering pinned);
+  the post-launch process wait and the launch-step process poll (BOTH
+  the am-confirmed and the unconfirmed path) cut early when the
+  remaining budget drops below LAUNCH_PROC_BUDGET_RESERVE_S —
+  timestamped cut lines, the ANR ladder still running after the cut,
+  the unconfirmed cut feeding the probe-25 death-forensics /
+  honest-fail path; a package-facts read carrying the sandbox-death
+  signature ("sandbox timeout" — the exact 20260925T110418Z
+  '.set_timeout'-advice rejection) aborts the retries at once (never
+  hammer a corpse) and the honest-fail reason names the expiry with
+  age context; a SIGINT campaign stop during provision destroys the
+  paid sandbox and re-raises; young sandboxes keep their FULL waits
+  (no cut when the budget is plentiful);
 - teardown: never raises, even when stop and destroy both raise;
 - the registry resolution flip: env=reference resolves
   ReferenceDriver after the CAMSCAN-009 wiring; the pre-009 registry
@@ -103,14 +119,17 @@ from tools.lab_cli.reference_live import (
     BOOT_SETTLE_S,
     DEX2OAT_GATE_MAX_POLLS,
     DEX2OAT_GATE_POLL_S,
+    E2B_TOTAL_LIFETIME_CAP_S,
     INSTALL_MAX_ATTEMPTS,
     LAUNCH_MAX_ATTEMPTS,
+    LAUNCH_PROC_BUDGET_RESERVE_S,
     LAUNCH_PROC_POLL_CAP_CONFIRMED,
     LAUNCH_SETTLE_S,
     OUTCOME_POLL_S,
     PKG_FACTS_MAX_ATTEMPTS,
     PKG_FACTS_SETTLE_S,
     PROCESS_WAIT_ROUNDS,
+    PROCESS_WAIT_S,
     RECORDED_XAPK_SHA256,
     REFERENCE_FALLBACK_ANDROID_VERSION,
     REFERENCE_FALLBACK_DENSITY_DPI,
@@ -1517,7 +1536,8 @@ def test_execute_package_facts_all_blind_fails_honestly(monkeypatch,
     version_name silently passing into the bundle validator (the
     20260925T091135Z evidence-stage death: the entire live chain had
     succeeded; the 010C campaign postmortem: the same rejection class
-    killed two more full-chain runs at ~51 min sandbox age — exactly
+    killed two more full-chain runs at exactly 3600 s sandbox age — the
+    E2B Hobby total-lifetime cap, CAMSCAN-010D — exactly
     why the early stash exists)."""
     monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
     monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
@@ -1598,6 +1618,444 @@ def test_execute_package_facts_all_blind_fails_honestly(monkeypatch,
     doc = jsonio_load(stage / "run-metadata.json")
     assert doc["application"]["version_name"] == ""
     assert doc["application"]["version_code"] == 0
+
+
+# ------------------- lifetime budget governor (CAMSCAN-010D)
+
+class _ProvisionClockProbeProvider(ScriptedProvider):
+    """CAMSCAN-010D (e) — the sandbox_t0 ordering probe: advances the
+    fake clock INSIDE provider.provision (the SDK-side create minutes
+    advance real time without any driver sleep) and records the clock
+    at entry/exit. The birth mark must be the ENTRY value — a mark
+    taken after provider.provision would omit the create/bootstrap
+    minutes from the age, OVERSTATE the remaining budget and cut the
+    governors too late."""
+
+    def __init__(self, clock: FakeClock) -> None:
+        super().__init__()
+        self._clock = clock
+        self.t_entry: float | None = None
+        self.t_exit: float | None = None
+
+    def provision(self, spec: Any) -> Any:
+        self.t_entry = self._clock.now
+        self._clock.now += 300.0        # SDK-side sandbox create time
+        self.t_exit = self._clock.now
+        return super().provision(spec)
+
+
+def test_provision_records_sandbox_t0_before_provider_provision(
+        monkeypatch, tmp_path):
+    """CAMSCAN-010D (e) — _Native.sandbox_t0 is the injected monotonic
+    clock captured immediately BEFORE provider.provision(spec): the
+    ENTRY value, never the exit value, so the create/bootstrap minutes
+    count toward the E2B Hobby total-lifetime cap. The budget helpers
+    read the mark: age == now - t0 (create time included), remaining
+    == E2B_TOTAL_LIFETIME_CAP_S - age."""
+    monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
+    monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
+    xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
+    clock = FakeClock()
+    provider = _ProvisionClockProbeProvider(clock)
+    provider.on("cat /root/install.out", "Success\nEXIT_0\n")
+    driver = ReferenceDriver(apk=xapk, provider=provider,
+                             sleep=clock.sleep, monotonic=clock.monotonic,
+                             wall_time=lambda: 0.0)
+    handle = driver.provision(_provision_request([], apk=xapk))
+
+    # the birth mark is the ENTRY clock value (captured before
+    # provider.provision ran) — never the exit value (after the 300 s
+    # SDK-side create): the create minutes must count toward the cap
+    assert provider.t_entry is not None
+    assert provider.t_exit is not None
+    assert handle.native.sandbox_t0 == provider.t_entry
+    assert handle.native.sandbox_t0 != provider.t_exit
+    # the age after provision INCLUDES the 300 s create time (the two
+    # BOOT_SETTLE_S sleeps add 120 s on top: 300 + 120 = 420) and the
+    # remaining budget is the cap minus that age
+    assert driver._sandbox_age_s(handle.native) \
+        == 300.0 + 2 * BOOT_SETTLE_S
+    assert driver._sandbox_budget_remaining_s(handle.native) \
+        == E2B_TOTAL_LIFETIME_CAP_S - (300.0 + 2 * BOOT_SETTLE_S)
+
+
+def test_provision_keyboard_interrupt_destroys_and_reraises(
+        monkeypatch, tmp_path):
+    """CAMSCAN-010D (d) — the 2026-09-25 lead-verified incident: a
+    SIGINT campaign stop during the ladder region sailed past
+    provision()'s ``except Exception`` cleanup (KeyboardInterrupt is a
+    BaseException) and LEAKED the paid sandbox (killed manually via
+    the E2B API minutes later). The ladder region now catches
+    BaseException → _destroy_quietly → re-raise the raw signal: the
+    sandbox is destroyed AND the operator's stop still propagates."""
+    monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
+    monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
+    xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
+
+    class _SigintProvider(ScriptedProvider):
+        # the campaign stop lands mid-ladder (at start, right after
+        # the sandbox exists)
+        def start(self, env_id: str) -> dict[str, Any]:
+            self.ops.append(("start", env_id))
+            raise KeyboardInterrupt
+
+    provider = _SigintProvider()
+    driver, _clock = _make_driver(provider, apk=xapk)
+    with pytest.raises(KeyboardInterrupt):
+        driver.provision(_provision_request([], apk=xapk))
+    # the paid sandbox was destroyed before the signal re-raised —
+    # never leaked
+    assert ("destroy", "e2b-fake01") in provider.ops
+
+
+def test_execute_post_launch_wait_cut_reserves_evidence_budget(
+        monkeypatch, tmp_path):
+    """CAMSCAN-010D (a) — the 20260925T110418Z-S001-live killer:
+    _post_launch's PROCESS_WAIT_ROUNDS x PROCESS_WAIT_S (400 s) wait
+    ran at sandbox age ~3200→3600 s and starved the evidence phases of
+    the sandbox's final minutes. The governor cuts the wait BEFORE any
+    round whose remaining budget is under LAUNCH_PROC_BUDGET_RESERVE_S
+    — a timestamped emit line names the age, the reserve and the cap —
+    and the ANR ladder STILL RUNS after the cut (it is REQUIRED for
+    subsequent steps: the SystemUI dialog blocks the app UI)."""
+    monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
+    monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
+    xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
+    provider = ScriptedProvider()
+    provider.on("cat /root/install.out", "Success\nEXIT_0\n")
+    # the ANR ladder's ui dumps: round 1 shows the Wait button over
+    # the splash, round 2 the dialog is gone (observe.py 6b shape)
+    provider.ui_xmls = [
+        ('<hierarchy rotation="0"><node text="Wait" '
+         'bounds="[420,1180][660,1310]"/></hierarchy>'),
+        '<hierarchy rotation="0"><node text="CamScanner"/></hierarchy>',
+    ]
+    driver, _clock = _make_driver(provider, apk=xapk)
+    lines: list[str] = []
+    handle = driver.provision(_provision_request(lines, apk=xapk))
+
+    # an AGED sandbox (the 20260925T110418Z death zone): the clock
+    # after provision is 2 x BOOT_SETTLE_S; the ladder's one attempt
+    # adds OUTCOME_POLL_S; the launch-step poll runs exactly one round
+    # (PROCESS_WAIT_S) and lands the process — so _post_launch starts
+    # at clock 2*BOOT_SETTLE_S + OUTCOME_POLL_S + PROCESS_WAIT_S. The
+    # birth mark pins THAT age at 3125 s: budget 475 s < the 480 s
+    # reserve → the cut fires before round 1, while the launch-step
+    # poll (age 3115 s, budget 485 s ≥ the reserve) ran its round
+    # untouched.
+    clock_at_post_launch = (2 * BOOT_SETTLE_S + OUTCOME_POLL_S
+                            + PROCESS_WAIT_S)
+    handle.native.sandbox_t0 = clock_at_post_launch - 3125
+
+    scenario = resolve_scenario("S001", REPO_ROOT / "lab" / "scenarios")
+    plans = plan_steps(scenario.steps, None)
+    stage = tmp_path / "stage"
+    request = ExecutionRequest(
+        handle=handle, run_id=RUN_ID, subject="reference",
+        scenario=scenario, step_plans=plans, stage_dir=stage,
+        fixtures=[], started_at="2026-09-24T00:00:00Z",
+        finished_at="2026-09-24T00:05:00Z", emit=lines.append)
+    result = driver.execute(handle, request)
+
+    # the run itself still succeeds (am-confirmed launch; the ANR
+    # ladder still dismissed the dialog)
+    assert result.ok is True, result.reason
+    # the cut fired ONCE with the exact story: age, reserve, cap —
+    # timestamped in the probe-29 style (pinned 00:00:00 by the
+    # injected wall clock)
+    cut = [line for line in lines if "process-wait cut at age" in line]
+    assert len(cut) == 1
+    assert "00:00:00 process-wait cut at age 3125s" in cut[0]
+    assert (f"reserving {LAUNCH_PROC_BUDGET_RESERVE_S}s for the "
+            "evidence phases") in cut[0]
+    assert (f"E2B Hobby total-lifetime cap "
+            f"{E2B_TOTAL_LIFETIME_CAP_S}s") in cut[0]
+    # the wait was cut BEFORE its first round: the post-launch ps
+    # reads are ZERO (the launch-step poll's single round is the only
+    # app-ps read) and the full-wait "not observed" line never ran
+    assert len([c for c in provider.exec_log
+                if "grep com.intsig.camscanner" in c]) == 1
+    assert not any("app process not observed within" in line
+                   for line in lines)
+    # the ANR ladder STILL RAN after the cut (required for subsequent
+    # steps — the dialog blocks the app UI)
+    assert any(op == ("interact", "tap:540,1245") for op in provider.ops)
+    assert any("ANR Wait dismissed" in line for line in lines)
+
+
+def test_execute_launch_poll_cut_unconfirmed_feeds_death_forensics(
+        monkeypatch, tmp_path):
+    """CAMSCAN-010D (b) — the unconfirmed 400 s path burns paid time
+    on a run that will honestly fail: when the remaining budget drops
+    below the reserve the patient poll cuts early (timestamped diag +
+    emit), ZERO ps rounds run, and the existing probe-25
+    death-forensics / honest-fail path takes the verdict — problems +
+    reason + the run-metadata action trace carry the cut line."""
+    monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
+    monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
+    xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
+    provider = ScriptedProvider()
+    provider.on("cat /root/install.out", "Success\nEXIT_0\n")
+    # every am start comes back with the am tool's PM-blind error and
+    # every app-ps read is transport-blind (the exact failure shape of
+    # test_execute_records_launch_failure_with_forensics — am never
+    # confirms, so the poll runs the UNCONFIRMED 40-round path)
+    provider.on("cat /root/launch.out",
+                "Error type 3: Activity class "
+                "{com.intsig.camscanner/.mainmenu.mainactivity."
+                "MainActivity} does not exist\nEXIT_1\n")
+    provider.on("ps -A | grep com.intsig.camscanner",
+                CommandResult(-1, "", "Error: request_timeout", 5, "ps"))
+    driver, _clock = _make_driver(provider, apk=xapk)
+    lines: list[str] = []
+    handle = driver.provision(_provision_request(lines, apk=xapk))
+
+    # an AGED sandbox at the patient poll's start: the ladder burned
+    # its LAUNCH_MAX_ATTEMPTS attempts (each OUTCOME_POLL_S +
+    # LAUNCH_SETTLE_S) on top of provision's 2 x BOOT_SETTLE_S — the
+    # poll starts at clock 2*BOOT_SETTLE_S + LAUNCH_MAX_ATTEMPTS *
+    # (OUTCOME_POLL_S + LAUNCH_SETTLE_S), pinned to age 3180 s:
+    # budget 420 s < the 480 s reserve → the cut fires before round 1
+    clock_at_poll = (2 * BOOT_SETTLE_S
+                     + LAUNCH_MAX_ATTEMPTS
+                     * (OUTCOME_POLL_S + LAUNCH_SETTLE_S))
+    handle.native.sandbox_t0 = clock_at_poll - 3180
+
+    scenario = resolve_scenario("S001", REPO_ROOT / "lab" / "scenarios")
+    plans = plan_steps(scenario.steps, None)
+    stage = tmp_path / "stage"
+    request = ExecutionRequest(
+        handle=handle, run_id=RUN_ID, subject="reference",
+        scenario=scenario, step_plans=plans, stage_dir=stage,
+        fixtures=[], started_at="2026-09-24T00:00:00Z",
+        finished_at="2026-09-24T00:05:00Z", emit=lines.append)
+    result = driver.execute(handle, request)
+
+    # the honest fail: the step failed and the cut fed the existing
+    # death-forensics path (probe-25)
+    assert result.ok is False
+    assert result.steps_executed == 1
+    assert result.problems[0] == "step 01 launch failed"
+    # ZERO patient-poll ps rounds ran (the unconfirmed 400 s path was
+    # cut before its first round — the dying sandbox's final minutes
+    # are the evidence phases' money, never the poll's)
+    assert len([c for c in provider.exec_log
+                if "grep com.intsig.camscanner" in c]) == 0
+    # the timestamped cut diag reached problems/reason AND the
+    # run-metadata action trace (the next postmortem is a read)
+    diagnostics = result.problems[1]
+    assert "00:00:00 process-poll cut at age 3180s" in diagnostics
+    assert (f"reserving {LAUNCH_PROC_BUDGET_RESERVE_S}s for the "
+            "evidence phases") in diagnostics
+    assert (f"E2B Hobby total-lifetime cap "
+            f"{E2B_TOTAL_LIFETIME_CAP_S}s") in diagnostics
+    assert "process-poll cut" in result.reason
+    doc = jsonio_load(stage / "run-metadata.json")
+    assert any("process-poll cut at age 3180s" in line
+               for line in doc["action_trace"][0]["diag"])
+    # the console told the same story and the death forensics ran
+    assert any("process-poll cut at age 3180s" in line for line in lines)
+    assert any("__canary_ok__" in c for c in provider.exec_log)
+    assert any("logcat -d -t 200" in c for c in provider.exec_log)
+
+
+def test_execute_launch_poll_cut_am_confirmed_still_ok(monkeypatch,
+                                                        tmp_path):
+    """CAMSCAN-010D — the am-confirmed poll path is governed too (BOTH
+    paths): with the budget under the reserve the poll cuts before
+    round 1, ZERO ps reads run, and the probe-30 am evidence still
+    carries the verdict (Status: ok + Activity: <pkg> outranks the
+    never-run poll) — the evidence phases get the sandbox's last
+    minutes instead of the nice-to-have poll."""
+    monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
+    monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
+    xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
+    provider = ScriptedProvider()
+    provider.on("cat /root/install.out", "Success\nEXIT_0\n")
+    # the ANR ladder's dumps: Wait present round 1, gone round 2 —
+    # the ladder must still run after the poll's cut
+    provider.ui_xmls = [
+        ('<hierarchy rotation="0"><node text="Wait" '
+         'bounds="[420,1180][660,1310]"/></hierarchy>'),
+        '<hierarchy rotation="0"><node text="CamScanner"/></hierarchy>',
+    ]
+    driver, _clock = _make_driver(provider, apk=xapk)
+    lines: list[str] = []
+    handle = driver.provision(_provision_request(lines, apk=xapk))
+
+    # an AGED sandbox at the poll's start: the ladder's one attempt
+    # adds OUTCOME_POLL_S on top of provision's 2 x BOOT_SETTLE_S —
+    # the poll starts at clock 2*BOOT_SETTLE_S + OUTCOME_POLL_S,
+    # pinned to age 3130 s (budget 470 s < the 480 s reserve → the
+    # cut fires before round 1)
+    clock_at_poll = 2 * BOOT_SETTLE_S + OUTCOME_POLL_S
+    handle.native.sandbox_t0 = clock_at_poll - 3130
+
+    scenario = resolve_scenario("S001", REPO_ROOT / "lab" / "scenarios")
+    plans = plan_steps(scenario.steps, None)
+    stage = tmp_path / "stage"
+    request = ExecutionRequest(
+        handle=handle, run_id=RUN_ID, subject="reference",
+        scenario=scenario, step_plans=plans, stage_dir=stage,
+        fixtures=[], started_at="2026-09-24T00:00:00Z",
+        finished_at="2026-09-24T00:05:00Z", emit=lines.append)
+    result = driver.execute(handle, request)
+
+    assert result.ok is True, result.reason
+    assert result.problems == []
+    # ZERO ps reads: the am-confirmed poll cut before its first round
+    # (probe-30's am evidence outranks the poll that never ran)
+    assert len([c for c in provider.exec_log
+                if "grep com.intsig.camscanner" in c]) == 0
+    assert any("process-poll cut at age 3130s" in line for line in lines)
+    # _post_launch's wait is cut too (the cut poll slept nothing —
+    # the same age 3130 s) and the ANR ladder STILL ran
+    assert any("process-wait cut at age 3130s" in line for line in lines)
+    assert any(op == ("interact", "tap:540,1245") for op in provider.ops)
+
+
+def test_execute_package_facts_dead_sandbox_fast_abort(
+        monkeypatch, tmp_path):
+    """CAMSCAN-010D (c) — the 20260925T110418Z-S001-live evidence-stage
+    death, met honestly: the install-time stash went blind on a LIVING
+    sandbox (the probe-33 class — the combined-diagnostics doctrine
+    keeps covering it), and the late read's FIRST fact carries the
+    sandbox-death signature (exit=-1, the '.set_timeout'-advice
+    stderr — SANDBOX_DEATH_MARKERS' "sandbox timeout"). A dead sandbox
+    is NOT a probe-33 blind transient: the retries abort AT ONCE
+    (run-005 lesson b: never hammer a corpse — NO further
+    versionName/versionCode read settles) and the honest-fail reason
+    names the expiry with age context."""
+    monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
+    monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
+    xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
+    provider = ScriptedProvider()
+    provider.on("cat /root/install.out", "Success\nEXIT_0\n")
+    # the install-time read: 4 bounded BLIND attempts on a LIVING
+    # sandbox (the probe-33 request_timeout class — retries are the
+    # correct doctrine there); the late read's first versionName
+    # response then carries the death signature and would repeat it
+    # forever (a corpse serves every read the same rejection)
+    blind = CommandResult(-1, "", "Error: request_timeout after 60000 ms",
+                          5, "dumpsys")
+    dead = CommandResult(
+        -1, "",
+        "Exception: sandbox timeout — Try calling '.set_timeout' on "
+        "the sandbox with the desired timeout.", 1, "dumpsys")
+    provider.on("versionName", blind, blind, blind, blind, dead)
+    provider.on("versionCode", blind, blind, blind, blind)
+    driver, clock = _make_driver(provider, apk=xapk)
+    lines: list[str] = []
+    handle = driver.provision(_provision_request(lines, apk=xapk))
+    # the early read stayed best-effort blind (provision succeeded,
+    # the stash rides the handle empty with its 8 diag lines)
+    assert handle.native.install_time_facts == {}
+
+    # an AGED sandbox: the late read happens deep in the death zone
+    # (age ~3200 s of the 3600 s cap — clock.now here already includes
+    # the early read's 3 blindness settles)
+    handle.native.sandbox_t0 = clock.now - 3200
+
+    scenario = resolve_scenario("S001", REPO_ROOT / "lab" / "scenarios")
+    plans = plan_steps(scenario.steps, None)
+    stage = tmp_path / "stage"
+    request = ExecutionRequest(
+        handle=handle, run_id=RUN_ID, subject="reference",
+        scenario=scenario, step_plans=plans, stage_dir=stage,
+        fixtures=[], started_at="2026-09-24T00:00:00Z",
+        finished_at="2026-09-24T00:05:00Z", emit=lines.append)
+    result = driver.execute(handle, request)
+
+    # the run failed HONESTLY at the evidence stage (the steps
+    # themselves succeeded)
+    assert result.steps_executed == 1
+    assert result.ok is False
+    # the fast-abort fired: versionName was read 4x blind at install
+    # time + ONCE dead at execute time — and versionCode NEVER got a
+    # late read (the abort stopped the attempt mid-fact-set; no
+    # further retry settles on a corpse)
+    assert len([c for c in provider.exec_log if "versionName" in c]) \
+        == PKG_FACTS_MAX_ATTEMPTS + 1
+    assert len([c for c in provider.exec_log if "versionCode" in c]) \
+        == PKG_FACTS_MAX_ATTEMPTS
+    # the install-time settles ran (3), the late read settled ZERO
+    # times (aborted before any settle sleep)
+    assert clock.slept.count(PKG_FACTS_SETTLE_S) \
+        == PKG_FACTS_MAX_ATTEMPTS - 1
+    # the honest-fail reason names the expiry with age context — the
+    # exact 20260925T110418Z root cause, readable
+    expected_age = clock.now - handle.native.sandbox_t0
+    assert (f"sandbox expired (E2B total-lifetime cap "
+            f"{E2B_TOTAL_LIFETIME_CAP_S}s) at age ~{expected_age:.0f}s — "
+            "reads rejected instantly with the set_timeout-advice "
+            "signature") in result.problems[0]
+    assert "application.version_name" in result.problems[0]
+    # the combined diagnostics still name BOTH stages: 8 install-time
+    # blind lines + 1 late DEAD line (phase-labeled, timestamped, the
+    # stderr tail carrying the '.set_timeout' advice)
+    diagnostics = result.problems[1]
+    assert (f"package-facts diagnostics "
+            f"({2 * PKG_FACTS_MAX_ATTEMPTS + 1} lines: "
+            f"{2 * PKG_FACTS_MAX_ATTEMPTS} install-time + 1 late): ") \
+        in diagnostics
+    assert "read DEAD — sandbox expired" in diagnostics
+    assert "sandbox timeout" in diagnostics
+    assert ".set_timeout" in diagnostics
+    # the console told the fast-abort story
+    assert any("sandbox-death signature on the read" in line
+               and "aborting the reads at once" in line
+               for line in lines)
+
+
+def test_execute_young_sandbox_full_waits_no_cut(monkeypatch, tmp_path):
+    """CAMSCAN-010D (f) — the young-sandbox happy path is UNCHANGED:
+    with budget plentiful the launch-step poll runs its FULL
+    probe-31-capped budget and _post_launch its FULL 40-round wait
+    (no cut line ever emits) — the governor only bites in the death
+    zone. (A young sandbox by construction: sandbox_t0 is the real
+    captured mark from provision — age counts from the driver's own
+    clock, not a test-set value.)"""
+    monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
+    monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
+    xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
+    provider = ScriptedProvider()
+    provider.on("cat /root/install.out", "Success\nEXIT_0\n")
+    # the app process NEVER shows in a ps read (clean absence — exit
+    # 0, empty stdout: not blind, not dead, just absent): both waits
+    # burn their FULL budgets
+    provider.on("ps -A | grep com.intsig.camscanner", "")
+    driver, clock = _make_driver(provider, apk=xapk)
+    lines: list[str] = []
+    handle = driver.provision(_provision_request(lines, apk=xapk))
+    # the REAL captured birth mark (young sandbox: age counts from
+    # provision — the clock starts at 0)
+    assert handle.native.sandbox_t0 == 0.0
+
+    scenario = resolve_scenario("S001", REPO_ROOT / "lab" / "scenarios")
+    plans = plan_steps(scenario.steps, None)
+    stage = tmp_path / "stage"
+    request = ExecutionRequest(
+        handle=handle, run_id=RUN_ID, subject="reference",
+        scenario=scenario, step_plans=plans, stage_dir=stage,
+        fixtures=[], started_at="2026-09-24T00:00:00Z",
+        finished_at="2026-09-24T00:05:00Z", emit=lines.append)
+    result = driver.execute(handle, request)
+
+    assert result.ok is True, result.reason
+    # FULL waits, no cut: the am-confirmed poll burned its whole
+    # 12-round cap, the post-launch wait its whole 40 rounds
+    assert len([c for c in provider.exec_log
+                if "grep com.intsig.camscanner" in c]) \
+        == LAUNCH_PROC_POLL_CAP_CONFIRMED + PROCESS_WAIT_ROUNDS
+    assert any(f"app process not observed within "
+               f"{PROCESS_WAIT_ROUNDS * PROCESS_WAIT_S}s" in line
+               for line in lines)
+    assert not any("process-wait cut at age" in line for line in lines)
+    assert not any("process-poll cut at age" in line for line in lines)
+    # the age/budget helpers read the captured mark against the cap
+    assert driver._sandbox_age_s(handle.native) == clock.now
+    assert driver._sandbox_budget_remaining_s(handle.native) \
+        == E2B_TOTAL_LIFETIME_CAP_S - clock.now
 
 
 # ------------------------------------------------------------------ teardown
