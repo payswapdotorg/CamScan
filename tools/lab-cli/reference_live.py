@@ -761,7 +761,7 @@ class ReferenceDriver:
             # honest-failure diagnostics.
             install_facts, install_facts_diag, _early_expired = \
                 self._package_facts(
-                    provider, env_id, REFERENCE_PACKAGE, emit,
+                    provider, env_id, ADB, REFERENCE_PACKAGE, emit,
                     phase=PKG_FACTS_PHASE_INSTALL_TIME)
             # (_early_expired: an install-time read that carried the
             # sandbox-death signature aborted its retries at once —
@@ -1003,7 +1003,7 @@ class ReferenceDriver:
                     "  reference: install-time stash empty (early read "
                     "blind) — the late read runs as the 010B fallback")
             facts, pkg_diag, late_expired = self._package_facts(
-                native.provider, native.env_id,
+                native.provider, native.env_id, native.adb,
                 application["package"], request.emit,
                 phase=PKG_FACTS_PHASE_LATE, seed=install_facts)
         application.update(facts)
@@ -2101,13 +2101,18 @@ echo LAUNCHED
             (subject_dir / "ui" / f"{name}.xml").write_text(
                 dump.text, encoding="utf-8")
 
-    def _package_facts(self, provider: Any, env_id: str, package: str,
-                       emit: Callable[[str], None], *, phase: str,
+    def _package_facts(self, provider: Any, env_id: str, adb: str,
+                       package: str, emit: Callable[[str], None],
+                       *, phase: str,
                        seed: dict[str, Any] | None = None) \
             -> tuple[dict[str, Any], list[str], bool]:
-        """dumpsys package facts (versionName/versionCode) — discovered,
-        never statically derived; blindness-tolerant (CAMSCAN-010B, the
-        probe-33 port of observe.py commit eeeeb0b). CAMSCAN-010C: the
+        """``{adb} shell dumpsys package`` facts (versionName/versionCode)
+        — discovered, never statically derived; blindness-tolerant
+        (CAMSCAN-010B, the probe-33 port of observe.py commit eeeeb0b).
+        CAMSCAN-010E: the reads carry the ``{adb} shell `` prefix —
+        a bare Linux-side ``dumpsys`` is deterministically
+        "command not found" (the 2026-09-25 16:34 run postmortem,
+        see _read_package_fact). CAMSCAN-010C: the
         same machinery now serves BOTH read stages — the install-time
         stash read (phase ``install-time``, invoked by provision right
         after the registry verify) and the late execute-time fallback
@@ -2167,7 +2172,8 @@ echo LAUNCHED
                     # other stage (the 010C stash) — never re-read
                     continue
                 reason, dead = self._read_package_fact(
-                    provider, env_id, package, marker, fact_key, facts)
+                    provider, env_id, adb, package, marker, fact_key,
+                    facts)
                 if dead:
                     # CAMSCAN-010D fast-abort: the sandbox itself is
                     # dead (the '.set_timeout'-advice rejection the
@@ -2213,23 +2219,43 @@ echo LAUNCHED
         return facts, diag, sandbox_expired
 
     @staticmethod
-    def _read_package_fact(provider: Any, env_id: str, package: str,
-                           marker: str, fact_key: str,
+    def _read_package_fact(provider: Any, env_id: str, adb: str,
+                           package: str, marker: str, fact_key: str,
                            facts: dict[str, Any]) -> tuple[str, bool]:
-        """One dumpsys package-fact read; returns ``(reason, dead)`` —
-        reason ``""`` when the fact landed (recorded into ``facts``),
-        else the blind-read reason; ``dead`` True when the result
-        carries a SANDBOX-DEATH signature (CAMSCAN-010D:
-        ``_sandbox_dead`` — SANDBOX_DEATH_MARKERS already includes
-        "sandbox timeout", the exact signature the
-        20260925T110418Z-S001-live postmortem observed on the
-        expired-sandbox reads; a raising transport stays the blind
-        class — the live death signature is the CommandResult shape:
-        exit=-1, stderr carrying the '.set_timeout'-advice text)."""
+        """One ``{adb} shell dumpsys package <package> | grep -m1
+        "<marker>"`` read; returns ``(reason, dead)`` — reason ``""``
+        when the fact landed (recorded into ``facts``), else the
+        blind-read reason; ``dead`` True when the result carries a
+        SANDBOX-DEATH signature (CAMSCAN-010D: ``_sandbox_dead`` —
+        SANDBOX_DEATH_MARKERS already includes "sandbox timeout", the
+        exact signature the 20260925T110418Z-S001-live postmortem
+        observed on the expired-sandbox reads; a raising transport
+        stays the blind class — the live death signature is the
+        CommandResult shape: exit=-1, stderr carrying the
+        '.set_timeout'-advice text).
+
+        CAMSCAN-010E: the command carries the ``{adb} shell `` prefix
+        — provider.execute runs commands in the sandbox's LINUX bash
+        and dumpsys is an ANDROID binary reachable only through the
+        adb client, so a bare Linux-side ``dumpsys package …`` is
+        ALWAYS ``/bin/bash: line 1: dumpsys: command not found`` —
+        deterministic, never the probe-33 blind-transient class (it
+        can never succeed on any sandbox). Provenance: the 2026-09-25
+        16:34 UTC campaign run (started 16:34:43, sandbox
+        e2b-5822073f — the first live run with 010A–010D complete
+        upstream): all 16 facts reads (4 install-time reads
+        16:53:34–16:54:22 + 4 late reads x 2 facts
+        17:30:51–17:31:39) failed with the IDENTICAL signature
+        exit=1, stderr tail '/bin/bash: line 1: dumpsys: command not
+        found'; the lead audited all 26 provider.execute call sites —
+        line 2230 was the sole bare-Android-command bug (the only
+        other bare commands are intentional Linux-side pkill of the
+        adb CLIENT process)."""
         try:
             res = provider.execute(
                 env_id,
-                f'dumpsys package {package} | grep -m1 "{marker}"',
+                f'{adb} shell dumpsys package {package} '
+                f'| grep -m1 "{marker}"',
                 timeout=PKG_FACTS_TIMEOUT_S)
         except Exception as exc:  # noqa: BLE001 — blindness, not death
             return ((f"transport error {type(exc).__name__}: "
