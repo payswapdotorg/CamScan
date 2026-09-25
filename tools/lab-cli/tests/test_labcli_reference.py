@@ -3,7 +3,8 @@ extended by CAMSCAN-010A — the launch-step port, and CAMSCAN-010B —
 the run-metadata gaps: device.screen fallback + package-facts
 blindness tolerance, and CAMSCAN-010C — the early package-facts
 stash: install-time ground truth, and CAMSCAN-010D — the E2B Hobby
-total-lifetime budget governor: 3600 s hard cap).
+total-lifetime budget governor: 3600 s hard cap, and CAMSCAN-010E —
+the package-facts dumpsys adb-shell command prefix).
 
 No network, no e2b SDK, no credentials, no real sleeps: the driver is
 driven through an injected scripted transport (ScriptedProvider) that
@@ -85,6 +86,18 @@ Pinned properties (the work order's list):
   age context; a SIGINT campaign stop during provision destroys the
   paid sandbox and re-raises; young sandboxes keep their FULL waits
   (no cut when the budget is plentiful);
+- CAMSCAN-010E dumpsys adb-shell prefix (the 2026-09-25 16:34 UTC
+  live-run root cause, sandbox e2b-5822073f): every package-facts
+  read command on exec_log carries the ``{adb} shell `` prefix — the
+  EXACT command shape is pinned (adb path + ' shell dumpsys
+  package ' + the grep -m1 marker), at BOTH read stages
+  (install-time through provision's ADB local, late through
+  native.adb), and NO bare 'dumpsys package' form ever executes —
+  provider.execute runs the sandbox's LINUX bash and a bare
+  Linux-side dumpsys is deterministic '/bin/bash: line 1: dumpsys:
+  command not found' (16 identical failures in the campaign run),
+  invisible to the substring-matching ScriptedProvider needles —
+  which is exactly why the shape is pinned, not the substring;
 - teardown: never raises, even when stop and destroy both raise;
 - the registry resolution flip: env=reference resolves
   ReferenceDriver after the CAMSCAN-009 wiring; the pre-009 registry
@@ -146,6 +159,12 @@ from tools.lab_cli.run import load_provider_reports
 from tools.lab_cli.scenarios import LabCliError, resolve_scenario
 from tools.lab_cli.steps import plan_steps
 
+# CAMSCAN-010E: the adb path the driver's facts machinery must prefix
+# (the baked TCG bootstrap recipe's ADB — stdlib-only, SDK-free import:
+# the exact local provision() threads into _package_facts and _Native
+# carries for the late read; the same value every other ``{adb} shell``
+# command in the driver uses).
+from lab.providers.e2b.bootstrap import ADB
 from lab.providers.types import (
     Artifact,
     CaptureKind,
@@ -1523,6 +1542,93 @@ def test_execute_early_facts_blind_late_read_lands(monkeypatch,
     doc = jsonio_load(stage / "run-metadata.json")
     assert doc["application"]["version_name"] == "7.25.5.2609020000"
     assert doc["application"]["version_code"] == 2609020000
+
+
+# ------------------------- dumpsys adb-shell prefix (CAMSCAN-010E)
+
+def test_package_facts_command_carries_adb_shell_prefix(monkeypatch,
+                                                         tmp_path):
+    """CAMSCAN-010E — the command-SHAPE pin (the durable fix for the
+    invisible-to-substring-tests bug class): the 2026-09-25 16:34 UTC
+    campaign run (started 16:34:43, sandbox e2b-5822073f — the first
+    live run with 010A–010D complete upstream) walked the ENTIRE chain
+    successfully and failed ONLY at package facts: all 16 facts reads
+    (4 install-time 16:53:34–16:54:22 + 4 late x 2 facts
+    17:30:51–17:31:39) died with the IDENTICAL signature exit=1,
+    stderr tail '/bin/bash: line 1: dumpsys: command not found' —
+    provider.execute runs commands in the sandbox's LINUX bash and
+    dumpsys is an ANDROID binary reachable only through the adb
+    client, so the pre-010E bare ``dumpsys package …`` form can NEVER
+    succeed on any sandbox (deterministic, not the probe-33
+    blind-transient class). ScriptedProvider matched the old bug
+    invisibly — its needles are SUBSTRINGS ("versionName", "dumpsys")
+    that match the bare and prefixed forms alike — so this test pins
+    the EXACT command shape on exec_log after a full run with an
+    EMPTY stash (both call sites exercised: the install-time read
+    through provision's ADB local, the late read through
+    native.adb)."""
+    monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
+    monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
+    xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
+    provider = ScriptedProvider()
+    provider.on("cat /root/install.out", "Success\nEXIT_0\n")
+    # the install-time read goes all-blind (the stash rides the handle
+    # EMPTY) so the late read runs at execute time — BOTH call sites'
+    # commands land in exec_log; the late read then lands the facts
+    blind = CommandResult(-1, "", "Error: request_timeout after 60000 ms",
+                          5, "dumpsys")
+    provider.on("versionName", blind, blind, blind, blind,
+                "    versionName=7.25.5.2609020000\n")
+    provider.on("versionCode", blind, blind, blind, blind,
+                "    versionCode=2609020000 minSdk=23\n")
+    driver, _clock = _make_driver(provider, apk=xapk)
+    lines: list[str] = []
+    handle = driver.provision(_provision_request(lines, apk=xapk))
+    assert handle.native.install_time_facts == {}   # the stash is EMPTY
+
+    scenario = resolve_scenario("S001", REPO_ROOT / "lab" / "scenarios")
+    plans = plan_steps(scenario.steps, None)
+    stage = tmp_path / "stage"
+    request = ExecutionRequest(
+        handle=handle, run_id=RUN_ID, subject="reference",
+        scenario=scenario, step_plans=plans, stage_dir=stage,
+        fixtures=[], started_at="2026-09-24T00:00:00Z",
+        finished_at="2026-09-24T00:05:00Z", emit=lines.append)
+    result = driver.execute(handle, request)
+    assert result.ok is True, result.reason    # the late read landed
+
+    # the facts path ran at BOTH stages: 4 bounded install-time reads
+    # x 2 facts, then the late read's first attempt x 2 facts
+    exec_log = provider.exec_log
+    facts_cmds = [c for c in exec_log if "dumpsys package" in c]
+    assert len(facts_cmds) == 2 * PKG_FACTS_MAX_ATTEMPTS + 2
+
+    # THE SHAPE PINS: a command exists matching the EXACT adb-prefixed
+    # form (adb path + ' shell dumpsys package ' + the package + the
+    # grep -m1 marker, nothing else on the line)…
+    assert any(re.match(
+        r'^\S*adb\S* shell dumpsys package com\.intsig\.camscanner '
+        r'\| grep -m1 "versionName"$', c) for c in facts_cmds)
+    assert any(re.match(
+        r'^\S*adb\S* shell dumpsys package com\.intsig\.camscanner '
+        r'\| grep -m1 "versionCode"$', c) for c in facts_cmds)
+    # …stronger: the exact pinned string with the bootstrap recipe's
+    # ADB path (the same local every other {adb} shell command in
+    # provision uses; _Native carries it for the late read)
+    expected_name = (f'{ADB} shell dumpsys package '
+                     'com.intsig.camscanner | grep -m1 "versionName"')
+    expected_code = (f'{ADB} shell dumpsys package '
+                     'com.intsig.camscanner | grep -m1 "versionCode"')
+    assert expected_name in facts_cmds
+    assert expected_code in facts_cmds
+
+    # and the NEGATIVE pin: NO exec_log entry is the bare Linux-side
+    # 'dumpsys' form (the pre-010E bug — deterministic 'command not
+    # found' on every sandbox, never the probe-33 class) — every
+    # facts read carries the adb shell prefix
+    assert not any(re.match(r"^dumpsys package", c) for c in exec_log)
+    assert all(re.match(r"^\S*adb\S* shell dumpsys package ", c)
+               for c in facts_cmds)
 
 
 def test_execute_package_facts_all_blind_fails_honestly(monkeypatch,
