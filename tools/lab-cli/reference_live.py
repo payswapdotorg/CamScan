@@ -44,11 +44,30 @@ run-003 / run-005 lessons / observe.py lines; never a bare number):
    (destroy + raise — run-005 lesson b: never hammer a corpse), and an
    explicit ``pm path`` registry verification after Success (probe-15:
    an adb Success does NOT prove the package landed).
-4. LAUNCH — dynamic launcher resolution (cmd package resolve-activity —
-   never statically-derived components), patient process wait
-   (ndk_translation interpreting arm64 under TCG is slow), and the
-   SystemUI-ANR dismissal ladder after launch (uiautomator dump →
-   Wait-button bounds → center tap; the proven (540, 1244) fallback).
+4. LAUNCH — the probe-26..31 machinery (CAMSCAN-010A, ported from
+   observe.py's proven first-run section — the probes-25..34 launch
+   lessons that never reached this driver; the 2026-09-25 S001 run
+   died at STEP 01 on the probe-24 single-shot monkey form while the
+   driver already held the resolved component): component launch
+   via ``am start -W -n <resolved component>`` (the handle's
+   provision-time resolution — ``cmd package resolve-activity``,
+   never statically-derived components — re-resolved only when
+   empty; the exact form ``bridge.launch(app, activity=component)``
+   drives) under the probe-27 retry ladder (background am start +
+   EXIT_n marker, bounded outcome windows, activity-service gate +
+   gap-cadence settle, 4 attempts; "brought to the front" counts as
+   up), monkey ONLY as the no-component fallback; a probe-29 dex2oat
+   quiescence gate before the ladder and timestamped (HH:MM:SS)
+   ladder diagnostics; probe-30: am start -W's own ``Status: ok`` +
+   ``Activity: <pkg>/`` output is AUTHORITATIVE launch evidence
+   (am_confirmed — a transport-blind ps read never vetoes it); the
+   patient process poll (probe-24 budget, probe-25 death forensics,
+   probe-31-capped at ~2 min when am already confirmed) decides the
+   step verdict, and its diagnostics reach the evidence layer
+   (problems/reason + the run-metadata action trace). Then the
+   SystemUI-ANR dismissal ladder after a SUCCESSFUL launch
+   (uiautomator dump → Wait-button bounds → center tap; the proven
+   (540, 1244) fallback).
 5. EXECUTE — scenario steps through adb-bridge verbs, per-step
    screenshot + ui-dump captures, final logcat, discovered dumpsys
    package facts, the EVIDENCE.md single-subject metadata.
@@ -210,6 +229,77 @@ GRANT_TIMEOUT_S = 120
 PROCESS_WAIT_ROUNDS = 40
 PROCESS_WAIT_S = 10
 
+# ------------------------------------------- launch-step constants (010A)
+# CAMSCAN-010A: the probe-26..31 launch machinery ported from
+# tools/reference-observe/observe.py (its first-run section — the
+# probes-25..34 launch lessons that never reached this driver; the
+# 2026-09-25 S001 live run died at STEP 01 on the probe-24 single-shot
+# monkey form while the driver already held the resolved component).
+# Same doctrine as the install-recipe block above: every constant
+# cites its probe/lesson provenance, never a bare number.
+
+#: probe-29 (observe.py dex2oat gate): the install's background dexopt
+#: (verify filter on a 162 MB base + 59 MB arm64 split under ~130 MB
+#: free) steals the exact CPU the cold start needs — that run's am
+#: start was ACCEPTED yet the process never spawned through a 90 s
+#: WaitTime + a 6.7-min patient poll while logcat showed system_server
+#: slow-dispatch storms. Gate the ladder on dex2oat quiescence,
+#: bounded: 24 polls x 10 s ≈ 4 min, then proceed anyway (fresh
+#: windows land installs fast and the verifier is usually already
+#: done; a read that errors or comes back blind also proceeds).
+DEX2OAT_GATE_MAX_POLLS = 24
+DEX2OAT_GATE_POLL_S = 10
+
+#: probe-27 (observe.py `for attempt in range(4)`): 4 bounded attempts —
+#: the launch binder call dies EXACTLY like the install one (transient
+#: broken-pipe bursts on the regime's 5-10 min inter-burst cadence) and
+#: the install ladder PROVED luck is real and bounded retries harvest
+#: it (probe 17 attempt 2; probe-29's run: attempts 2-3 PM-blind,
+#: attempt 4 resolved).
+LAUNCH_MAX_ATTEMPTS = 4
+
+#: probe-27 (observe.py "3-min outcome window"): a blocked am start
+#: costs one bounded window, not an 8-min hang (run-005 lesson (a)
+#: applied to the launch binder; the install ladder's 6-min
+#: OUTCOME_WINDOW_S is the install-stream analogue).
+LAUNCH_OUTCOME_WINDOW_S = 180
+
+#: observe.py background-launcher budget: the marker-launching execute
+#: itself gets 60 s (the install ladder's INSTALL_LAUNCH_TIMEOUT_S
+#: analogue — probe-28: its in-band timeout text is a transient, never
+#: a verdict).
+LAUNCH_LAUNCHER_TIMEOUT_S = 60
+
+#: probe-29 (observe.py "gap-cadence settle"): probe-27's original
+#: 30 s settle clustered all 4 attempts inside ONE TCG burst (the
+#: regime's inter-burst gaps run 5-10 min); 120 s lets the ladder
+#: straddle a full burst cycle — 4 attempts now span ~15-20 min. (The
+#: install ladder's RETRY_BACKOFF_S is the analogue.)
+LAUNCH_SETTLE_S = 120
+
+#: probe-27 (observe.py activity-service gate): `am get-current-user`
+#: must answer a digit again before the next attempt — 8 probes x 15 s
+#: (the install ladder's package-service re-settle cadence,
+#: SERVICE_SETTLE_MAX_PROBES x SERVICE_SETTLE_POLL_S, applied to the
+#: activity service; only a genuinely dead activity service aborts the
+#: ladder — fall through to the patient poll).
+LAUNCH_GATE_MAX_PROBES = 8
+LAUNCH_GATE_POLL_S = 15
+
+#: observe.py patient-poll ps budget: each poll read gets 120 s (the
+#: process poll is the verdict under strain — a short read budget
+#: wastes poll rounds on transport slowness, not absence).
+LAUNCH_PS_TIMEOUT_S = 120
+
+#: probe-31 (observe.py `poll_cap = 12 if am_confirmed else 40`): when
+#: am already confirmed the launch ('Status: ok' + 'Activity:
+#: <pkg>/...') the ps poll is a NICE-TO-HAVE (a process-line detail),
+#: not the gate — cap it at 12 polls (~2 min at the probe-24 cadence)
+#: and go straight to the evidence phases while the transport still
+#: has minutes left (run 20260924T174918Z died with the app up and
+#: zero captures). The unconfirmed cap is PROCESS_WAIT_ROUNDS.
+LAUNCH_PROC_POLL_CAP_CONFIRMED = 12
+
 #: observe.py L552 / L567: ANR-dismissal ladder — up to 3 dump→tap
 #: rounds, 8 s settle between rounds.
 ANR_MAX_ROUNDS = 3
@@ -314,7 +404,8 @@ class ReferenceDriver:
     def __init__(self, apk: str | Path | None = None, *,
                  provider: Any = None,
                  sleep: Callable[[float], None] = time.sleep,
-                 monotonic: Callable[[], float] = time.monotonic) -> None:
+                 monotonic: Callable[[], float] = time.monotonic,
+                 wall_time: Callable[[], float] = time.time) -> None:
         #: local XAPK/APK path (the --apk push fallback / sha source).
         self.apk = Path(apk) if apk is not None else None
         #: transport injection — the hermetic tests script a fake; the
@@ -325,6 +416,10 @@ class ReferenceDriver:
         #: tests (never real sleeps in pytest).
         self._sleep = sleep
         self._monotonic = monotonic
+        #: wall-clock source for the probe-29 ladder-diag timestamps
+        #: (HH:MM:SS prefixes — injectable so the hermetic tests stay
+        #: deterministic; UTC-formatted for host independence).
+        self._wall_time = wall_time
 
     # ------------------------------------------------------------- lifecycle
 
@@ -455,16 +550,28 @@ class ReferenceDriver:
                     "meta.timeout_seconds exceeded — BLOCKED (timeout), "
                     "never silently truncated")
                 break
-            outcome = self._invoke_plan(bridge, plan,
-                                        handle.application["package"],
-                                        request.scenario.step_timeout_seconds)
-            trace.append({
+            outcome, launch_diag = self._invoke_plan(
+                bridge, plan, handle.application["package"],
+                request.scenario.step_timeout_seconds, native, request.emit)
+            entry: dict[str, Any] = {
                 "t_ms": 1400 * (plan.index - 1),
                 "action": plan.step.action,
                 "target": (str(plan.step.arg)
                            if plan.step.arg is not None else ""),
                 "result": "ok" if outcome else "failed",
-            })
+            }
+            if not outcome and launch_diag:
+                # CAMSCAN-010A (work-order item 8): failed-launch
+                # forensics in the run-metadata action trace — attempt-1
+                # left nothing but "step 01 launch failed"; the next
+                # postmortem must be a read, not an inference. (Failure
+                # only: a successful launch keeps the deterministic
+                # trace shape — the driver contract's no-wall-clock
+                # doctrine; the probe-29 ladder timestamps ride only
+                # the failure forensics, where the work order demands
+                # them.)
+                entry["diag"] = launch_diag
+            trace.append(entry)
             executed += 1
             if outcome and any(c.verb == "launch" for c in plan.calls):
                 # probe-17 steps 5-6: patient launch settle + the
@@ -477,7 +584,17 @@ class ReferenceDriver:
                                plan.step.action)
             if not outcome:
                 problems.append(f"step {plan.index:02d} "
-                                f"{plan.step.label()} failed")
+                               f"{plan.step.label()} failed")
+                if launch_diag:
+                    # CAMSCAN-010A (work-order item 8): the timestamped
+                    # ladder diagnostics (probe-29 HH:MM:SS lines — am
+                    # output tails, exit codes, gate state, death
+                    # forensics) reach the evidence layer's problem
+                    # list / reason, not just the console.
+                    problems.append(
+                        f"step {plan.index:02d} launch ladder diagnostics "
+                        f"({len(launch_diag)} lines): "
+                        + " | ".join(launch_diag))
 
         logcat = bridge.logcat()
         (subject_dir / "logs" / "logcat.txt").write_text(
@@ -885,8 +1002,10 @@ echo LAUNCHED
                           emit: Callable[[str], None]) -> str:
         """probe-17 step 4: resolve the launcher component DYNAMICALLY —
         never trust statically-derived component names. Recorded as
-        observed evidence; the launch verb itself goes through the
-        bridge's monkey form (also component-less)."""
+        observed evidence; since CAMSCAN-010A this resolved component
+        is the launch step's component source (the handle carries the
+        provision-time resolution; the launch step re-resolves through
+        this same probe only when that resolution came back empty)."""
         res = provider.execute(
             env_id,
             f"{adb} shell cmd package resolve-activity --brief "
@@ -1001,14 +1120,394 @@ echo LAUNCHED
         elif dismissed and attempts:
             emit("  reference: ANR dialog dismissed")
 
+    # ------------------------------------------- launch step (CAMSCAN-010A)
+
+    def _launch_call(self, bridge: Any, native: _Native, app: str,
+                     step_timeout: int,
+                     emit: Callable[[str], None]) -> tuple[bool, list[str]]:
+        """One launch verb call through the probe-26..31 machinery —
+        the proven observe.py first-run launch path this driver never
+        received (the 2026-09-25 S001 run died at STEP 01 on the
+        probe-24 single-shot monkey form while the driver already held
+        the resolved component).
+
+        Order: component (probe-26: the handle's provision-time
+        resolution, re-resolved only when empty) → dex2oat quiescence
+        gate (probe-29) → the probe-27 retry ladder (component form:
+        background ``am start -W -n`` + EXIT_n marker; monkey ONLY as
+        the no-component fallback) → the patient process poll
+        (probe-24 budget, probe-25 death forensics, probe-30 blindness
+        + am-confirmed precedence, probe-31 cap). Returns (ok,
+        launch_diag): the diag carries every timestamped (probe-29
+        HH:MM:SS) ladder line and, on failure, the death forensics —
+        the caller surfaces them in problems/reason + the action
+        trace."""
+        provider, env_id, adb = native.provider, native.env_id, native.adb
+        diag: list[str] = []
+
+        def _ldiag(message: str) -> None:
+            # probe-29: HH:MM:SS prefixes on every ladder diagnostic
+            # line — the attempt-2 postmortem had to reconstruct the
+            # timeline from file mtimes; timestamps make the next
+            # postmortem a read, not an inference. (UTC — host-
+            # independent, unlike observe.py's local time; the wall
+            # clock is constructor-injected for the hermetic tests.)
+            diag.append(time.strftime(
+                "%H:%M:%S ", time.gmtime(self._wall_time())) + message)
+
+        # probe-26: launch via the PROVEN form — `am start -W -n
+        # <resolved component>` (the exact form bridge.launch(app,
+        # activity=component) drives), never component-less monkey
+        # (it only proves event INJECTION; under ANR churn the intent
+        # sits unprocessed while the resolved component is already in
+        # hand). Component source: the handle's provision-time
+        # resolution; re-resolve ONLY when it is empty.
+        component = native.launcher_component
+        if not component:
+            component = self._resolve_launcher(provider, env_id, adb, emit)
+        # the bridge's app scope (launch()'s own side effect on the
+        # monkey path) is preserved on the component path through the
+        # bridge's public setter — later semantic-target verbs resolve
+        # against it
+        bridge.set_app(app)
+
+        # probe-29: dex2oat quiescence gate BEFORE the ladder
+        self._dex2oat_gate(provider, env_id, adb, _ldiag, emit)
+
+        am_confirmed = ""
+        if component:
+            emit(f"  reference: launch via am start -W -n {component} "
+                 "(ladder)")
+            am_confirmed = self._launch_ladder(provider, env_id, adb,
+                                               component, _ldiag, emit)
+        else:
+            emit("  reference: no launcher component resolved — monkey "
+                 "fallback (probe-26: single-shot, event injection only)")
+            self._monkey_fallback(bridge, app, step_timeout, _ldiag)
+
+        ok = self._launch_process_poll(provider, env_id, adb, am_confirmed,
+                                       _ldiag, emit)
+        return ok, diag
+
+    def _dex2oat_gate(self, provider: Any, env_id: str, adb: str,
+                      _ldiag: Callable[[str], None],
+                      emit: Callable[[str], None]) -> None:
+        """probe-29: the install's background dexopt (verify filter on
+        a 162 MB base + 59 MB arm64 split under ~130 MB free) steals
+        the exact CPU the cold start needs — gate the ladder on
+        dex2oat quiescence, bounded (
+        DEX2OAT_GATE_MAX_POLLS x DEX2OAT_GATE_POLL_S ≈ 4 min); proceed
+        on gate failure (a read that errors or comes back blind also
+        proceeds — the gate is best-effort, never a verdict)."""
+        for _ in range(DEX2OAT_GATE_MAX_POLLS):
+            try:
+                dx = provider.execute(
+                    env_id, f"{adb} shell ps -A | grep -c dex2oat",
+                    timeout=POLL_TIMEOUT_S)
+            except Exception:  # noqa: BLE001 — best-effort gate
+                return
+            if (dx.stdout or "").strip() in ("0", ""):
+                return
+            self._sleep(DEX2OAT_GATE_POLL_S)
+        minutes = DEX2OAT_GATE_MAX_POLLS * DEX2OAT_GATE_POLL_S // 60
+        _ldiag(f"dex2oat still running after {minutes} min — proceeding "
+               "anyway")
+        emit(f"  reference: dex2oat still running after {minutes} min — "
+             "proceeding anyway (probe-29: the gate is best-effort)")
+
+    def _launch_ladder(self, provider: Any, env_id: str, adb: str,
+                       component: str, _ldiag: Callable[[str], None],
+                       emit: Callable[[str], None]) -> str:
+        """probe-27: the launch retry ladder — the launch binder call
+        dies EXACTLY like the install one ('cmd: Failure calling
+        service activity: Broken pipe (32)') while the single-shot
+        launch burned whole runs; mirror the install ladder: am start
+        in the BACKGROUND with an EXIT_n marker (a blocked am start
+        costs one bounded window, not an 8-min hang), a bounded
+        outcome window per attempt, the activity-service gate +
+        probe-29 gap-cadence settle between attempts,
+        LAUNCH_MAX_ATTEMPTS attempts, 'brought to the front' counts as
+        up (the task already exists); ladder exhaustion falls through
+        to the caller's patient poll + death forensics.
+
+        probe-28 doctrine: a single in-band wrapper transient
+        (request_timeout text arriving in stdout/stderr, the LAUNCHED
+        echo missing) NEVER aborts the ladder — fall through to the
+        poll (it either finds launch.out — the wrapper DID run
+        server-side despite the client-side timeout — or burns one
+        bounded window; only a genuinely dead activity service aborts
+        the ladder).
+
+        Returns the probe-30 am_confirmed tail ("" when am never
+        reported our activity up)."""
+        am_confirmed = ""
+        for attempt in range(1, LAUNCH_MAX_ATTEMPTS + 1):
+            # background am start with EXIT marker (the install
+            # ladder's probe-21b pattern, applied to the launch binder)
+            bg = None
+            try:
+                bg = provider.execute(env_id, f"""
+rm -f /root/launch.out
+({adb} shell am start -W -n {component} > /root/launch.out 2>&1; echo "EXIT_$?" >> /root/launch.out) &
+echo LAUNCHED
+""", timeout=LAUNCH_LAUNCHER_TIMEOUT_S)
+            except Exception as exc:  # noqa: BLE001 — transport death ≠ verdict
+                _ldiag(f"[attempt {attempt}] TRANSPORT-DEAD: "
+                       f"{type(exc).__name__}: {exc}"[:200])
+            if bg is not None and "LAUNCHED" not in (bg.stdout or ""):
+                # probe-28: in-band wrapper transient — record it, fall
+                # through to the poll (never abort the ladder)
+                _ldiag(f"[attempt {attempt}] launcher-echo missing: "
+                       f"{((bg.stdout or bg.stderr) or '').strip()[-150:]!r}")
+            poll = None
+            outcome_seen = False
+            body = ""
+            exit_code = -1
+            deadline = self._monotonic() + LAUNCH_OUTCOME_WINDOW_S
+            while self._monotonic() < deadline:
+                self._sleep(OUTCOME_POLL_S)
+                try:
+                    poll = provider.execute(
+                        env_id, "cat /root/launch.out 2>&1 | tail -6",
+                        timeout=POLL_TIMEOUT_S)
+                except Exception as exc:  # noqa: BLE001 — poll transient
+                    _ldiag(f"[attempt {attempt}] POLL-DEAD: "
+                           f"{type(exc).__name__}"[:120])
+                    poll = None
+                if poll is None:
+                    break
+                if "EXIT_" in (poll.stdout or ""):
+                    match = re.search(r"EXIT_(-?\d+)", poll.stdout or "")
+                    exit_code = int(match.group(1)) if match else -1
+                    try:
+                        full = provider.execute(
+                            env_id, "cat /root/launch.out 2>&1",
+                            timeout=POLL_TIMEOUT_S)
+                        body = (full.stdout or poll.stdout or "").strip()
+                    except Exception:  # noqa: BLE001
+                        body = (poll.stdout or "").strip()
+                    outcome_seen = True
+                    break
+            if outcome_seen:
+                _ldiag(f"[attempt {attempt}] exit={exit_code} "
+                       f"stdout={body[-250:]!r}")
+                # probe-29: 'Error type 3 / does not exist' means the
+                # am tool's OWN PackageManager query came back blind —
+                # while resolve-activity had answered minutes earlier
+                # and the activity-service gate never dropped (the PM
+                # binder endpoint flaps on the same minutes cadence as
+                # the install broken-pipe bursts). Capture the
+                # blind-state evidence so the next postmortem can see
+                # it directly.
+                if "does not exist" in body or "Error type 3" in body:
+                    for label, cmd in (
+                        ("pm-path",
+                         (f"{adb} shell pm path {REFERENCE_PACKAGE} "
+                          f"| head -2")),
+                        ("resolve-again",
+                         (f"{adb} shell cmd package resolve-activity "
+                          f"--brief -a android.intent.action.MAIN "
+                          f"-c android.intent.category.LAUNCHER "
+                          f"{REFERENCE_PACKAGE} | tail -1")),
+                        ("activity-table",
+                         (f"{adb} shell dumpsys package "
+                          f"{REFERENCE_PACKAGE} | grep -m2 mainactivity")),
+                    ):
+                        try:
+                            res = provider.execute(env_id, cmd,
+                                                   timeout=POLL_TIMEOUT_S)
+                            _ldiag(f"[attempt {attempt}] blind-evidence "
+                                   f"{label}="
+                                   f"{(res.stdout or '').strip()[:120]!r}")
+                        except Exception:  # noqa: BLE001
+                            _ldiag(f"[attempt {attempt}] blind-evidence "
+                                   f"{label}=EXCEPTION")
+                # probe-30: am start -W's own output is AUTHORITATIVE
+                # launch evidence — 'Status: ok' with 'Activity:
+                # <pkg>/...' reports the AMS's own state (the app's
+                # activity cannot be top-most without its process).
+                # Track it: the patient ps poll below can be
+                # transport-blind and must not veto the AMS.
+                if "Status: ok" in body:
+                    if f"Activity: {REFERENCE_PACKAGE}" in body:
+                        am_confirmed = body[-400:]
+                    emit(f"  reference: launch attempt {attempt}: am start "
+                         "ok (Status: ok)")
+                    break
+                if "brought to the front" in body:
+                    _ldiag(f"[attempt {attempt}] task already fronted — "
+                           "treating as up")
+                    emit(f"  reference: launch attempt {attempt}: task "
+                         "already fronted (up)")
+                    break
+                emit(f"  reference: launch attempt {attempt}: failed "
+                     f"(exit {exit_code}) — "
+                     f"{' | '.join(body.splitlines()[-2:])[-160:]}")
+            elif poll is not None:
+                # bounded window elapsed with no EXIT marker — kill
+                # the blocked am start (a hang costs one window, not
+                # 8 min)
+                try:
+                    provider.execute(
+                        env_id, "pkill -f 'am start' 2>&1; echo KILLED",
+                        timeout=POLL_TIMEOUT_S)
+                except Exception as exc:  # noqa: BLE001 — best-effort kill
+                    _ldiag(f"[attempt {attempt}] pkill-dead: "
+                           f"{type(exc).__name__}")
+                _ldiag(f"[attempt {attempt}] outcome-window-timeout "
+                       "(blocked am start)")
+                emit(f"  reference: launch attempt {attempt}: outcome-window "
+                     "timeout (blocked am start killed)")
+            # gated backoff: wait for the activity service to respond
+            # again (am get-current-user isdigit check), then the
+            # probe-29 gap-cadence settle
+            svc_up = False
+            for _ in range(LAUNCH_GATE_MAX_PROBES):
+                try:
+                    gate = provider.execute(
+                        env_id,
+                        f"{adb} shell am get-current-user 2>&1 | head -1",
+                        timeout=POLL_TIMEOUT_S)
+                    if ((gate.stdout or "").strip()).isdigit():
+                        svc_up = True
+                        break
+                except Exception as exc:  # noqa: BLE001 — best-effort gate
+                    _ldiag(f"[attempt {attempt}] gate-dead: "
+                           f"{type(exc).__name__}")
+                self._sleep(LAUNCH_GATE_POLL_S)
+            _ldiag(f"[attempt {attempt}] activity-service gate: "
+                   f"{'up' if svc_up else 'down'}")
+            if not svc_up:
+                emit("  reference: launch ladder: activity service down "
+                     "after the gate — falling through to the patient "
+                     "poll (probe-27)")
+                break
+            self._sleep(LAUNCH_SETTLE_S)
+        return am_confirmed
+
+    def _monkey_fallback(self, bridge: Any, app: str, step_timeout: int,
+                         _ldiag: Callable[[str], None]) -> None:
+        """probe-26's fallback ONLY: no component resolved — the
+        bridge's component-less monkey form (its existing semantics:
+        exit 0 + the injected-events confirmation). Monkey proves
+        event INJECTION, never that the intent was processed; the
+        caller's patient process poll decides the verdict."""
+        result = bridge.launch(app, timeout=step_timeout)
+        if result.ok:
+            _ldiag("[monkey] events injected (bridge-confirmed)")
+        else:
+            _ldiag(f"[monkey] failed: {(result.error or '')[-160:]}")
+
+    def _launch_process_poll(self, provider: Any, env_id: str, adb: str,
+                             am_confirmed: str,
+                             _ldiag: Callable[[str], None],
+                             emit: Callable[[str], None]) -> bool:
+        """The patient post-ladder process poll (observe.py's
+        first-run poll, the shared verdict machinery for the ladder
+        AND the monkey fallback):
+
+        - probe-24 budget: PROCESS_WAIT_ROUNDS x PROCESS_WAIT_S ≈
+          6.7 min (the night-TCG cold start took > 120 s; 120 s was
+          NOT enough);
+        - probe-30 blindness: a ps read whose exit is -1 or whose text
+          carries the SDK timeout signature is NOT an absence
+          observation — skip it, count it; and when am already
+          confirmed the launch ('Status: ok' + 'Activity: <pkg>/…')
+          its evidence outranks the (blind) ps poll — the AMS itself
+          reported the app top-most, and a blind window cannot veto
+          it;
+        - probe-31 cap: when am already confirmed, the poll is a
+          nice-to-have — cap it at LAUNCH_PROC_POLL_CAP_CONFIRMED ≈
+          2 min and leave the transport's minutes for the evidence
+          phases;
+        - probe-25 death forensics on failure: canary echo (is the
+          adb stream alive at all?), system ps head (is the process
+          list itself listing?), logcat tail (system_server ANR /
+          suicide screams here) — infra death vs app death must not
+          look alike.
+        """
+        proc_line = ""
+        n_blind = 0
+        n_clean_absent = 0
+        poll_cap = (LAUNCH_PROC_POLL_CAP_CONFIRMED if am_confirmed
+                    else PROCESS_WAIT_ROUNDS)
+        for _ in range(poll_cap):
+            self._sleep(PROCESS_WAIT_S)
+            ps = provider.execute(
+                env_id,
+                f"{adb} shell ps -A | grep {REFERENCE_PACKAGE} | head -1",
+                timeout=LAUNCH_PS_TIMEOUT_S)
+            last_ps = (ps.stdout or "").strip()[:200]
+            last_ps_err = (getattr(ps, "stderr", "") or "").strip()[-200:]
+            last_ps_exit = getattr(ps, "exit_code", None)
+            if (last_ps_exit == -1
+                    or "timeout" in last_ps_err.lower()
+                    or "You can modify" in last_ps
+                    or "request_timeout" in last_ps):
+                n_blind += 1
+                continue
+            if REFERENCE_PACKAGE in (ps.stdout or ""):
+                proc_line = last_ps.splitlines()[0]
+                break
+            n_clean_absent += 1
+        if proc_line:
+            _ldiag(f"process poll: app process up "
+                   f"({proc_line.split()[1] if len(proc_line.split()) > 1
+                       else proc_line[:24]})")
+            return True
+        if am_confirmed:
+            # probe-30: the AMS itself reported the app top-most with
+            # Status: ok — a blind ps window cannot overrule it.
+            # Record the am evidence and continue to the evidence
+            # phases (best-effort: if the transport stays blind the
+            # captures fail and the run FAILs honestly; if it
+            # recovers, the run earns its PASS).
+            _ldiag(f"process poll: {n_blind} blind / {n_clean_absent} "
+                   "clean-absent reads — am-confirmed evidence "
+                   "outranks the blind ps poll")
+            emit("  reference: launch am-confirmed (Status: ok, top-most "
+                 f"{REFERENCE_PACKAGE} instance) — blind ps overruled "
+                 "(probe-30)")
+            return True
+        # probe-25: death forensics — infra death vs app death must
+        # not look alike
+        for label, cmd, budget in (
+            ("canary", f"{adb} shell echo __canary_ok__", POLL_TIMEOUT_S),
+            ("system-ps-head", f"{adb} shell ps -A | head -3",
+             POLL_TIMEOUT_S),
+            ("logcat-tail",
+             f"{adb} shell logcat -d -t 200 2>&1 | tail -15",
+             DIAG_TIMEOUT_S),
+        ):
+            try:
+                res = provider.execute(env_id, cmd, timeout=budget)
+                _ldiag(f"death-forensics {label}="
+                       f"{(res.stdout or '').strip()[:120]!r} "
+                       f"(exit {getattr(res, 'exit_code', None)})")
+            except Exception as exc:  # noqa: BLE001 — best-effort forensics
+                _ldiag(f"death-forensics {label}=EXCEPTION "
+                       f"({type(exc).__name__})")
+        emit("  reference: launch failed — ladder + death forensics "
+             "recorded (see problems / run-metadata action trace)")
+        return False
+
     def _invoke_plan(self, bridge: Any, plan: StepPlan, app: str,
-                     step_timeout: int) -> bool:
-        """Dispatch one planned step's verb calls (per-step budget)."""
+                     step_timeout: int, native: _Native,
+                     emit: Callable[[str], None]) -> tuple[bool, list[str]]:
+        """Dispatch one planned step's verb calls (per-step budget).
+
+        Launch steps route through the CAMSCAN-010A ladder
+        (:meth:`_launch_call` — the probe-26..31 machinery; component
+        form preferred, monkey ONLY as the no-component fallback);
+        every other verb is unchanged. Returns (ok, launch_diag): the
+        diag is the timestamped ladder forensics for launch steps,
+        empty otherwise."""
         if not isinstance(plan, StepPlan):
             raise TypeError(
                 f"step plans must be StepPlan instances "
                 f"(got {type(plan).__name__}; runner bug)")
         ok = True
+        launch_diag: list[str] = []
         for call in plan.calls:
             params = {k: (app if v == APP else v)
                       for k, v in call.params.items()}
@@ -1018,6 +1517,15 @@ echo LAUNCHED
                 # pairs screenshot + ui dump as the step's evidence
                 result = bridge.ui_dump(timeout=step_timeout)
                 ok = ok and result.ok
+                continue
+            if verb == "launch":
+                # CAMSCAN-010A: the probe-26..31 launch machinery
+                # (component launch via am start -W -n under the
+                # probe-27 ladder; monkey ONLY when no component
+                # resolved — the bridge verb's existing semantics)
+                launched, launch_diag = self._launch_call(
+                    bridge, native, app, step_timeout, emit)
+                ok = ok and launched
                 continue
             if verb == "tap_semantic":
                 result = bridge.tap_semantic(params["target"],
@@ -1039,13 +1547,11 @@ echo LAUNCHED
                                       timeout=step_timeout)
             elif verb == "wait_for":
                 result = bridge.wait_idle(timeout=step_timeout)
-            elif verb == "launch":
-                result = bridge.launch(app, timeout=step_timeout)
             else:  # pragma: no cover — mapping-table bug, fail loud
                 raise LabCliError(
                     f"live driver cannot dispatch verb {verb!r}")
             ok = ok and result.ok
-        return ok
+        return ok, launch_diag
 
     def _capture_step(self, bridge: Any, subject_dir: Path, index: int,
                       action: str) -> None:
