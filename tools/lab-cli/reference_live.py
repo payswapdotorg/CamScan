@@ -102,7 +102,14 @@ run-003 / run-005 lessons / observe.py lines; never a bare number):
    rejection an expired Hobby sandbox serves — is NOT a blind
    transient: the retries abort at once and the honest-fail reason
    names the expiry with age context), the EVIDENCE.md single-subject
-   metadata.
+   metadata. CAMSCAN-010G: the step verbs are ANR-AWARE and
+   DISCOVERY-TOLERANT — the 010F onboarding discovery loop checks the
+   ANR signature FIRST every round (a hung app is never "onboarding
+   complete"; Wait tapped, Close app never), and the GENERIC tap path
+   falls back to label discovery on UnknownTargetError (registry
+   first; the 20260925T210842Z-S002-live false positive + the S003
+   tap:scan pre-burn root causes — see the 010G provenance blocks at
+   the constants and helpers).
 6. TEARDOWN — best-effort stop + destroy on EVERY path; never raises
    (the runner owns the invariant; provision cleans up its own partial
    state before raising — a paid sandbox is never leaked).
@@ -151,6 +158,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from tools.adb_bridge.bridge import UnknownTargetError
 from tools.evidence_cli.schema import SCREEN_RE
 from tools.lab_cli.drivers import (
     DriverHandle,
@@ -395,9 +403,16 @@ _ONB_AFFIRMATIVE_SUBSTRINGS: tuple[str, ...] = (
 #: all that is clickable (a present-but-refused control is NOT
 #: completion — the loop keeps looking and fails honestly when the
 #: rounds exhaust; a clean screen completes).
+#: CAMSCAN-010G: "close app" joins the set — the ANR dialog's
+#: app-killer button (android:id/aerr_close, text "Close app"),
+#: verbatim from the 20260925T210842Z-S002-live false-positive dump.
+#: The loop's ANR-signature check (below) fires first and owns ANR
+#: rounds outright; this entry is the second layer, so even a dump
+#: whose signature the regex missed could never be tapped as an
+#: onboarding "progress" control — Close app KILLS the app.
 _ONB_EXCLUSION_SUBSTRINGS: tuple[str, ...] = (
     "purchase", "buy", "upgrade", "premium", "share", "rate",
-    "subscribe",
+    "subscribe", "close app",
 )
 
 #: run-005 lesson (b) (observe.py L361-365): these phrases mean the
@@ -423,6 +438,42 @@ _ANR_WAIT_RE = re.compile(
 #: "[left,top][right,bottom]" bounds attribute.
 _ONB_BOUNDS_RE = re.compile(
     r"\[\s*(\d+)\s*,\s*(\d+)\s*\]\s*\[\s*(\d+)\s*,\s*(\d+)\s*\]")
+
+#: CAMSCAN-010G — the ANR-dialog SIGNATURE (regex on the dump XML):
+#: the aerr dialog's title text "… isn't responding" (the apostrophe
+#: matched loosely — a dot — because XML dumps carry it raw,
+#: text="CamScanner isn't responding", or entity-escaped) OR either
+#: aerr button resource-id (android:id/aerr_wait / android:id/aerr_close
+#: — the close id is a signature member so even a partially-rendered
+#: dialog whose Wait button has not landed yet still reads as ANR,
+#: NEVER as a completion round). Provenance — the run that motivated
+#: this work order, 20260925T210842Z-S002-live (sandbox e2b-9927a5e9,
+#: 21:08-21:58 UTC, the FIRST live 010F exposure; the lead invalidated
+#: the false-positive evidence record in 8e24fad, verbatim dump
+#: preserved here):
+#:
+#:   texts: "CamScanner isn't responding", "Close app", "Wait"
+#:   clickables: android:id/aerr_close (text "Close app"),
+#:               android:id/aerr_wait  (text "Wait")
+#:
+#: The run walked the whole chain (boot, install attempt-3 Success,
+#: facts stash, GMS restore, launch ladder attempt-3 ok, ANR ladder
+#: 3 rounds + fallback) — and then the onboarding discovery loop's
+#: round-1 dump was this ANR dialog: "Wait"/"Close app" are correctly
+#: NOT in the affirmative set, so the 010F completion rule fired
+#: ("valid dump + no permission + no affirmative → complete") on a
+#: HUNG app. Root cause: the ANR ladder runs ONCE at launch; under
+#: TCG, CamScanner's first-run initialization is heavy enough that
+#: ANR dialogs RECUR during onboarding — the discovery loop must own
+#: them (CAMSCAN-010G part A).
+_ANR_SIGNATURE_RE = re.compile(
+    r"(?:isn.t responding"
+    r'|resource-id="android:id/aerr_(?:wait|close)")')
+
+#: CAMSCAN-010G — the ANR dialog's Wait button resource-id (the
+#: camera-campaign-proven dismissal target; NEVER aerr_close —
+#: "Close app" kills the app).
+ANR_WAIT_RES_ID = "android:id/aerr_wait"
 
 # ------------------------------------ run-metadata constants (CAMSCAN-010B)
 # CAMSCAN-010B: the 2026-09-25 attempt-3 live run
@@ -628,6 +679,20 @@ def _facts_brief(facts: dict[str, Any]) -> str:
 
 # ------------------------------- onboarding discovery (CAMSCAN-010F)
 
+def _onb_bounds_center(bounds: str) -> tuple[int, int] | None:
+    """Bounds-center of a uiautomator ``[left,top][right,bottom]``
+    string, or None for unparseable / zero-area nodes (not tappable).
+    The single bounds idiom behind both the clickable-node scan and
+    the CAMSCAN-010G ANR Wait-button locator."""
+    match = _ONB_BOUNDS_RE.search(bounds)
+    if not match:
+        return None
+    left, top, right, bottom = (int(g) for g in match.groups())
+    if right <= left or bottom <= top:       # zero-area nodes are not
+        return None                          # tappable
+    return ((left + right) // 2, (top + bottom) // 2)
+
+
 def _onb_clickable_nodes(dump_xml: str) -> list[tuple[str, str, tuple[int, int]]]:
     """(text, content-desc, bounds-center) for every CLICKABLE node of
     a ui-hierarchy dump, in document order — the discovery ladder's
@@ -643,15 +708,12 @@ def _onb_clickable_nodes(dump_xml: str) -> list[tuple[str, str, tuple[int, int]]
             continue
         if (node.get("clickable") or "").strip().lower() != "true":
             continue
-        match = _ONB_BOUNDS_RE.search(node.get("bounds") or "")
-        if not match:
+        center = _onb_bounds_center(node.get("bounds") or "")
+        if center is None:
             continue
-        left, top, right, bottom = (int(g) for g in match.groups())
-        if right <= left or bottom <= top:   # zero-area nodes are not
-            continue                         # tappable
         out.append(((node.get("text") or ""),
                     (node.get("content-desc") or ""),
-                    ((left + right) // 2, (top + bottom) // 2)))
+                    center))
     return out
 
 
@@ -688,6 +750,43 @@ def _onb_round_action(nodes: list[tuple[str, str, tuple[int, int]]]) \
     return refused
 
 
+def dump_shows_anr(dump_xml: str) -> bool:
+    """CAMSCAN-010G — does a ui-hierarchy dump carry the ANR-dialog
+    signature (the aerr title text "… isn't responding", or the aerr
+    button resource-ids)? The 20260925T210842Z-S002-live false
+    positive's class: a HUNG app must never read as "no actionable
+    control = onboarding complete". Shared with the tap-label
+    discovery fallback (part B) — an ANR-hung dump is the honest
+    reason a label was not found."""
+    return _ANR_SIGNATURE_RE.search(dump_xml or "") is not None
+
+
+def _onb_anr_wait_center(dump_xml: str) -> tuple[int, int] | None:
+    """The ANR dialog's Wait button bounds-center: the aerr_wait
+    resource-id first, the text="Wait" node as fallback (the
+    _anr_ladder regex idiom) — NEVER android:id/aerr_close ("Close
+    app" kills the app; it matches neither criterion). None when the
+    dialog is present but the Wait button is not locatable (a
+    partially-rendered dialog): the round settles and still counts —
+    a dialog we cannot dismiss persists, and the budget exhaustion is
+    the honest failure."""
+    try:
+        root = ET.fromstring(dump_xml)
+    except ET.ParseError:
+        return None
+    by_text: tuple[int, int] | None = None
+    for node in root.iter():
+        if node.tag != "node":
+            continue
+        if (node.get("resource-id") or "") == ANR_WAIT_RES_ID:
+            center = _onb_bounds_center(node.get("bounds") or "")
+            if center is not None:
+                return center
+        if by_text is None and (node.get("text") or "") == "Wait":
+            by_text = _onb_bounds_center(node.get("bounds") or "")
+    return by_text
+
+
 def onboarding_discovery_loop(bridge: Any, *, step_timeout: int,
                               sleep: Callable[[float], None],
                               emit: Callable[[str], None],
@@ -701,17 +800,27 @@ def onboarding_discovery_loop(bridge: Any, *, step_timeout: int,
     implementation env taps its design-contract next_button FIRST and
     falls here on UnknownTargetError.
 
-    Per round: a FRESH ui dump through the hardened CAMSCAN-010F
-    capture (a failed capture counts the round, settles, continues);
-    the permission dialog is checked FIRST (exact registered
-    affirmative texts); then affirmative discovery (first match in
-    document order; excluded traps are skipped and never tapped). A
-    round whose dump holds neither — and no excluded trap — is
-    onboarding COMPLETE (the scenario asserts onboarding-skippable-
-    or-completable: running out of onboarding controls IS completion).
-    Exhausted rounds → False — the honest failure; the driver's
-    existing failure path does the rest."""
+    CAMSCAN-010G — ANR-AWARE (the 20260925T210842Z-S002-live false
+    positive): per round, a FRESH ui dump through the hardened
+    CAMSCAN-010F capture (a failed capture counts the round, settles,
+    continues); the ANR SIGNATURE is then checked FIRST — a round
+    whose dump carries it is an ANR round, NEVER a completion round:
+    the Wait button's bounds-center is tapped (the camera-campaign-
+    proven dismissal; NEVER "Close app" — it kills the app) and the
+    ladder settles, because under TCG the ANR dialogs RECUR during
+    onboarding (the launch-time _anr_ladder covers only the first
+    one). Then the permission dialog (exact registered affirmative
+    texts); then affirmative discovery (first match in document order;
+    excluded traps are skipped and never tapped). A round whose dump
+    holds NONE of those — no ANR signature, no permission dialog, no
+    affirmative, no excluded trap — is onboarding COMPLETE (the
+    scenario asserts onboarding-skippable-or-completable: running out
+    of onboarding controls IS completion). Exhausted rounds → False —
+    the honest failure; ANR dialogs persisting through the ENTIRE
+    budget get their own honest reading (the app cannot stay
+    responsive — that IS the observation)."""
     prefix = f"  {label}: onboarding"
+    anr_rounds = 0
     for round_no in range(1, ONB_MAX_ROUNDS + 1):
         try:
             dump = bridge.ui_dump(timeout=step_timeout)
@@ -725,8 +834,24 @@ def onboarding_discovery_loop(bridge: Any, *, step_timeout: int,
                  f"({(dump.error or 'no dump body')[:160]}) — settling")
             sleep(ONB_ROUND_SETTLE_S)
             continue
-        kind, hit, center = _onb_round_action(
-            _onb_clickable_nodes(dump.text or ""))
+        xml = dump.text or ""
+        if dump_shows_anr(xml):
+            # CAMSCAN-010G: an ANR round can NEVER complete — the app
+            # is hung, not onboarded. Tap Wait's bounds-center (the
+            # camera-campaign-proven dismissal), settle, next round.
+            anr_rounds += 1
+            center = _onb_anr_wait_center(xml)
+            if center is not None:
+                bridge.tap(*center)
+                emit(f"{prefix} round {round_no}: ANR Wait dismissed "
+                     f"at ({center[0]},{center[1]}) (app recovering)")
+            else:
+                emit(f"{prefix} round {round_no}: ANR dialog present — "
+                     f"Wait button not located, settling (never "
+                     f"'Close app')")
+            sleep(ONB_ROUND_SETTLE_S)
+            continue
+        kind, hit, center = _onb_round_action(_onb_clickable_nodes(xml))
         if kind == "permission":
             bridge.tap(*center)
             emit(f"{prefix} round {round_no}: permission granted "
@@ -747,9 +872,115 @@ def onboarding_discovery_loop(bridge: Any, *, step_timeout: int,
         emit(f"{prefix} round {round_no}: no actionable control "
              f"— onboarding complete")
         return True
+    if anr_rounds >= ONB_MAX_ROUNDS:
+        # CAMSCAN-010G: every round of the budget was an ANR round —
+        # the app cannot stay responsive; that IS the observation (the
+        # existing failure path handles the rest).
+        emit(f"{prefix} app ANR-looping — budget exhausted, honest fail")
+        return False
     emit(f"{prefix} discovery exhausted {ONB_MAX_ROUNDS} rounds "
          f"without completing — honest failure")
     return False
+
+
+# --------------------- tap-label discovery fallback (CAMSCAN-010G part B)
+
+#: CAMSCAN-010G — minimum length for an underscore-separated token to
+#: serve as a label-needle ladder rung: shorter fragments ("ok", "go",
+#: "new") match far too much of a live screen to be a safe tap target.
+_LABEL_NEEDLE_MIN_TOKEN_LEN = 4
+
+#: CAMSCAN-010G — labels NEVER tapped by the fallback, the ANR
+#: app-killer first ("Close app" kills the app — the same doctrine as
+#: the loop's _ONB_EXCLUSION_SUBSTRINGS entry; a label needle like the
+#: token of a future "close_and_save" id must never find it).
+_LABEL_EXCLUSION_SUBSTRINGS: tuple[str, ...] = ("close app",)
+
+
+def _label_needles(target: str) -> tuple[str, ...]:
+    """CAMSCAN-010G — the needle ladder for one semantic target id
+    (case-insensitive substring matching over CLICKABLE nodes' text=
+    and content-desc=): (a) the raw id; (b) the underscores→spaces
+    form ("next_button" → "next button"); (c) every underscore-
+    separated token of length >= 4 ("next_button" → "next", "button").
+    The order IS the preference: a raw-id label match always outranks
+    a token match, whatever the document order."""
+    target = (target or "").strip()
+    needles: list[str] = []
+    for candidate in (target, target.replace("_", " ").strip()):
+        if candidate and candidate.lower() not in needles:
+            needles.append(candidate.lower())
+    for token in target.split("_"):
+        token = token.strip()
+        if (len(token) >= _LABEL_NEEDLE_MIN_TOKEN_LEN
+                and token.lower() not in needles):
+            needles.append(token.lower())
+    return tuple(needles)
+
+
+def tap_label_discovery_fallback(bridge: Any, target: str,
+                                 error: UnknownTargetError, *,
+                                 step_timeout: int,
+                                 emit: Callable[[str], None],
+                                 label: str) -> Any:
+    """CAMSCAN-010G (part B) — the tap-label discovery fallback for the
+    GENERIC tap path of BOTH live drivers (the 010F shared-placement
+    pattern: the helper lives here beside the loop and e2b_live
+    imports it).
+
+    Provenance — the S003 (camera-permission) deterministic death,
+    found by the lead's code review BEFORE it burned a sandbox (S003
+    was stopped mid-provisioning): step 2 is ``tap: scan``; steps.py
+    maps tap → tap_semantic("scan"); the app scope
+    com.intsig.camscanner is EMPTY by doctrine (ids come from observed
+    live dumps, never invention) and the global scope holds the
+    permission ids only → GUARANTEED UnknownTargetError. Same
+    design-contract-class bug as 010F root cause 1, but on the
+    GENERIC tap path: ANY scenario tap of a not-yet-discovered
+    reference control was deterministic death. The scenario DSL is
+    correct as-is (``tap: scan`` IS the semantic intent); the DRIVER
+    must discover.
+
+    Runs ONLY on the registry's UnknownTargetError (registry-first:
+    the design contract stays authoritative for the implementation
+    app; registered ids — the permission-dialog globals included —
+    resolve through it and never reach here). One FRESH ui dump →
+    the CLICKABLE nodes' text= and content-desc= scanned for the
+    target as a LABEL needle (:func:`_label_needles` — case-
+    insensitive substring, first match in document order, the ANR
+    app-killer excluded) → the match's bounds-center tapped; returns
+    the tap VerbResult. No label match (or the dump unavailable) →
+    the original UnknownTargetError re-raises — honest failure,
+    unchanged semantics for genuinely absent controls; when the dump
+    carries the ANR signature the honest reason is emitted first (the
+    app is hung, not missing the control)."""
+    prefix = f"  {label}:"
+    dump = bridge.ui_dump(timeout=step_timeout)
+    if dump.ok and dump.text:
+        xml = dump.text
+        for needle in _label_needles(target):
+            for text, desc, center in _onb_clickable_nodes(xml):
+                if any(bad in value.lower()
+                       for value in (text, desc)
+                       for bad in _LABEL_EXCLUSION_SUBSTRINGS):
+                    continue          # NEVER the ANR app-killer button
+                if needle in text.lower():
+                    result = bridge.tap(center[0], center[1],
+                                        timeout=step_timeout)
+                    emit(f"{prefix} tap '{target}' by label discovery "
+                         f"at ({center[0]},{center[1]}) (text='{text}')")
+                    return result
+                if needle in desc.lower():
+                    result = bridge.tap(center[0], center[1],
+                                        timeout=step_timeout)
+                    emit(f"{prefix} tap '{target}' by label discovery "
+                         f"at ({center[0]},{center[1]}) (desc='{desc}')")
+                    return result
+        if dump_shows_anr(xml):
+            emit(f"{prefix} tap '{target}' by label discovery: no label "
+                 f"match and the dump shows the ANR dialog — the app is "
+                 f"hung (isn't responding), not missing the control")
+    raise error
 
 
 def extract_split_bundle(xapk: Path, dest: Path) -> list[Path]:
@@ -2265,8 +2496,23 @@ echo LAUNCHED
                     bridge, native, app, step_timeout, emit)
                 continue
             if verb == "tap_semantic":
-                result = bridge.tap_semantic(params["target"],
-                                             timeout=step_timeout)
+                # CAMSCAN-010G: registry FIRST (the design contract
+                # stays authoritative — registered ids resolve here
+                # and the fallback never fires); on
+                # UnknownTargetError — the S003 tap:scan class
+                # (deterministic death: this scope is EMPTY by
+                # doctrine, the global scope holds permission ids
+                # only) — the label-discovery fallback runs BEFORE
+                # failing: a fresh dump scanned for the target as a
+                # label needle; no match re-raises (honest).
+                try:
+                    result = bridge.tap_semantic(params["target"],
+                                                 timeout=step_timeout)
+                except UnknownTargetError as exc:
+                    result = tap_label_discovery_fallback(
+                        bridge, params["target"], exc,
+                        step_timeout=step_timeout, emit=emit,
+                        label="reference")
             elif verb == "swipe":
                 result = bridge.swipe(params["x1"], params["y1"],
                                       params["x2"], params["y2"],
