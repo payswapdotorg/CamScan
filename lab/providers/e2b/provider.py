@@ -84,6 +84,21 @@ STATIC_CAPABILITIES: dict[str, Any] = {
 }
 
 
+#: CAMSCAN-010F — device-side scratch path for uiautomator dumps.
+#: /data/local/tmp is deterministically shell-writable on every API-30
+#: image (no FUSE); the pre-010F /sdcard path is the flapping
+#: permission class (see the CaptureKind.ui_hierarchy provenance
+#: comment in capture()).
+UI_DUMP_DEVICE_PATH = "/data/local/tmp/window_dump.xml"
+
+#: CAMSCAN-010F — bounded retry INSIDE the ui-hierarchy capture:
+#: uiautomator intermittently reports "could not get idle state" under
+#: TCG, so a failed content check gets up to 3 attempts with a ~5 s
+#: settle between them (raise only after the last).
+UI_DUMP_CAPTURE_ATTEMPTS = 3
+UI_DUMP_RETRY_SETTLE_S = 5.0
+
+
 @dataclass
 class E2BProviderConfig:
     template: str = "desktop"
@@ -592,15 +607,55 @@ class E2BProvider:
             if "CAP_OK" not in check.stdout:
                 raise RuntimeError(f"screenshot capture failed: {res.stdout[:200]}")
         elif kind == CaptureKind.ui_hierarchy:
+            # CAMSCAN-010F — trustworthy ui-dump capture. Provenance
+            # (2026-09-25, campaign run 20260925T180736Z, sandbox
+            # e2b-c785b352): the S001 evidence dump
+            # runs/20260925T180736Z-S001-live/reference/ui/01-launch.xml
+            # is 48 BYTES of "cat: /sdcard/window_dump.xml: Permission
+            # denied" — device-shell error text, not XML — while dumps
+            # taken minutes earlier in the SAME run (the ANR ladder,
+            # ~20:00 UTC) carried real hierarchies (the Wait-button
+            # bounds matched 3 rounds): the /sdcard read-back FLAPS
+            # (FUSE/scoped storage on the API-30 google_apis image)
+            # nondeterministically across a run's lifetime. The old
+            # `test -s` check PASSED on that 48-byte error text (non-
+            # empty != valid XML) and the garbage rode the bridge's
+            # dump cache into every downstream selector resolution.
+            # Fixes, both bugs: (1) dump to /data/local/tmp —
+            # deterministically shell-writable on every API-30 image
+            # (no FUSE) — removing the entire permission class;
+            # (2) a CONTENT check: the body must start with "<?xml"
+            # and contain "<hierarchy" — a cat permission-error, an
+            # empty body, or any non-XML body is a capture failure.
+            # The bounded retry (3 attempts, ~5 s settle) absorbs
+            # uiautomator's intermittent "could not get idle state"
+            # under TCG; the last body's first 200 bytes ride the
+            # error (the readable failure the flap demands).
             path = f"{self.cfg.cap_dir}/{seq:04d}-ui.xml"
-            res = self._sh(env_id, f"{ADB} shell uiautomator dump /sdcard/window_dump.xml "
-                                   f">/dev/null 2>&1; "
-                                   f"{ADB} exec-out cat /sdcard/window_dump.xml > {path} 2>/dev/null",
-                           timeout=timeout, record=False)
-            check = self._sh(env_id, f"test -s {path} && echo CAP_OK || echo CAP_EMPTY",
-                             timeout=30, record=False)
-            if "CAP_OK" not in check.stdout:
-                raise RuntimeError(f"ui hierarchy dump failed: {res.stdout[:200]}")
+            for attempt in range(1, UI_DUMP_CAPTURE_ATTEMPTS + 1):
+                self._sh(env_id, f"{ADB} shell uiautomator dump "
+                                 f"{UI_DUMP_DEVICE_PATH} >/dev/null 2>&1; "
+                                 f"{ADB} exec-out cat {UI_DUMP_DEVICE_PATH} "
+                                 f"> {path} 2>/dev/null",
+                         timeout=timeout, record=False)
+                check = self._sh(
+                    env_id,
+                    f"head -c 5 {path} | grep -qF '<?xml' && "
+                    f"grep -qF '<hierarchy' {path} && "
+                    f"echo CAP_OK || echo CAP_EMPTY",
+                    timeout=30, record=False)
+                if "CAP_OK" in check.stdout:
+                    break
+                if attempt < UI_DUMP_CAPTURE_ATTEMPTS:
+                    time.sleep(UI_DUMP_RETRY_SETTLE_S)
+            else:
+                # raise only after the LAST attempt, with the last
+                # body's first 200 bytes in the message (the existing
+                # RuntimeError shape kept)
+                head = self._sh(env_id, f"head -c 200 {path}", timeout=30,
+                                record=False)
+                raise RuntimeError(
+                    f"ui hierarchy dump failed: {head.stdout[:200]}")
         elif kind == CaptureKind.logcat:
             path = f"{self.cfg.cap_dir}/{seq:04d}-logcat.txt"
             res = self._sh(env_id, f"{ADB} logcat -d > {path} 2>/dev/null",

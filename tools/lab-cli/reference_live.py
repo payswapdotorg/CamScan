@@ -145,6 +145,7 @@ import os
 import re
 import tempfile
 import time
+import xml.etree.ElementTree as ET
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
@@ -360,6 +361,45 @@ ANR_ROUND_SETTLE_S = 8
 #: (last resort when the dump-tap ladder cannot dismiss the dialog).
 ANR_FALLBACK_TAP = (540, 1244)
 
+#: CAMSCAN-010F — the dump-first onboarding discovery ladder's budget
+#: (the _anr_ladder shape ported to onboarding): up to 12 bounded
+#: rounds — permission dialogs AND onboarding pages both consume
+#: rounds (the live S002 chain shows both classes in sequence) — with
+#: an 8 s settle between rounds (TCG-paced, the same cadence as the
+#: ANR ladder's ANR_ROUND_SETTLE_S).
+ONB_MAX_ROUNDS = 12
+ONB_ROUND_SETTLE_S = 8
+
+#: CAMSCAN-010F — the permission-dialog affirmatives, checked FIRST
+#: every round: the registered global selectors' exact texts
+#: (tools/adb-bridge/targets.yaml: permission_allow text="While using
+#: the app", permission_allow_this_time text="Only this time"). Exact
+#: matches — the deny button ("Don't allow") never matches either set.
+#: Permission grants are idempotent-safe.
+_ONB_PERMISSION_TEXTS: tuple[str, ...] = (
+    "While using the app",
+    "Only this time",
+)
+
+#: CAMSCAN-010F — onboarding affirmative discovery: case-insensitive
+#: substring matches over CLICKABLE nodes' text= and content-desc=,
+#: first match in document order. Onboarding-progress labels only —
+#: monetization traps live in the exclusion set below.
+_ONB_AFFIRMATIVE_SUBSTRINGS: tuple[str, ...] = (
+    "next", "continue", "get started", "start using", "start", "skip",
+    "done", "finish", "agree", "accept", "allow", "ok", "got it",
+    "let's go",
+)
+
+#: CAMSCAN-010F — the hard exclusion set: NEVER tapped even when it is
+#: all that is clickable (a present-but-refused control is NOT
+#: completion — the loop keeps looking and fails honestly when the
+#: rounds exhaust; a clean screen completes).
+_ONB_EXCLUSION_SUBSTRINGS: tuple[str, ...] = (
+    "purchase", "buy", "upgrade", "premium", "share", "rate",
+    "subscribe",
+)
+
 #: run-005 lesson (b) (observe.py L361-365): these phrases mean the
 #: SANDBOX died — not a retryable install failure. Abort at once; a
 #: fresh run gets a fresh 60-min window (the E2B hard cap).
@@ -377,6 +417,12 @@ SANDBOX_DEATH_MARKERS: tuple[str, ...] = (
 #: bite: the XML rides in VerbResult.text).
 _ANR_WAIT_RE = re.compile(
     r'text="Wait"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"')
+
+#: CAMSCAN-010F — the onboarding discovery ladder's bounds-center
+#: idiom (the _anr_ladder regex, generalized): uiautomator's
+#: "[left,top][right,bottom]" bounds attribute.
+_ONB_BOUNDS_RE = re.compile(
+    r"\[\s*(\d+)\s*,\s*(\d+)\s*\]\s*\[\s*(\d+)\s*,\s*(\d+)\s*\]")
 
 # ------------------------------------ run-metadata constants (CAMSCAN-010B)
 # CAMSCAN-010B: the 2026-09-25 attempt-3 live run
@@ -578,6 +624,132 @@ def _facts_brief(facts: dict[str, Any]) -> str:
     return ", ".join(f"{key}={facts[key]!r}"
                      for key in ("version_name", "version_code")
                      if key in facts)
+
+
+# ------------------------------- onboarding discovery (CAMSCAN-010F)
+
+def _onb_clickable_nodes(dump_xml: str) -> list[tuple[str, str, tuple[int, int]]]:
+    """(text, content-desc, bounds-center) for every CLICKABLE node of
+    a ui-hierarchy dump, in document order — the discovery ladder's
+    scan surface. Unparseable dumps and zero-area nodes yield nothing
+    (the round still counts; the ladder settles, never crashes)."""
+    try:
+        root = ET.fromstring(dump_xml)
+    except ET.ParseError:
+        return []
+    out: list[tuple[str, str, tuple[int, int]]] = []
+    for node in root.iter():
+        if node.tag != "node":
+            continue
+        if (node.get("clickable") or "").strip().lower() != "true":
+            continue
+        match = _ONB_BOUNDS_RE.search(node.get("bounds") or "")
+        if not match:
+            continue
+        left, top, right, bottom = (int(g) for g in match.groups())
+        if right <= left or bottom <= top:   # zero-area nodes are not
+            continue                         # tappable
+        out.append(((node.get("text") or ""),
+                    (node.get("content-desc") or ""),
+                    ((left + right) // 2, (top + bottom) // 2)))
+    return out
+
+
+def _onb_round_action(nodes: list[tuple[str, str, tuple[int, int]]]) \
+        -> tuple[str, str, tuple[int, int] | None]:
+    """One discovery round's verdict over the clickable nodes.
+
+    Returns (kind, label, center): ``("permission", ...)``
+    ("While using the app" / "Only this time" — the registered global
+    selectors' texts) is tapped first (grants are idempotent-safe);
+    ``("affirmative", ...)`` is the first onboarding-progress label in
+    document order (case-insensitive substring over text/content-desc)
+    on a node that is NOT an excluded trap; ``("excluded", ...)`` means
+    only refused traps are present (never tapped — and NOT completion);
+    ``("", "", None)`` means no actionable control at all — onboarding
+    complete."""
+    for text, desc, center in nodes:
+        if text in _ONB_PERMISSION_TEXTS or desc in _ONB_PERMISSION_TEXTS:
+            return "permission", (text or desc), center
+    refused: tuple[str, str, tuple[int, int] | None] = ("", "", None)
+    for text, desc, center in nodes:
+        values = (text, desc)
+        if any(bad in value.lower()
+               for value in values
+               for bad in _ONB_EXCLUSION_SUBSTRINGS):
+            if refused[2] is None:      # remembered for the refusal line
+                refused = ("excluded", (text or desc), center)
+            continue    # NEVER tapped, even if it is all that is
+                        # clickable
+        for value in values:
+            if any(good in value.lower()
+                   for good in _ONB_AFFIRMATIVE_SUBSTRINGS):
+                return "affirmative", value, center
+    return refused
+
+
+def onboarding_discovery_loop(bridge: Any, *, step_timeout: int,
+                              sleep: Callable[[float], None],
+                              emit: Callable[[str], None],
+                              label: str) -> bool:
+    """CAMSCAN-010F — the dump-first onboarding discovery ladder (the
+    PROVEN _anr_ladder shape: dump → bounds-regex → center-tap →
+    settle → bounded rounds), shared by both live drivers: the
+    reference env runs it directly (its registry scope is RESERVED-
+    EMPTY by design — ids come from observed live dumps, never
+    invention, so a registry tap can never resolve there); the
+    implementation env taps its design-contract next_button FIRST and
+    falls here on UnknownTargetError.
+
+    Per round: a FRESH ui dump through the hardened CAMSCAN-010F
+    capture (a failed capture counts the round, settles, continues);
+    the permission dialog is checked FIRST (exact registered
+    affirmative texts); then affirmative discovery (first match in
+    document order; excluded traps are skipped and never tapped). A
+    round whose dump holds neither — and no excluded trap — is
+    onboarding COMPLETE (the scenario asserts onboarding-skippable-
+    or-completable: running out of onboarding controls IS completion).
+    Exhausted rounds → False — the honest failure; the driver's
+    existing failure path does the rest."""
+    prefix = f"  {label}: onboarding"
+    for round_no in range(1, ONB_MAX_ROUNDS + 1):
+        try:
+            dump = bridge.ui_dump(timeout=step_timeout)
+        except Exception as exc:  # noqa: BLE001 — a failed capture is a round, never a crash
+            emit(f"{prefix} round {round_no}: ui dump failed "
+                 f"({type(exc).__name__}: {exc}) — settling")
+            sleep(ONB_ROUND_SETTLE_S)
+            continue
+        if not dump.ok:
+            emit(f"{prefix} round {round_no}: ui dump unavailable "
+                 f"({(dump.error or 'no dump body')[:160]}) — settling")
+            sleep(ONB_ROUND_SETTLE_S)
+            continue
+        kind, hit, center = _onb_round_action(
+            _onb_clickable_nodes(dump.text or ""))
+        if kind == "permission":
+            bridge.tap(*center)
+            emit(f"{prefix} round {round_no}: permission granted "
+                 f"at ({center[0]},{center[1]})")
+            sleep(ONB_ROUND_SETTLE_S)
+            continue
+        if kind == "affirmative":
+            bridge.tap(*center)
+            emit(f"{prefix} round {round_no}: control '{hit}' tapped "
+                 f"at ({center[0]},{center[1]})")
+            sleep(ONB_ROUND_SETTLE_S)
+            continue
+        if kind == "excluded":
+            emit(f"{prefix} round {round_no}: control '{hit}' excluded "
+                 f"— not tapped, continuing")
+            sleep(ONB_ROUND_SETTLE_S)
+            continue
+        emit(f"{prefix} round {round_no}: no actionable control "
+             f"— onboarding complete")
+        return True
+    emit(f"{prefix} discovery exhausted {ONB_MAX_ROUNDS} rounds "
+         f"without completing — honest failure")
+    return False
 
 
 def extract_split_bundle(xapk: Path, dest: Path) -> list[Path]:
@@ -1618,6 +1790,26 @@ echo LAUNCHED
         elif dismissed and attempts:
             emit("  reference: ANR dialog dismissed")
 
+    def _onboarding_complete(self, bridge: Any, native: _Native, app: str,
+                             step_timeout: int,
+                             emit: Callable[[str], None]) -> bool:
+        """CAMSCAN-010F — the complete-onboarding verb: dump-first
+        discovery through the shared ladder
+        (:func:`onboarding_discovery_loop` — the _anr_ladder shape).
+        The 20260925T180736Z-S002-live attempt-1 killer was the old
+        mapping's registry tap: "unknown semantic target 'next_button'
+        (looked in app scope 'com.intsig.camscanner' and global; known
+        ids there: permission_allow, permission_allow_this_time,
+        permission_deny)" — an id that cannot exist in the reference
+        scope, ever (discovery is runtime, never registry invention).
+        The step's screenshot+dump evidence pair is captured by the
+        existing per-step observe machinery; budget exhaustion is the
+        honest False (the driver's existing failure path does the
+        rest)."""
+        return onboarding_discovery_loop(
+            bridge, step_timeout=step_timeout, sleep=self._sleep,
+            emit=emit, label="reference")
+
     # ------------------------------------------- launch step (CAMSCAN-010A)
 
     def _launch_call(self, bridge: Any, native: _Native, app: str,
@@ -2062,6 +2254,15 @@ echo LAUNCHED
                 launched, launch_diag = self._launch_call(
                     bridge, native, app, step_timeout, emit)
                 ok = ok and launched
+                continue
+            if verb == "onboarding_complete":
+                # CAMSCAN-010F: dump-first onboarding discovery — the
+                # reference registry scope is RESERVED-EMPTY by design
+                # (ids come from observed live dumps, never invention),
+                # so a registry tap can never resolve here; discovery
+                # walks the live dumps (permission-aware).
+                ok = ok and self._onboarding_complete(
+                    bridge, native, app, step_timeout, emit)
                 continue
             if verb == "tap_semantic":
                 result = bridge.tap_semantic(params["target"],
