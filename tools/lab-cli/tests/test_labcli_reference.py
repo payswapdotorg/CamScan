@@ -1,4 +1,5 @@
-"""The reference live driver's hermetic contract tests (CAMSCAN-009).
+"""The reference live driver's hermetic contract tests (CAMSCAN-009,
+extended by CAMSCAN-010A — the launch-step port).
 
 No network, no e2b SDK, no credentials, no real sleeps: the driver is
 driven through an injected scripted transport (ScriptedProvider) that
@@ -6,7 +7,8 @@ records every operation in call order and answers ``execute`` from
 substring-scripted responses — the same double philosophy as
 tools/adb-bridge/tests/fake_provider.py, tailored to the install
 ladder. The fake clock makes every retry/wait instant (sleeps advance
-recorded time only).
+recorded time only); the injected fixed wall clock keeps the probe-29
+ladder-diag timestamps deterministic (00:00:00).
 
 Pinned properties (the work order's list):
 
@@ -20,9 +22,22 @@ Pinned properties (the work order's list):
 - XAPK acquisition: in-sandbox presigned-URL curl with sha256
   verification (mismatch → clean abort), local --apk extraction +
   push fallback;
-- execute: launch step → patient process wait → SystemUI-ANR
-  dismissal ladder (dump → Wait-button center tap) AFTER the launch
-  command → per-step captures → run-metadata.json (deterministic
+- execute: CAMSCAN-010A launch machinery — component launch
+  (``am start -W -n <resolved component>``) PREFERRED over monkey
+  (probe-26), the dex2oat quiescence gate before the ladder with
+  bounded-then-proceed tolerance (probe-29), the ladder state machine
+  (background am start + EXIT_n marker → bounded outcome window →
+  activity-service gate → gap-cadence settle → next attempt;
+  probe-27), the wrapper-transient fall-through (probe-28: LAUNCHED
+  echo missing never aborts), 'brought to the front' counts as up,
+  am-confirmed precedence over transport-blind ps reads (probe-30)
+  with the ~2-min poll cap (probe-31), ladder-exhaustion forensics
+  (timestamped diag lines, am output tails, exit codes, death
+  forensics — probe-25) recorded in problems/reason AND the
+  run-metadata action trace, the no-component monkey fallback through
+  the bridge verb — then the patient process wait → SystemUI-ANR
+  dismissal ladder (dump → Wait-button center tap) AFTER a SUCCESSFUL
+  launch → per-step captures → run-metadata.json (deterministic
   timestamps when the request clock is empty); device-side step
   failures recorded, not raised;
 - teardown: never raises, even when stop and destroy both raise;
@@ -38,6 +53,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import zipfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -54,7 +70,14 @@ from tools.lab_cli.drivers import (
 )
 from tools.lab_cli.reference_live import (
     BOOT_SETTLE_S,
+    DEX2OAT_GATE_MAX_POLLS,
+    DEX2OAT_GATE_POLL_S,
     INSTALL_MAX_ATTEMPTS,
+    LAUNCH_MAX_ATTEMPTS,
+    LAUNCH_PROC_POLL_CAP_CONFIRMED,
+    LAUNCH_SETTLE_S,
+    OUTCOME_POLL_S,
+    PROCESS_WAIT_ROUNDS,
     RECORDED_XAPK_SHA256,
     REFERENCE_MEMORY_MB,
     REFERENCE_SYSTEM_IMAGE,
@@ -217,8 +240,26 @@ class ScriptedProvider:
     def _default_execute(self, cmd: str) -> CommandResult:
         def ok(stdout: str = "") -> CommandResult:
             return CommandResult(0, stdout, "", 5, cmd)
+        # CAMSCAN-010A launch-machinery defaults (the happy path):
+        # dex2oat quiescent, the background launcher's LAUNCHED echo,
+        # an am start -W verdict (Status: ok + our activity — the
+        # probe-30 am_confirmed evidence), and an answering activity
+        # service. Checked BEFORE the generic "am start" / "ps -A"
+        # needles because the launcher script contains "am start" and
+        # the dex2oat gate contains "ps -A".
         if "monkey" in cmd:
             return ok("Events injected: 1\n")
+        if "grep -c dex2oat" in cmd:
+            return ok("0\n")
+        if "rm -f /root/launch.out" in cmd:
+            return ok("LAUNCHED\n")
+        if "cat /root/launch.out" in cmd:
+            return ok("Status: ok\n"
+                      "Activity: com.intsig.camscanner/"
+                      ".mainmenu.mainactivity.MainActivity\n"
+                      "LaunchState: COLD\nTotalTime: 1500\nEXIT_0\n")
+        if "am get-current-user" in cmd:
+            return ok("0\n")
         if "am start" in cmd:
             return ok("Status: ok\nLaunchState: COLD\nTotalTime: 2000\n")
         if "ps -A" in cmd:
@@ -263,8 +304,9 @@ def _make_driver(provider: ScriptedProvider,
         -> tuple[ReferenceDriver, FakeClock]:
     clock = FakeClock()
     driver = ReferenceDriver(apk=apk, provider=provider,
-                             sleep=clock.sleep, monotonic=clock.monotonic)
-    return driver, clock
+                             sleep=clock.sleep, monotonic=clock.monotonic,
+                             wall_time=lambda: 0.0)  # probe-29 diag stamps
+    return driver, clock                              # pinned 00:00:00
 
 
 def _provision_request(lines: list[str], *, apk: str | Path | None = None,
@@ -566,7 +608,12 @@ def test_install_probe23_edge_registry_saves_window(monkeypatch, tmp_path):
 
 # ------------------------------------------------------------------- execute
 
-def test_execute_launch_anr_dismissal_and_evidence(monkeypatch, tmp_path):
+def test_execute_launch_component_ladder_anr_dismissal_and_evidence(
+        monkeypatch, tmp_path):
+    """CAMSCAN-010A happy path: the launch step uses the resolved
+    component (am start -W -n — the probe-26/27 ladder), NOT monkey;
+    the ANR dismissal + evidence flow after a successful launch is
+    unchanged."""
     monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
     monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
     xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
@@ -595,16 +642,42 @@ def test_execute_launch_anr_dismissal_and_evidence(monkeypatch, tmp_path):
 
     assert result.ok is True
     assert result.steps_executed == 1
-    # ANR dismissal AFTER launch (probe-17 step 6): the Wait-button
-    # center tap follows the launch command and its ui dump
+    assert result.problems == []
+    exec_log = provider.exec_log
+
+    # probe-26: component launch PREFERRED over monkey — the ladder's
+    # am start carries the provision-time resolved component, and no
+    # monkey command ever runs
+    am_start = next(c for c in exec_log if "am start -W -n" in c)
+    assert ("am start -W -n com.intsig.camscanner/"
+            "com.intsig.camscanner.launcher.MainActivity") in am_start
+    assert not any("monkey" in c for c in exec_log)
+
+    # probe-29: the dex2oat gate runs BEFORE the ladder's am start
+    dex2oat = next(i for i, c in enumerate(exec_log)
+                   if "grep -c dex2oat" in c)
+    assert dex2oat < exec_log.index(am_start)
+
+    # attempt 1 succeeds: one background launch + the outcome poll's
+    # tail read + full fetch (no gate, no settle — the ladder breaks
+    # on the am verdict)
+    assert len([c for c in exec_log
+                if "rm -f /root/launch.out" in c]) == 1
+    assert len([c for c in exec_log
+                if "cat /root/launch.out" in c]) == 2
+    assert not any("am get-current-user" in c for c in exec_log)
+
+    # the launch-step process poll ran between the am start and the
+    # ANR dismissal (probe-17 step 6 order preserved)
     ops = provider.ops
-    monkey_cmd = next(i for i, op in enumerate(ops)
-                      if op[0] == "execute" and "monkey" in op[1])
     anr_dump = next(i for i, op in enumerate(ops)
                     if op[0] == "capture" and op[1] == "ui_hierarchy")
     tap_idx = next(i for i, op in enumerate(ops)
                    if op[0] == "interact" and op[1] == "tap:540,1245")
-    assert monkey_cmd < anr_dump < tap_idx
+    assert ops.index(("execute", am_start)) < anr_dump < tap_idx
+    assert any("launch via am start -W -n" in line for line in lines)
+    assert any("launch attempt 1: am start ok (Status: ok)"
+               in line for line in lines)
     assert any("ANR" in line for line in lines)
     assert any("app process up" in line for line in lines)
 
@@ -629,21 +702,348 @@ def test_execute_launch_anr_dismissal_and_evidence(monkeypatch, tmp_path):
     assert doc["application"]["version_code"] == 2609020000
     assert doc["started_at"] == "2026-09-24T00:00:00Z"
     assert doc["finished_at"] == "2026-09-24T00:05:00Z"
+    # a SUCCESSFUL launch keeps the deterministic trace shape (the
+    # probe-29 diag timestamps ride only the failure forensics — the
+    # work-order item 8 demand)
     assert doc["action_trace"] == [{"t_ms": 0, "action": "launch",
                                     "target": "", "result": "ok"}]
     assert doc["fixtures"] == []
 
 
-def test_execute_records_step_failure(monkeypatch, tmp_path):
+def test_execute_launch_ladder_retry_gate_settle(monkeypatch, tmp_path):
+    """probe-27 state machine: attempt 1 dies on the launch-binder
+    broken pipe (the exact failure class observe.py diagnosed); the
+    activity-service gate answers, the gap-cadence settle runs, and
+    attempt 2's am verdict wins — monkey never involved."""
     monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
     monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
     xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
     provider = ScriptedProvider()
     provider.on("cat /root/install.out", "Success\nEXIT_0\n")
-    # monkey exits 0 even when it finds no activities — the bridge
-    # requires the injected-events confirmation, so launch fails
-    provider.on("monkey", "** No activities found ** \n")
+    broken = ("cmd: Failure calling service activity: Broken pipe (32)\n"
+              "EXIT_1\n")
+    landed = ("Starting: Intent...\n"
+              "Status: ok\n"
+              "Activity: com.intsig.camscanner/"
+              ".mainmenu.mainactivity.MainActivity\n"
+              "TotalTime: 1200\n"
+              "EXIT_0\n")
+    # tail read + full fetch per attempt, in call order
+    provider.on("cat /root/launch.out", broken, broken, landed, landed)
+    driver, clock = _make_driver(provider, apk=xapk)
+    lines: list[str] = []
+    handle = driver.provision(_provision_request(lines, apk=xapk))
+
+    scenario = resolve_scenario("S001", REPO_ROOT / "lab" / "scenarios")
+    plans = plan_steps(scenario.steps, None)
+    stage = tmp_path / "stage"
+    request = ExecutionRequest(
+        handle=handle, run_id=RUN_ID, subject="reference",
+        scenario=scenario, step_plans=plans, stage_dir=stage,
+        fixtures=[], started_at="2026-09-24T00:00:00Z",
+        finished_at="2026-09-24T00:05:00Z", emit=lines.append)
+    result = driver.execute(handle, request)
+
+    assert result.ok is True
+    exec_log = provider.exec_log
+    # exactly two bounded attempts
+    launches = [i for i, c in enumerate(exec_log)
+                if "rm -f /root/launch.out" in c]
+    assert len(launches) == 2
+    # attempt/gate/settle ordering: poll+full fetch, then the
+    # activity-service gate probe, then the settle sleep, then the
+    # next attempt's launcher
+    gate = next(i for i, c in enumerate(exec_log)
+                if "am get-current-user" in c)
+    assert launches[0] < gate < launches[1]
+    poll1 = next(i for i, c in enumerate(exec_log)
+                 if "cat /root/launch.out" in c)
+    assert launches[0] < poll1 < gate
+    # one outcome-poll sleep per attempt (the EXIT marker was seen on
+    # the first read) + the probe-29 gap-cadence settle between them
+    assert clock.slept.count(OUTCOME_POLL_S) == 2
+    assert clock.slept.count(LAUNCH_SETTLE_S) == 1
+    # per-attempt verdicts surfaced on the console
+    assert any("launch attempt 1: failed (exit 1)" in line
+               and "Broken pipe" in line for line in lines)
+    assert any("launch attempt 2: am start ok (Status: ok)"
+               in line for line in lines)
+    assert not any("monkey" in c for c in exec_log)
+
+
+def test_execute_launch_wrapper_transient_does_not_abort(
+        monkeypatch, tmp_path):
+    """probe-28: a single in-band wrapper transient (the SDK's
+    request_timeout text arriving instead of the LAUNCHED echo) must
+    NOT abort the ladder — the poll finds launch.out (the wrapper DID
+    run server-side) and attempt 1 still wins."""
+    monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
+    monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
+    xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
+    provider = ScriptedProvider()
+    provider.on("cat /root/install.out", "Success\nEXIT_0\n")
+    # the launcher's echo is replaced by in-band timeout text
+    provider.on("rm -f /root/launch.out",
+                "Error: request_timeout after 60000 ms\n")
     driver, _clock = _make_driver(provider, apk=xapk)
+    lines: list[str] = []
+    handle = driver.provision(_provision_request(lines, apk=xapk))
+
+    scenario = resolve_scenario("S001", REPO_ROOT / "lab" / "scenarios")
+    plans = plan_steps(scenario.steps, None)
+    stage = tmp_path / "stage"
+    request = ExecutionRequest(
+        handle=handle, run_id=RUN_ID, subject="reference",
+        scenario=scenario, step_plans=plans, stage_dir=stage,
+        fixtures=[], started_at="2026-09-24T00:00:00Z",
+        finished_at="2026-09-24T00:05:00Z", emit=lines.append)
+    result = driver.execute(handle, request)
+
+    # the transient did NOT burn an attempt: one background launch,
+    # attempt 1's am verdict wins, the step is ok
+    exec_log = provider.exec_log
+    assert len([c for c in exec_log
+                if "rm -f /root/launch.out" in c]) == 1
+    assert result.ok is True
+    assert any("launch attempt 1: am start ok (Status: ok)"
+               in line for line in lines)
+
+
+def test_execute_launch_am_confirmed_outranks_blind_ps(monkeypatch,
+                                                       tmp_path):
+    """probe-30 + probe-31: am start -W's own 'Status: ok' +
+    'Activity: <pkg>' output is AUTHORITATIVE — every ps read coming
+    back transport-blind (exit -1) must NOT veto it, and the poll is
+    capped at ~2 min instead of burning the full 6.7-min budget."""
+    monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
+    monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
+    xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
+    provider = ScriptedProvider()
+    provider.on("cat /root/install.out", "Success\nEXIT_0\n")
+    # every app-ps read is transport-blind (probe-30's exact failure
+    # shape: exit -1, in-band timeout text — never an absence
+    # observation)
+    provider.on("ps -A | grep com.intsig.camscanner",
+                CommandResult(-1, "", "Error: request_timeout", 5, "ps"))
+    driver, _clock = _make_driver(provider, apk=xapk)
+    lines: list[str] = []
+    handle = driver.provision(_provision_request(lines, apk=xapk))
+
+    scenario = resolve_scenario("S001", REPO_ROOT / "lab" / "scenarios")
+    plans = plan_steps(scenario.steps, None)
+    stage = tmp_path / "stage"
+    request = ExecutionRequest(
+        handle=handle, run_id=RUN_ID, subject="reference",
+        scenario=scenario, step_plans=plans, stage_dir=stage,
+        fixtures=[], started_at="2026-09-24T00:00:00Z",
+        finished_at="2026-09-24T00:05:00Z", emit=lines.append)
+    result = driver.execute(handle, request)
+
+    assert result.ok is True
+    assert result.problems == []
+    # the AMS overruled the blind reads (probe-30)
+    assert any("am-confirmed" in line and "blind ps overruled"
+               in line for line in lines)
+    # probe-31: the launch-step poll stopped at the ~2-min cap
+    # (12 reads); the unchanged _post_launch settle adds its own
+    # full 40-read patient wait — 52 total, not 80
+    ps_reads = len([c for c in provider.exec_log
+                    if "grep com.intsig.camscanner" in c])
+    assert ps_reads == LAUNCH_PROC_POLL_CAP_CONFIRMED + PROCESS_WAIT_ROUNDS
+
+
+def test_execute_launch_brought_to_front_counts_as_up(monkeypatch,
+                                                       tmp_path):
+    """probe-27: 'Warning: Activity not started, its current task has
+    been brought to the front' means the task EXISTS — one attempt, no
+    retry, the patient poll confirms the process."""
+    monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
+    monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
+    xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
+    provider = ScriptedProvider()
+    provider.on("cat /root/install.out", "Success\nEXIT_0\n")
+    provider.on("cat /root/launch.out",
+                "Warning: Activity not started, its current task has "
+                "been brought to the front\nEXIT_0\n")
+    driver, _clock = _make_driver(provider, apk=xapk)
+    lines: list[str] = []
+    handle = driver.provision(_provision_request(lines, apk=xapk))
+
+    scenario = resolve_scenario("S001", REPO_ROOT / "lab" / "scenarios")
+    plans = plan_steps(scenario.steps, None)
+    stage = tmp_path / "stage"
+    request = ExecutionRequest(
+        handle=handle, run_id=RUN_ID, subject="reference",
+        scenario=scenario, step_plans=plans, stage_dir=stage,
+        fixtures=[], started_at="2026-09-24T00:00:00Z",
+        finished_at="2026-09-24T00:05:00Z", emit=lines.append)
+    result = driver.execute(handle, request)
+
+    exec_log = provider.exec_log
+    assert len([c for c in exec_log
+                if "rm -f /root/launch.out" in c]) == 1
+    assert result.ok is True
+    assert any("task already fronted (up)" in line for line in lines)
+
+
+def test_execute_launch_window_timeout_kills_zombie(monkeypatch,
+                                                     tmp_path):
+    """probe-27: the outcome window elapses with no EXIT marker — the
+    blocked am start zombie is killed (a hang costs one 3-min window,
+    not 8 min), the gate + settle back off, attempt 2 lands."""
+    monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
+    monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
+    xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
+    provider = ScriptedProvider()
+    provider.on("cat /root/install.out", "Success\nEXIT_0\n")
+    landed = ("Status: ok\n"
+              "Activity: com.intsig.camscanner/"
+              ".mainmenu.mainactivity.MainActivity\n"
+              "TotalTime: 1200\n"
+              "EXIT_0\n")
+    # attempt 1's outcome file NEVER shows a marker (the 3-min window
+    # elapses at 9 polls); attempt 2's reads see the verdict
+    provider.on("cat /root/launch.out", *([""] * 9), landed, landed)
+    driver, clock = _make_driver(provider, apk=xapk)
+    lines: list[str] = []
+    handle = driver.provision(_provision_request(lines, apk=xapk))
+
+    scenario = resolve_scenario("S001", REPO_ROOT / "lab" / "scenarios")
+    plans = plan_steps(scenario.steps, None)
+    stage = tmp_path / "stage"
+    request = ExecutionRequest(
+        handle=handle, run_id=RUN_ID, subject="reference",
+        scenario=scenario, step_plans=plans, stage_dir=stage,
+        fixtures=[], started_at="2026-09-24T00:00:00Z",
+        finished_at="2026-09-24T00:05:00Z", emit=lines.append)
+    result = driver.execute(handle, request)
+
+    exec_log = provider.exec_log
+    assert any("pkill -f 'am start'" in c for c in exec_log)
+    assert len([c for c in exec_log
+                if "rm -f /root/launch.out" in c]) == 2
+    assert result.ok is True
+    assert any("outcome-window timeout" in line for line in lines)
+    # 9 window polls burned on attempt 1 + 1 verdict poll on attempt 2
+    assert clock.slept.count(OUTCOME_POLL_S) == 10
+
+
+def test_execute_dex2oat_gate_bounded_then_proceeds(monkeypatch,
+                                                    tmp_path):
+    """probe-29: the dex2oat quiescence gate is bounded — a dexopt
+    that never quiesces costs the ~4-min budget (24 polls x 10 s),
+    then the ladder proceeds anyway (the gate is best-effort, never a
+    verdict)."""
+    monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
+    monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
+    xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
+    provider = ScriptedProvider()
+    provider.on("cat /root/install.out", "Success\nEXIT_0\n")
+    # dex2oat never quiesces (a nonzero count, repeating)
+    provider.on("grep -c dex2oat", "3\n")
+    driver, clock = _make_driver(provider, apk=xapk)
+    lines: list[str] = []
+    handle = driver.provision(_provision_request(lines, apk=xapk))
+
+    scenario = resolve_scenario("S001", REPO_ROOT / "lab" / "scenarios")
+    plans = plan_steps(scenario.steps, None)
+    stage = tmp_path / "stage"
+    request = ExecutionRequest(
+        handle=handle, run_id=RUN_ID, subject="reference",
+        scenario=scenario, step_plans=plans, stage_dir=stage,
+        fixtures=[], started_at="2026-09-24T00:00:00Z",
+        finished_at="2026-09-24T00:05:00Z", emit=lines.append)
+    result = driver.execute(handle, request)
+
+    exec_log = provider.exec_log
+    assert len([c for c in exec_log
+                if "grep -c dex2oat" in c]) == DEX2OAT_GATE_MAX_POLLS
+    # the gate's 24 polls sit directly after the two provision settles
+    # (the launch-step poll + the post-launch settle add their own 10 s
+    # sleeps afterwards — same value, different machinery)
+    settles = [BOOT_SETTLE_S, BOOT_SETTLE_S]
+    gate_sleeps = clock.slept[len(settles):len(settles)
+                              + DEX2OAT_GATE_MAX_POLLS]
+    assert gate_sleeps == [DEX2OAT_GATE_POLL_S] * DEX2OAT_GATE_MAX_POLLS
+    assert any("dex2oat still running after 4 min — proceeding anyway"
+               in line for line in lines)
+    # the ladder still ran and the launch still succeeded
+    assert any("rm -f /root/launch.out" in c for c in exec_log)
+    assert result.ok is True
+
+
+def test_execute_launch_no_component_monkey_fallback(monkeypatch,
+                                                      tmp_path):
+    """probe-26: monkey remains ONLY the no-component fallback — with
+    no resolvable launcher component the bridge's monkey form (its
+    existing semantics) runs, the ladder does not, and the patient
+    poll decides the verdict."""
+    monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
+    monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
+    xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
+    provider = ScriptedProvider()
+    provider.on("cat /root/install.out", "Success\nEXIT_0\n")
+    # resolution stays empty at provision time AND at the launch-step
+    # re-resolution
+    provider.on("resolve-activity", "\n")
+    driver, _clock = _make_driver(provider, apk=xapk)
+    lines: list[str] = []
+    handle = driver.provision(_provision_request(lines, apk=xapk))
+    assert handle.native.launcher_component == ""
+
+    scenario = resolve_scenario("S001", REPO_ROOT / "lab" / "scenarios")
+    plans = plan_steps(scenario.steps, None)
+    stage = tmp_path / "stage"
+    request = ExecutionRequest(
+        handle=handle, run_id=RUN_ID, subject="reference",
+        scenario=scenario, step_plans=plans, stage_dir=stage,
+        fixtures=[], started_at="2026-09-24T00:00:00Z",
+        finished_at="2026-09-24T00:05:00Z", emit=lines.append)
+    result = driver.execute(handle, request)
+
+    exec_log = provider.exec_log
+    assert any("monkey" in c for c in exec_log)
+    # no ladder: no am start script, no marker file, no outcome polls
+    assert not any("am start -W -n" in c for c in exec_log)
+    assert not any("/root/launch.out" in c for c in exec_log)
+    # the launch-step re-resolution ran before the monkey fallback
+    resolves = [i for i, c in enumerate(exec_log)
+                if "resolve-activity" in c]
+    monkey_at = next(i for i, c in enumerate(exec_log) if "monkey" in c)
+    assert resolves and resolves[-1] < monkey_at
+    assert any("monkey fallback" in line for line in lines)
+    assert result.ok is True
+    doc = jsonio_load(stage / "run-metadata.json")
+    assert doc["action_trace"] == [{"t_ms": 0, "action": "launch",
+                                    "target": "", "result": "ok"}]
+
+
+def test_execute_records_launch_failure_with_forensics(monkeypatch,
+                                                         tmp_path):
+    """CAMSCAN-010A item 8 — the attempt-1 disease was 'step 01 launch
+    failed' with nothing else: ladder exhaustion (all 4 attempts die on
+    the PM-blind 'does not exist' error, blind-evidence captured per
+    probe-29) + transport-blind ps reads must surface the timestamped
+    ladder diag, am output tails, exit codes and the probe-25 death
+    forensics in problems/reason AND the run-metadata action trace —
+    recorded, not raised."""
+    monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
+    monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
+    xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
+    provider = ScriptedProvider()
+    provider.on("cat /root/install.out", "Success\nEXIT_0\n")
+    # every am start comes back with the am tool's OWN PackageManager
+    # blind error (probe-29's exact observation: resolve-activity had
+    # answered minutes earlier — the PM endpoint flaps)
+    provider.on("cat /root/launch.out",
+                "Error type 3: Activity class "
+                "{com.intsig.camscanner/.mainmenu.mainactivity."
+                "MainActivity} does not exist\nEXIT_1\n")
+    # every app-ps read is transport-blind (never an absence
+    # observation — and with no am confirmation, the verdict is FAIL)
+    provider.on("ps -A | grep com.intsig.camscanner",
+                CommandResult(-1, "", "Error: request_timeout", 5, "ps"))
+    driver, clock = _make_driver(provider, apk=xapk)
     lines: list[str] = []
     handle = driver.provision(_provision_request(lines, apk=xapk))
 
@@ -659,10 +1059,60 @@ def test_execute_records_step_failure(monkeypatch, tmp_path):
 
     # device-side failures are recorded, not raised
     assert result.ok is False
-    assert result.problems == ["step 01 launch failed"]
-    assert "step 01 launch failed" in result.reason
+    assert result.steps_executed == 1
+    exec_log = provider.exec_log
+
+    # the ladder burned all 4 bounded attempts, each separated by the
+    # activity-service gate + the gap-cadence settle
+    assert len([c for c in exec_log
+                if "rm -f /root/launch.out" in c]) == LAUNCH_MAX_ATTEMPTS
+    assert len([c for c in exec_log
+                if "am get-current-user" in c]) == LAUNCH_MAX_ATTEMPTS
+    assert clock.slept.count(LAUNCH_SETTLE_S) == LAUNCH_MAX_ATTEMPTS
+    # probe-29: the PM-blind error triggered the blind-evidence
+    # capture on every attempt
+    assert len([c for c in exec_log
+                if "pm path com.intsig.camscanner" in c
+                and "head -2" in c]) == LAUNCH_MAX_ATTEMPTS
+    assert len([c for c in exec_log if "mainactivity" in c]) \
+        == LAUNCH_MAX_ATTEMPTS
+    # probe-25: the death-forensics bundle ran (canary / system ps /
+    # logcat tail)
+    assert any("__canary_ok__" in c for c in exec_log)
+    assert any("ps -A | head -3" in c for c in exec_log)
+    assert any("logcat -d -t 200" in c for c in exec_log)
+
+    # the forensics reach the evidence layer: problems + reason
+    assert result.problems[0] == "step 01 launch failed"
+    assert len(result.problems) == 2
+    diagnostics = result.problems[1]
+    assert diagnostics.startswith(
+        "step 01 launch ladder diagnostics (")
+    assert "[attempt 1]" in diagnostics
+    assert "[attempt 4]" in diagnostics
+    assert "exit=1" in diagnostics
+    assert "does not exist" in diagnostics
+    assert "death-forensics" in diagnostics
+    assert "activity-service gate: up" in diagnostics
+    assert "launch ladder diagnostics" in result.reason
+
+    # AND the run-metadata action trace — the next postmortem is a
+    # read, not an inference: every diag line carries the probe-29
+    # HH:MM:SS timestamp prefix (pinned 00:00:00 by the injected wall
+    # clock)
     doc = jsonio_load(stage / "run-metadata.json")
-    assert doc["action_trace"][0]["result"] == "failed"
+    entry = doc["action_trace"][0]
+    assert entry["result"] == "failed"
+    diag = entry["diag"]
+    assert diag and all(re.match(r"^\d{2}:\d{2}:\d{2} ", line)
+                        for line in diag)
+    assert diag[0].startswith("00:00:00 ")
+    assert any("[attempt 1]" in line and "exit=1" in line
+               for line in diag)
+    assert any("blind-evidence" in line for line in diag)
+    assert any("death-forensics" in line for line in diag)
+    assert any("launch failed — ladder + death forensics recorded"
+               in line for line in lines)
 
 
 # ------------------------------------------------------------------ teardown
