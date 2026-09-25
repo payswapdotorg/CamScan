@@ -160,8 +160,28 @@ def _calls_for(step: Step, registry: TargetRegistry | None) \
     if action == "capture":
         return _tap("shutter_button"), "shutter press triggers the capture"
     if action in ("accept-document", "accept", "confirm", "confirm-delete",
-                  "done", "complete-onboarding"):
+                  "done"):
         return _tap("next_button"), "primary affirmative control"
+    if action == "complete-onboarding":
+        # CAMSCAN-010F: dump-first onboarding discovery, NOT a registry
+        # tap. The pre-010F mapping tapped next_button — an id that
+        # exists ONLY in the org.payswap.camscan scope (the design
+        # contract the implementation flows materialize) while the
+        # com.intsig.camscanner scope is RESERVED-EMPTY by design (ids
+        # come from observed live ui dumps, never invention) — so
+        # EVERY reference-env onboarding step died deterministically:
+        #   UnknownTargetError: "unknown semantic target 'next_button'
+        #   (looked in app scope 'com.intsig.camscanner' and global;
+        #   known ids there: permission_allow, permission_allow_this_time,
+        #   permission_deny)"
+        # (20260925T180736Z-S002-live attempt 1, sandbox e2b-c785b352 —
+        # the FIRST onboarding interaction, after the identical S001
+        # chain had succeeded end-to-end). The document-flow
+        # affirmatives above KEEP the next_button tap: the design
+        # contract legitimately applies there.
+        return ([VerbCall("onboarding_complete", {})],
+                ("dump-first onboarding discovery (permission-aware; "
+                 "reference reality)"))
     if action == "save":
         return _tap("save_button"), "save/persist the document"
     if action == "rotate":

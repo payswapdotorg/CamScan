@@ -3,10 +3,13 @@
 Composes the pieces the lead already landed: the e2b LabProvider
 (``lab/providers/e2b/``, CAMSCAN-008 — baked TCG recipe, all 13
 contract operations) and the adb-bridge verb layer
-(``tools/adb-bridge/``). This module is **lab-exercised, never
-pytest-exercised** (live-provider network calls are out of pytest
-scope) — the in-tool tests pin the driver *contract* through the
-RecordingDriver and the API-key preflight only.
+(``tools/adb-bridge/``). This module is **lab-exercised on the live
+substrate** (live-provider network calls are out of pytest scope) —
+the in-tool tests pin the driver *contract* through the
+RecordingDriver, the API-key preflight, and (CAMSCAN-010F) the
+onboarding-complete dispatch: registry tap first, the shared
+dump-first discovery ladder on UnknownTargetError, driven through a
+scripted bridge (no network, no SDK).
 
 Honesty gates, in order:
 
@@ -35,6 +38,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from tools.adb_bridge.bridge import UnknownTargetError
 from tools.lab_cli.drivers import (
     DriverHandle,
     ExecutionRequest,
@@ -42,6 +46,7 @@ from tools.lab_cli.drivers import (
     SubjectRunResult,
 )
 from tools.lab_cli.evidence import provider_capabilities
+from tools.lab_cli.reference_live import onboarding_discovery_loop
 from tools.lab_cli.scenarios import LabCliError
 from tools.lab_cli.steps import APP, StepPlan
 
@@ -82,8 +87,13 @@ class E2bLiveDriver:
 
     slug = "e2b-live"
 
-    def __init__(self, apk: Path | None = None) -> None:
+    def __init__(self, apk: Path | None = None, *,
+                 sleep: Callable[[float], None] = time.sleep) -> None:
         self.apk = Path(apk) if apk is not None else None
+        #: time injection — the onboarding discovery ladder's settles
+        #: are fake-clock-driven in the hermetic tests (the
+        #: ReferenceDriver pattern; CAMSCAN-010F).
+        self._sleep = sleep
 
     # ------------------------------------------------------------- lifecycle
 
@@ -183,7 +193,8 @@ class E2bLiveDriver:
                 break
             outcome = self._invoke_plan(bridge, plan,
                                         handle.application["package"],
-                                        request.scenario.step_timeout_seconds)
+                                        request.scenario.step_timeout_seconds,
+                                        request.emit)
             trace.append({
                 "t_ms": 1400 * (plan.index - 1),
                 "action": plan.step.action,
@@ -248,7 +259,8 @@ class E2bLiveDriver:
     # ---------------------------------------------------------------- verbs
 
     def _invoke_plan(self, bridge: Any, plan: StepPlan, app: str,
-                     step_timeout: int) -> bool:
+                     step_timeout: int,
+                     emit: Callable[[str], None]) -> bool:
         """Dispatch one planned step's verb calls (per-step budget)."""
         if not isinstance(plan, StepPlan):
             raise TypeError(
@@ -263,6 +275,26 @@ class E2bLiveDriver:
                 # refresh the dump cache — the per-step capture below pairs
                 # screenshot + ui dump as the step's evidence
                 result = bridge.ui_dump(timeout=step_timeout)
+                ok = ok and result.ok
+                continue
+            if verb == "onboarding_complete":
+                # CAMSCAN-010F implementation-app semantics: the
+                # registry tap FIRST — the design contract (the impl
+                # app's onboarding materializes next_button under
+                # CAMSCAN-010 impl runs) — then, on UnknownTargetError
+                # (the id absent from every scope), the SAME dump-
+                # first discovery ladder the reference env runs (the
+                # shared helper — discovery is runtime, never
+                # registry invention).
+                try:
+                    result = bridge.tap_semantic("next_button", app=app,
+                                                 timeout=step_timeout)
+                except UnknownTargetError:
+                    ok = ok and onboarding_discovery_loop(
+                        bridge, step_timeout=step_timeout,
+                        sleep=self._sleep, emit=emit,
+                        label="implementation")
+                    continue
                 ok = ok and result.ok
                 continue
             if verb == "tap_semantic":
