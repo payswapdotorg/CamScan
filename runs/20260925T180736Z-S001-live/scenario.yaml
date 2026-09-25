@@ -1,0 +1,36 @@
+# migrated to DSL v0.1 (typed meta.requires + explicit timeouts); previous requires: ['gui', 'adb']
+id: application-launch
+title: Cold launch of the application
+status: UNKNOWN
+preconditions:
+- fresh-install
+fixture:
+  camera: null
+  sequence: null
+steps:
+- launch
+assertions:
+  behavior:
+  - app-opens-without-crash
+  - cold-start-under-threshold
+  ui:
+  - root-screen-visible
+  state:
+  - app-foregrounded
+  output: []
+meta:
+  timeout_seconds: 1800
+  step_timeout_seconds: 120
+  requires:
+    gui: true
+    adb: true
+    android_emulator: true
+    android_sdk: true
+    android_cli: true
+    emulator_acceleration:
+      allowed:
+      - none
+  owner: lead
+  notes: Provisional spec from the mission's starting list — pending reference discovery
+    (Worker 2). Status stays UNKNOWN until observed against CamScanner; actual reference
+    behavior may differ.

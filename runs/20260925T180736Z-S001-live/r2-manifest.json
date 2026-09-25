@@ -1,0 +1,28 @@
+{
+  "bucket": "camscan-parity-evidence",
+  "manifest_bytes": 1926,
+  "manifest_key": "runs/20260925T180736Z-S001-live/reference/manifest.json",
+  "manifest_sha256": "f03ce91d240345655f12441e2387d3d2ac57fe09c48afe7e8a080534f8d567c9",
+  "objects": [
+    {
+      "bytes": 546411,
+      "key": "runs/20260925T180736Z-S001-live/reference/logs/logcat.txt",
+      "sha256": "99b13b1e9ecb2aab972346efa5c420944a2b6b92317e7a8c0a56e791cac99b42",
+      "verified": true
+    },
+    {
+      "bytes": 82835,
+      "key": "runs/20260925T180736Z-S001-live/reference/screenshots/01-launch.png",
+      "sha256": "016b4c2849477a9183dd4ec58d9e6f2cbb6d97621c5966d5464d761147e9f600",
+      "verified": true
+    },
+    {
+      "bytes": 48,
+      "key": "runs/20260925T180736Z-S001-live/reference/ui/01-launch.xml",
+      "sha256": "c3da87ec1ffbf4203010e4968cd2d964dcb291a11cb3c5906bc509f4119684c5",
+      "verified": true
+    }
+  ],
+  "run_id": "20260925T180736Z-S001-live",
+  "subject": "reference"
+}
