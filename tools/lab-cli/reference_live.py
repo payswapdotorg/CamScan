@@ -29,6 +29,10 @@ run-003 / run-005 lessons / observe.py lines; never a bare number):
 2. DEXOPT FILTER — ``setprop pm.dexopt.install verify`` BEFORE any
    install (adb root → setprop → unroot): the cheap filter eliminates
    the dexopt monitor storm that killed system_server in probe 9.
+   The EVIDENCE.md device block falls back through the provider report
+   to the capability-record-documented pixel_4 profile (CAMSCAN-010B:
+   the report's identity probes can come back empty for this env —
+   never an empty field into the bundle).
 3. INSTALL — the XAPK is acquired in-sandbox from a presigned URL when
    CAMSCAN_APK_URL is set (the proven delivery: pushing the 221 MB
    bundle through the e2b files API stalls in an httpx retry loop —
@@ -70,7 +74,11 @@ run-003 / run-005 lessons / observe.py lines; never a bare number):
    (540, 1244) fallback).
 5. EXECUTE — scenario steps through adb-bridge verbs, per-step
    screenshot + ui-dump captures, final logcat, discovered dumpsys
-   package facts, the EVIDENCE.md single-subject metadata.
+   package facts (CAMSCAN-010B: blindness-tolerant — the probe-33
+   bounded retry with timestamped blind-read diagnostics; a blind read
+   is never an absence observation, and facts that do not land fail
+   the run honestly instead of shipping empty placeholders into the
+   bundle), the EVIDENCE.md single-subject metadata.
 6. TEARDOWN — best-effort stop + destroy on EVERY path; never raises
    (the runner owns the invariant; provision cleans up its own partial
    state before raising — a paid sandbox is never leaked).
@@ -100,6 +108,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from tools.evidence_cli.schema import SCREEN_RE
 from tools.lab_cli.drivers import (
     DriverHandle,
     ExecutionRequest,
@@ -324,6 +333,66 @@ SANDBOX_DEATH_MARKERS: tuple[str, ...] = (
 _ANR_WAIT_RE = re.compile(
     r'text="Wait"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"')
 
+# ------------------------------------ run-metadata constants (CAMSCAN-010B)
+# CAMSCAN-010B: the 2026-09-25 attempt-3 live run
+# (20260925T091135Z-S001-live) succeeded through the ENTIRE chain for
+# the first time (install first-try via the probe-23 edge-registry, GMS
+# restore, launcher resolved, LAUNCH AM-CONFIRMED via the CAMSCAN-010A
+# ladder, SystemUI-ANR dismissed, steps executed, sandbox cleanly
+# destroyed) and then died at the evidence stage on two run-metadata
+# gaps: device.screen shipped EMPTY (the provider report carries no
+# resolution for this env — deterministic, EVERY run) and
+# application.version_name shipped EMPTY (one blind dumpsys read — the
+# probe-33 post-restore transport-flap class, solved in observe.py
+# commit eeeeb0b). Same doctrine as the blocks above: every constant
+# cites its capability-record / probe / commit provenance — never a
+# bare number.
+
+#: The capability-record-documented pixel_4 geometry
+#: (lab/providers/e2b-reference/capability-report.json
+#: notes.device_profile: "pixel_4 / Android 11 (API 30) / 1080x2280 /
+#: en-US / UTC — the equivalent-profile requirement (CAMSCAN-004)").
+#: The AVD is created from that pixel_4 device definition
+#: (lab/providers/e2b/bootstrap.py step_avd: ``avdmanager create avd
+#: -d pixel_4`` via EnvironmentSpec.device_profile), whose SDK device
+#: profile pairs the 1080x2280 panel with 440 dpi — the density the
+#: provider report's own probe reads (lab/providers/e2b/provider.py:
+#: ``getprop ro.sf.lcd_density``). Identical to the pair-comparable
+#: recording driver's pinned value (tools/lab-cli/recording.py
+#: _DEVICE["screen"]) and the evidence-cli schema's canonical example
+#: (tools/evidence-cli/schema.py SCREEN_RE — '1080x2280@440dpi'); used
+#: verbatim when the report's resolution probe comes back empty (the
+#: 20260925T091135Z hole) and satisfies the WxH@dpi bundle shape.
+REFERENCE_FALLBACK_SCREEN = "1080x2280@440dpi"
+
+#: The pixel_4 dpi alone, composed onto a report-carried WxH geometry
+#: when the report's resolution answered but its density probe did not
+#: (same provenance as REFERENCE_FALLBACK_SCREEN — the report is used
+#: verbatim where it answered; the pinned density fills only the hole).
+REFERENCE_FALLBACK_DENSITY_DPI = "440"
+
+#: Last-resort device identity — defensive rungs under the report →
+#: spec chain (the 20260925T091135Z run had both filled; the fallback
+#: chain must never ship an empty string into the manifest): the model
+#: string the pair-comparable recording driver pins (recording.py
+#: _DEVICE["model"]) and the Android release the capability record
+#: documents for the pinned REFERENCE_SYSTEM_IMAGE (android-30 =
+#: Android 11, API 30 — capability-report.json notes.device_profile).
+REFERENCE_FALLBACK_DEVICE_MODEL = "Pixel 4 (AVD pixel_4)"
+REFERENCE_FALLBACK_ANDROID_VERSION = "11"
+
+#: probe-33 port (observe.py commit eeeeb0b — "package-facts blindness
+#: tolerance — pm-list retry + resolve-as-proof"; run 20260924T203342Z
+#: postmortem): the dumpsys package-facts reads die on the same
+#: post-restore transport flap that blinded ``pm list packages``, and
+#: the 20260925T091135Z run proved one blind read rejects the whole
+#: finished run at the bundle stage. Bounded blindness-aware retry at
+#: observe.py's own package-facts cadence (its ``for _ in range(4): …
+#: time.sleep(15)``): 4 attempts x 15 s settle — "luck is real and
+#: bounded retries harvest it" (probe-17/21b doctrine).
+PKG_FACTS_MAX_ATTEMPTS = 4
+PKG_FACTS_SETTLE_S = 15
+
 
 def _require_api_key() -> str:
     """Preflight the credential BEFORE any provisioning (no network)."""
@@ -488,10 +557,37 @@ class ReferenceDriver:
                 f"{exc}") from exc
 
         report = provider.report(env_id) or {}
+        # CAMSCAN-010B: the report's identity probes can come back empty
+        # for this env (the 20260925T091135Z-S001-live postmortem: NO
+        # resolution at all — device.screen shipped empty and the
+        # evidence-cli bundle rejected the finished run). Every field
+        # falls back through the provisioned spec to the
+        # capability-record-documented pixel_4 profile — never an empty
+        # string into the manifest.
+        resolution = str(report.get("resolution") or "").strip()
+        density = str(report.get("density") or "").strip().removesuffix(
+            "dpi")
+        if not resolution:
+            # the documented pixel_4 geometry (REFERENCE_FALLBACK_SCREEN
+            # provenance: capability-report.json notes.device_profile)
+            screen = REFERENCE_FALLBACK_SCREEN
+        elif SCREEN_RE.match(resolution):
+            # the report already carries the full WxH@dpi shape — use
+            # it verbatim (no override, no doubled dpi suffix)
+            screen = resolution
+        else:
+            # report WxH verbatim (never overridden by the pinned
+            # geometry); dpi from the report's density probe, else the
+            # pinned pixel_4 density
+            screen = (f"{resolution}@"
+                      f"{density or REFERENCE_FALLBACK_DENSITY_DPI}dpi")
         device = {
-            "model": str(report.get("device_model") or spec.device_profile),
-            "android_version": str(report.get("android_version") or ""),
-            "screen": str(report.get("resolution") or ""),
+            "model": str(report.get("device_model")
+                         or spec.device_profile
+                         or REFERENCE_FALLBACK_DEVICE_MODEL),
+            "android_version": str(report.get("android_version")
+                                   or REFERENCE_FALLBACK_ANDROID_VERSION),
+            "screen": screen,
             "locale": str(report.get("locale") or spec.locale),
             "timezone": str(report.get("timezone") or spec.timezone),
             "permission_baseline": {
@@ -601,8 +697,31 @@ class ReferenceDriver:
             logcat.text or "", encoding="utf-8")
 
         application = dict(handle.application)
-        application.update(self._package_facts(bridge,
-                                               application["package"]))
+        # CAMSCAN-010B: the package-facts discovery is blindness-tolerant
+        # (the probe-33 port) and fails the run HONESTLY when the facts
+        # do not land — the 20260925T091135Z run proved the old
+        # best-effort hole: one blind dumpsys read shipped an empty
+        # version_name and the evidence-cli bundle rejected the whole
+        # finished run with a cryptic schema error. The readable reason
+        # names every blind read; the runner (run.py) never bundles a
+        # failed subject, so the empty placeholder never reaches the
+        # validator.
+        facts, pkg_diag = self._package_facts(
+            bridge, application["package"], request.emit)
+        application.update(facts)
+        if len(facts) < 2:
+            missing = [f"application.{key}"
+                       for key in ("version_name", "version_code")
+                       if key not in facts]
+            problems.append(
+                f"package facts unreadable after "
+                f"{PKG_FACTS_MAX_ATTEMPTS} bounded attempts (probe-33 "
+                "blindness tolerance) — " + " and ".join(missing)
+                + " blind; the evidence bundle requires the discovered "
+                "facts (never an empty placeholder into the validator)")
+            problems.append(
+                f"package-facts diagnostics ({len(pkg_diag)} lines): "
+                + " | ".join(pkg_diag))
         metadata = {
             "run_id": request.run_id,
             "scenario": request.scenario.id,
@@ -1565,31 +1684,102 @@ echo LAUNCHED
             (subject_dir / "ui" / f"{name}.xml").write_text(
                 dump.text, encoding="utf-8")
 
-    @staticmethod
-    def _package_facts(bridge: Any, package: str) -> dict[str, Any]:
+    def _package_facts(self, bridge: Any, package: str,
+                       emit: Callable[[str], None]) \
+            -> tuple[dict[str, Any], list[str]]:
         """dumpsys package facts (versionName/versionCode) — discovered,
-        never statically derived."""
+        never statically derived; blindness-tolerant (CAMSCAN-010B, the
+        probe-33 port of observe.py commit eeeeb0b).
+
+        The 20260925T091135Z-S001-live postmortem: one blind transport
+        read (the post-restore flap class) left version_name EMPTY and
+        the evidence-cli bundle rejected the whole finished run. A read
+        that errors or answers without the expected ``version*=`` line
+        is BLIND, never final (probe-33 doctrine: a blind read is not
+        an absence observation); blind reads retry on observe.py's own
+        package-facts cadence (PKG_FACTS_MAX_ATTEMPTS x
+        PKG_FACTS_SETTLE_S), each recording a timestamped diag line
+        (the CAMSCAN-010A _ldiag style). Returns ``(facts, diag)``; the
+        caller fails the run honestly — readable reason naming the
+        blind reads — when the facts do not land.
+        """
         provider = bridge.provider
         env_id = bridge.env_id
         facts: dict[str, Any] = {}
+        diag: list[str] = []
+
+        def _pdiag(message: str) -> None:
+            # the CAMSCAN-010A _ldiag style (probe-29): HH:MM:SS prefix
+            # on every diagnostic line — the next postmortem is a read,
+            # not an inference. (UTC; the wall clock is
+            # constructor-injected so the hermetic tests stay
+            # deterministic — pinned 00:00:00.)
+            diag.append(time.strftime(
+                "%H:%M:%S ", time.gmtime(self._wall_time())) + message)
+
+        for attempt in range(1, PKG_FACTS_MAX_ATTEMPTS + 1):
+            blind: list[str] = []
+            for fact_key, marker in (("version_name", "versionName"),
+                                     ("version_code", "versionCode")):
+                if fact_key in facts:
+                    continue          # landed on an earlier attempt
+                reason = self._read_package_fact(provider, env_id,
+                                                 package, marker,
+                                                 fact_key, facts)
+                if reason:
+                    # probe-33: a read that errors or answers without
+                    # the expected version*= line is BLIND, never an
+                    # absence observation — one timestamped diag line
+                    # per blind read
+                    _pdiag(f"[attempt {attempt}] {marker} read blind "
+                           f"({reason})")
+                    blind.append(marker)
+            if not blind:
+                emit("  reference: package facts landed (version_name="
+                     f"{facts['version_name']!r}, version_code="
+                     f"{facts['version_code']})")
+                break
+            if attempt < PKG_FACTS_MAX_ATTEMPTS:
+                emit(f"  reference: package facts blind on attempt "
+                     f"{attempt}/{PKG_FACTS_MAX_ATTEMPTS} ("
+                     + ", ".join(f"{m} unreadable" for m in blind)
+                     + f") — settle {PKG_FACTS_SETTLE_S}s and retry "
+                     "(probe-33 blindness tolerance)")
+                self._sleep(PKG_FACTS_SETTLE_S)
+        return facts, diag
+
+    @staticmethod
+    def _read_package_fact(provider: Any, env_id: str, package: str,
+                           marker: str, fact_key: str,
+                           facts: dict[str, Any]) -> str:
+        """One dumpsys package-fact read; returns ``""`` when the fact
+        landed (recorded into ``facts``) or the blind-read reason."""
         try:
             res = provider.execute(
                 env_id,
-                f'dumpsys package {package} | grep -m1 "versionName"',
+                f'dumpsys package {package} | grep -m1 "{marker}"',
                 timeout=PKG_FACTS_TIMEOUT_S)
-            for line in (res.stdout or "").splitlines():
-                if "versionName=" in line:
-                    facts["version_name"] = line.split("versionName=")[1] \
-                        .split()[0]
-            res = provider.execute(
-                env_id,
-                f'dumpsys package {package} | grep -m1 "versionCode"',
-                timeout=PKG_FACTS_TIMEOUT_S)
-            for line in (res.stdout or "").splitlines():
-                if "versionCode=" in line:
-                    code = line.split("versionCode=")[1].split()[0]
-                    if code.isdigit():
-                        facts["version_code"] = int(code)
-        except Exception:  # noqa: BLE001, S110 — facts are best-effort
-            pass
-        return facts
+        except Exception as exc:  # noqa: BLE001 — blindness, not death
+            return (f"transport error {type(exc).__name__}: "
+                    f"{str(exc)[-80:]}")
+        value = ""
+        for line in (res.stdout or "").splitlines():
+            if f"{marker}=" not in line:
+                continue
+            tail = line.split(f"{marker}=")[1].split()
+            if tail:
+                value = tail[0]
+                break
+        if not value:
+            # completed but empty/malformed — the same probe-33
+            # blindness class (never an absence observation)
+            return (f"exit={res.exit_code} stdout tail="
+                    f"{(res.stdout or '')[-60:]!r} stderr tail="
+                    f"{(res.stderr or '')[-60:]!r}")
+        if fact_key == "version_code":
+            if not value.isdigit():
+                return f"unparseable versionCode {value!r}"
+            facts[fact_key] = int(value)
+        else:
+            facts[fact_key] = value
+        return ""
