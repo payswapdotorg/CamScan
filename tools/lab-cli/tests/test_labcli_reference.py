@@ -1,7 +1,8 @@
 """The reference live driver's hermetic contract tests (CAMSCAN-009,
 extended by CAMSCAN-010A — the launch-step port, and CAMSCAN-010B —
 the run-metadata gaps: device.screen fallback + package-facts
-blindness tolerance).
+blindness tolerance, and CAMSCAN-010C — the early package-facts
+stash: install-time ground truth).
 
 No network, no e2b SDK, no credentials, no real sleeps: the driver is
 driven through an injected scripted transport (ScriptedProvider) that
@@ -54,6 +55,20 @@ Pinned properties (the work order's list):
   the bundle validator); (d) a non-empty report resolution is used
   verbatim — the pinned geometry never overrides a report that
   answered;
+- CAMSCAN-010C early package-facts stash (install-time ground truth):
+  (a) the early read runs at provision, right after the registry
+  verify and BEFORE the GMS restore, stashes the landed facts on the
+  handle (native.install_time_facts) and execute() consumes them —
+  no late dumpsys read, the manifest carries the stashed facts
+  through the REAL bundle pipeline, the provenance line names the
+  source; (b) an all-blind early read NEVER fails provision (the
+  stash rides the handle empty with its 8 timestamped diag lines) and
+  the late read lands the facts (the 010B fallback, unchanged); (c)
+  both stages blind → the honest failure names BOTH diag sets
+  (phase-labeled, timestamped, combined counts); (d) the 010B
+  blind-then-answering retry contract keeps passing unchanged — the
+  bounded retry now runs at install time and the stash serves
+  execute() (the late-read-only path is the fallback);
 - teardown: never raises, even when stop and destroy both raise;
 - the registry resolution flip: env=reference resolves
   ReferenceDriver after the CAMSCAN-009 wiring; the pre-009 registry
@@ -1277,7 +1292,12 @@ def test_execute_package_facts_blind_then_answering_lands(monkeypatch,
     versionName read comes back transport-blind (the exact post-restore
     flap class: exit -1, in-band timeout text — never an absence
     observation), the bounded retry settles and re-reads, and
-    version_name LANDS; the run succeeds with the discovered facts."""
+    version_name LANDS; the run succeeds with the discovered facts.
+    (CAMSCAN-010C: the same bounded retry now runs at INSTALL time —
+    the stash lands after the blind first read and execute() consumes
+    it with no late read; the pinned retry cadence — re-read ONLY the
+    blind fact, one settle — is the unchanged 010B contract either
+    way.)"""
     monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
     monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
     xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
@@ -1322,20 +1342,190 @@ def test_execute_package_facts_blind_then_answering_lands(monkeypatch,
     assert doc["application"]["version_code"] == 2609020000
 
 
-def test_execute_package_facts_all_blind_fails_honestly(monkeypatch,
-                                                         tmp_path):
-    """CAMSCAN-010B (c) — all-blind package facts: after the bounded
-    retries the run FAILS with a readable reason naming every blind
-    read (timestamped, the _ldiag style) — never an empty version_name
-    silently passing into the bundle validator (the 20260925T091135Z
-    evidence-stage death: the entire live chain had succeeded)."""
+# ------------------------------- install-time facts stash (CAMSCAN-010C)
+
+def test_provision_stashes_install_time_facts_late_read_skipped(
+        monkeypatch, tmp_path):
+    """CAMSCAN-010C (a) — the early stash lands: provision runs ONE full
+    010B ``_package_facts`` invocation (4x15s bounded blindness retry,
+    timestamped diag) right after ``_registry_verify`` — install
+    confirmed, system freshest, BEFORE the GMS restore (whose
+    post-restore flap is the 010B blindness class) — and stashes the
+    landed facts on the handle (``native.install_time_facts``).
+    execute() consumes the stash: NO late dumpsys read runs (every
+    facts read happened at provision time), no blindness settle ever
+    sleeps, and the run-metadata/manifest carry the stashed facts
+    through the REAL bundle pipeline (install-time ground truth; the
+    provenance line names WHEN the facts were discovered)."""
     monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
     monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
     xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
     provider = ScriptedProvider()
     provider.on("cat /root/install.out", "Success\nEXIT_0\n")
-    # every package-facts read is transport-blind, on every attempt
-    # (the rule repeats its single scripted response)
+    lines: list[str] = []
+    driver, clock = _make_driver(provider, apk=xapk)
+    # the manifest's provider block mirrors the REAL on-record e2b
+    # capability report (bundle_run requires non-empty capabilities)
+    e2b_report = next(r for r in load_provider_reports(REPO_ROOT)
+                      if r["slug"] == "e2b")
+    stage = tmp_path / RUN_ID
+    handle = driver.provision(_provision_request(lines, apk=xapk,
+                                                 provider_report=e2b_report))
+
+    # the stash landed on the handle — install-time ground truth, no
+    # blind reads on the way (the diag rides empty)
+    assert handle.native.install_time_facts == {
+        "version_name": "7.25.5.2609020000", "version_code": 2609020000}
+    assert handle.native.install_time_facts_diag == []
+    assert any("install-time package facts stashed" in line
+               and "version_name='7.25.5.2609020000'" in line
+               for line in lines)
+
+    # the early read ran ONCE per fact, at provision time — right
+    # after the registry verify and BEFORE the GMS restore commands
+    # (the work order's "install confirmed, system freshest")
+    exec_log = provider.exec_log
+    assert len([c for c in exec_log if "versionName" in c]) == 1
+    assert len([c for c in exec_log if "versionCode" in c]) == 1
+    registry = next(i for i, c in enumerate(exec_log)
+                    if "pm path com.intsig.camscanner" in c)
+    facts_at = next(i for i, c in enumerate(exec_log)
+                    if "versionName" in c)
+    gms_restore = next(i for i, c in enumerate(exec_log)
+                       if "pm enable" in c)
+    assert registry < facts_at < gms_restore
+
+    scenario = resolve_scenario("S001", REPO_ROOT / "lab" / "scenarios")
+    plans = plan_steps(scenario.steps, None)
+    request = ExecutionRequest(
+        handle=handle, run_id=RUN_ID, subject="reference",
+        scenario=scenario, step_plans=plans, stage_dir=stage,
+        fixtures=[], started_at="2026-09-24T00:00:00Z",
+        finished_at="2026-09-24T00:05:00Z", emit=lines.append)
+    result = driver.execute(handle, request)
+    assert result.ok is True, result.reason
+    assert result.problems == []
+
+    # the late read was skipped/not required: NO new dumpsys facts
+    # reads during execute and no blindness settle ever slept
+    assert len([c for c in provider.exec_log if "versionName" in c]) == 1
+    assert len([c for c in provider.exec_log if "versionCode" in c]) == 1
+    assert clock.slept.count(PKG_FACTS_SETTLE_S) == 0
+    # the provenance line names the source honestly (the evidence is
+    # honest about WHEN the facts were discovered)
+    assert any("package facts from the install-time stash" in line
+               and "install-time ground truth" in line
+               for line in lines)
+
+    # the stashed facts reach the metadata AND the REAL bundle
+    # pipeline (the same stage the 010B test drives)
+    doc = jsonio_load(stage / "run-metadata.json")
+    assert doc["application"]["version_name"] == "7.25.5.2609020000"
+    assert doc["application"]["version_code"] == 2609020000
+    scenario_copy_for_stage(stage, scenario.file)
+    n_artifacts = bundle_stage(stage, REPO_ROOT)
+    assert n_artifacts == 3          # screenshot + ui dump + logcat
+    manifest = jsonio_load(stage / "manifest.json")
+    assert manifest["application"]["version_name"] == "7.25.5.2609020000"
+    assert manifest["application"]["version_code"] == 2609020000
+    assert validate_manifest(manifest) == []
+
+
+def test_execute_early_facts_blind_late_read_lands(monkeypatch,
+                                                    tmp_path):
+    """CAMSCAN-010C (b) — the early read goes all-blind (the exact
+    2026-09-25 campaign death-zone rejection class, met at provision
+    time where it is BEST-EFFORT): the bounded 4x15s retry exhausts,
+    provision STILL SUCCEEDS (a blind early read never fails
+    provision), the stash rides the handle empty with its 8
+    phase-labeled timestamped diag lines — and execute()'s late read
+    lands the facts (the unchanged 010B fallback path)."""
+    monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
+    monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
+    xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
+    provider = ScriptedProvider()
+    provider.on("cat /root/install.out", "Success\nEXIT_0\n")
+    # the early read is blind on ALL 4 bounded attempts (each rule pops
+    # one scripted response per read); the late read then lands on its
+    # first attempt (each rule repeats its last response)
+    blind = CommandResult(-1, "", "Error: request_timeout after 60000 ms",
+                          5, "dumpsys")
+    provider.on("versionName", blind, blind, blind, blind,
+                "    versionName=7.25.5.2609020000\n")
+    provider.on("versionCode", blind, blind, blind, blind,
+                "    versionCode=2609020000 minSdk=23\n")
+    driver, clock = _make_driver(provider, apk=xapk)
+    lines: list[str] = []
+    handle = driver.provision(_provision_request(lines, apk=xapk))
+
+    # provision SUCCEEDED despite the all-blind early read; the stash
+    # rides the handle EMPTY with the recorded diag (best-effort —
+    # the late read stays the fallback)
+    assert handle.native.install_time_facts == {}
+    early_diag = handle.native.install_time_facts_diag
+    assert len(early_diag) == 2 * PKG_FACTS_MAX_ATTEMPTS
+    assert all(re.match(r"^\d{2}:\d{2}:\d{2} \[install-time attempt "
+                        r"[1-4]\] version(Name|Code) read blind ", line)
+               for line in early_diag)
+    assert all(line.startswith("00:00:00 ") for line in early_diag)
+    assert any(f"install-time package facts blind after "
+               f"{PKG_FACTS_MAX_ATTEMPTS} bounded attempts" in line
+               for line in lines)
+    # the early read burned its full bounded budget: 4 attempts x 2
+    # facts, 3 settles
+    assert len([c for c in provider.exec_log if "versionName" in c]) \
+        == PKG_FACTS_MAX_ATTEMPTS
+    assert clock.slept.count(PKG_FACTS_SETTLE_S) \
+        == PKG_FACTS_MAX_ATTEMPTS - 1
+
+    scenario = resolve_scenario("S001", REPO_ROOT / "lab" / "scenarios")
+    plans = plan_steps(scenario.steps, None)
+    stage = tmp_path / "stage"
+    request = ExecutionRequest(
+        handle=handle, run_id=RUN_ID, subject="reference",
+        scenario=scenario, step_plans=plans, stage_dir=stage,
+        fixtures=[], started_at="2026-09-24T00:00:00Z",
+        finished_at="2026-09-24T00:05:00Z", emit=lines.append)
+    result = driver.execute(handle, request)
+
+    # the fallback landed: the run succeeds with the discovered facts
+    assert result.ok is True, result.reason
+    assert any("install-time stash empty" in line
+               and "010B fallback" in line for line in lines)
+    assert any("late package facts landed" in line for line in lines)
+    # one more read per fact at execute time, no further settles (the
+    # late read landed on its first attempt)
+    assert len([c for c in provider.exec_log if "versionName" in c]) \
+        == PKG_FACTS_MAX_ATTEMPTS + 1
+    assert len([c for c in provider.exec_log if "versionCode" in c]) \
+        == PKG_FACTS_MAX_ATTEMPTS + 1
+    assert clock.slept.count(PKG_FACTS_SETTLE_S) \
+        == PKG_FACTS_MAX_ATTEMPTS - 1
+    doc = jsonio_load(stage / "run-metadata.json")
+    assert doc["application"]["version_name"] == "7.25.5.2609020000"
+    assert doc["application"]["version_code"] == 2609020000
+
+
+def test_execute_package_facts_all_blind_fails_honestly(monkeypatch,
+                                                         tmp_path):
+    """CAMSCAN-010B (c) / CAMSCAN-010C (c) — all-blind package facts at
+    BOTH read stages: the install-time read exhausts its bounded
+    retries (best-effort — provision continues), the late read
+    exhausts its own, and the run FAILS with a readable reason naming
+    every blind read of BOTH stages (timestamped, phase-labeled, the
+    _ldiag style — the combined diagnostics) — never an empty
+    version_name silently passing into the bundle validator (the
+    20260925T091135Z evidence-stage death: the entire live chain had
+    succeeded; the 010C campaign postmortem: the same rejection class
+    killed two more full-chain runs at ~51 min sandbox age — exactly
+    why the early stash exists)."""
+    monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
+    monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
+    xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
+    provider = ScriptedProvider()
+    provider.on("cat /root/install.out", "Success\nEXIT_0\n")
+    # every package-facts read is transport-blind, at BOTH stages, on
+    # every attempt (the rules repeat their single scripted response)
     blind = CommandResult(-1, "", "Error: request_timeout after 60000 ms",
                           5, "dumpsys")
     provider.on("versionName", blind)
@@ -1355,34 +1545,52 @@ def test_execute_package_facts_all_blind_fails_honestly(monkeypatch,
     result = driver.execute(handle, request)
 
     # the steps themselves succeeded — the failure is the metadata
-    # stage, and it is honest: readable, naming the blind reads
+    # stage, and it is honest: readable, naming the blind reads of
+    # BOTH stages (install-time + late)
     assert result.steps_executed == 1
     assert result.ok is False
     assert len(result.problems) == 2
     headline = result.problems[0]
     assert (f"package facts unreadable after {PKG_FACTS_MAX_ATTEMPTS} "
-            "bounded attempts") in headline
+            "bounded attempts at install time AND "
+            f"{PKG_FACTS_MAX_ATTEMPTS} at execute time") in headline
     assert "application.version_name" in headline
     assert "application.version_code" in headline
+    assert "CAMSCAN-010C combined install-time + late" in headline
     assert "package facts unreadable" in result.reason
 
-    # every blind read named, timestamped (the injected wall clock
-    # pins 00:00:00), and bounded: 2 facts x 4 attempts, 3 settles
+    # every blind read of BOTH stages named, timestamped (the injected
+    # wall clock pins 00:00:00) and phase-labeled: 2 facts x 4 attempts
+    # per stage, 3 settles per stage
     diagnostics = result.problems[1]
-    assert diagnostics.startswith("package-facts diagnostics ("
-                                  f"{2 * PKG_FACTS_MAX_ATTEMPTS} lines): ")
+    assert diagnostics.startswith(
+        "package-facts diagnostics ("
+        f"{2 * 2 * PKG_FACTS_MAX_ATTEMPTS} lines: "
+        f"{2 * PKG_FACTS_MAX_ATTEMPTS} install-time + "
+        f"{2 * PKG_FACTS_MAX_ATTEMPTS} late): ")
     diag_body = diagnostics.split("): ", 1)[1]      # drop the header
     diag_lines = [part.strip() for part in diag_body.split(" | ")]
-    assert all(re.match(r"^\d{2}:\d{2}:\d{2} \[attempt [1-4]\] "
-                        r"version(Name|Code) read blind ", line)
-               for line in diag_lines)
+    assert all(re.match(r"^\d{2}:\d{2}:\d{2} \[install-time attempt "
+                        r"[1-4]\] version(Name|Code) read blind ", line)
+               for line in diag_lines[:2 * PKG_FACTS_MAX_ATTEMPTS])
+    assert all(re.match(r"^\d{2}:\d{2}:\d{2} \[late attempt "
+                        r"[1-4]\] version(Name|Code) read blind ", line)
+               for line in diag_lines[2 * PKG_FACTS_MAX_ATTEMPTS:])
     assert all(line.startswith("00:00:00 ") for line in diag_lines)
     assert "request_timeout" in diagnostics      # the stderr tail named
     assert len([c for c in provider.exec_log if "versionName" in c]) \
-        == PKG_FACTS_MAX_ATTEMPTS
+        == 2 * PKG_FACTS_MAX_ATTEMPTS
     assert len([c for c in provider.exec_log if "versionCode" in c]) \
-        == PKG_FACTS_MAX_ATTEMPTS
-    assert clock.slept.count(PKG_FACTS_SETTLE_S) == PKG_FACTS_MAX_ATTEMPTS - 1
+        == 2 * PKG_FACTS_MAX_ATTEMPTS
+    assert clock.slept.count(PKG_FACTS_SETTLE_S) \
+        == 2 * (PKG_FACTS_MAX_ATTEMPTS - 1)
+
+    # provision SUCCEEDED despite the all-blind early read (the stash
+    # is best-effort) — the stash rides the handle empty, its diag
+    # recorded and COMBINED with the late read's above
+    assert handle.native.install_time_facts == {}
+    assert len(handle.native.install_time_facts_diag) \
+        == 2 * PKG_FACTS_MAX_ATTEMPTS
 
     # the placeholder stays in the written metadata (the run failed —
     # the runner never bundles a failed subject, so the validator
