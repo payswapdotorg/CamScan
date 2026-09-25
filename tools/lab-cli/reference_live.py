@@ -47,7 +47,16 @@ run-003 / run-005 lessons / observe.py lines; never a bare number):
    lesson), up to 8 bounded attempts, sandbox death → clean abort
    (destroy + raise — run-005 lesson b: never hammer a corpse), and an
    explicit ``pm path`` registry verification after Success (probe-15:
-   an adb Success does NOT prove the package landed).
+   an adb Success does NOT prove the package landed). Right after that
+   verification the INSTALL-TIME package facts are read ONCE through
+   the 010B bounded-blindness machinery and stashed on the handle
+   (CAMSCAN-010C, ``native.install_time_facts``): the facts are stable
+   from registry confirmation, and the 2026-09-25 campaign runs died
+   re-reading them at execute()-end (~51 min sandbox age, instant
+   ``.set_timeout``-advice rejections — the sandbox-lifetime death
+   zone), so the read lives where the system is freshest: BEFORE the
+   GMS restore whose post-restore flap is the 010B blindness class.
+   The early read is best-effort — provision never fails on it.
 4. LAUNCH — the probe-26..31 machinery (CAMSCAN-010A, ported from
    observe.py's proven first-run section — the probes-25..34 launch
    lessons that never reached this driver; the 2026-09-25 S001 run
@@ -73,12 +82,17 @@ run-003 / run-005 lessons / observe.py lines; never a bare number):
    (uiautomator dump → Wait-button bounds → center tap; the proven
    (540, 1244) fallback).
 5. EXECUTE — scenario steps through adb-bridge verbs, per-step
-   screenshot + ui-dump captures, final logcat, discovered dumpsys
-   package facts (CAMSCAN-010B: blindness-tolerant — the probe-33
-   bounded retry with timestamped blind-read diagnostics; a blind read
-   is never an absence observation, and facts that do not land fail
-   the run honestly instead of shipping empty placeholders into the
-   bundle), the EVIDENCE.md single-subject metadata.
+   screenshot + ui-dump captures, final logcat, package facts
+   STASH-FIRST (CAMSCAN-010C: the install-time stash on the handle is
+   the ground truth execute() consumes — provenance named on the
+   driver's diag channel; the CAMSCAN-010B blindness-tolerant late
+   read — the probe-33 bounded retry with timestamped blind-read
+   diagnostics — runs only for facts the stash could not land, seeded
+   with the stashed ones; a blind read is never an absence
+   observation, and a both-blind run fails the run honestly with the
+   combined install-time + late diagnostics instead of shipping empty
+   placeholders into the bundle), the EVIDENCE.md single-subject
+   metadata.
 6. TEARDOWN — best-effort stop + destroy on EVERY path; never raises
    (the runner owns the invariant; provision cleans up its own partial
    state before raising — a paid sandbox is never leaked).
@@ -393,6 +407,43 @@ REFERENCE_FALLBACK_ANDROID_VERSION = "11"
 PKG_FACTS_MAX_ATTEMPTS = 4
 PKG_FACTS_SETTLE_S = 15
 
+# ------------------------- install-time facts stash (CAMSCAN-010C)
+# CAMSCAN-010C (work order "early package-facts stash — install-time
+# ground truth"; the 2026-09-25 campaign-run diagnosis, verified by
+# the lead): two full-chain runs reached the FINAL stage and died
+# there — launch am-confirmed, ANR dismissed, steps executed — then
+# the package-facts read went all-blind with INSTANT rejections
+# (exit=-1, stderr tail "…ling '.set_timeout' on the sandbox with the
+# desired timeout." — the E2B sandbox-lifetime rejection), sandbox age
+# at death ≈ 51 min (slow runs: hostile install windows + launch
+# fights stretch the wall clock; the README's design accepts sandbox
+# death → fresh run, but the FACTS read must not live in the death
+# zone). The facts themselves (application.version_name /
+# version_code) are INSTALL-TIME properties — stable from the moment
+# _registry_verify confirms the package; reading them at execute()-end
+# (after the launch ladder + patient poll + ANR rounds + logcat) was
+# pure late-run fragility. Doctrine (install-time-facts): capture them
+# ONCE right after the registry verify — install confirmed, system
+# freshest, BEFORE the GMS restore whose post-restore transport flap
+# is the 010B blindness class — stash them on the handle
+# (native.install_time_facts), and let execute() consume the stash
+# first; the 010B bounded retry stays the fallback, and a both-blind
+# run still fails honestly with the combined (install-time + late)
+# timestamped diagnostics. Same doctrine as the blocks above: every
+# constant/comment cites its work-order/probe provenance.
+
+#: Phase labels for the two package-facts read stages (CAMSCAN-010C):
+#: every diag line and console line carries its read stage, so the
+#: combined both-blind failure names BOTH diag sets honestly (the
+#: work order's "naming both diag sets") and the stash path's
+#: provenance — WHEN the facts were discovered — is readable in the
+#: console story (the manifest contract is additionalProperties:false
+#: wherever a provenance field would sit, and the evidence-cli schema
+#: is out of this work order's scope: the diag channel is the honest
+#: note, never a smuggled schema violation).
+PKG_FACTS_PHASE_INSTALL_TIME = "install-time"
+PKG_FACTS_PHASE_LATE = "late"
+
 
 def _require_api_key() -> str:
     """Preflight the credential BEFORE any provisioning (no network)."""
@@ -418,6 +469,16 @@ def _sandbox_dead(res: Any) -> bool:
     """run-005 lesson (b): sandbox death is NOT a retryable failure."""
     blob = f"{res.stdout or ''}\n{res.stderr or ''}"
     return any(marker in blob for marker in SANDBOX_DEATH_MARKERS)
+
+
+def _facts_brief(facts: dict[str, Any]) -> str:
+    """Landed package facts rendered compactly, fixed key order — the
+    CAMSCAN-010C stash/provenance emit lines (install-time stash
+    landed / stash used / stash partial) all render through this one
+    helper so the console story stays uniform."""
+    return ", ".join(f"{key}={facts[key]!r}"
+                     for key in ("version_name", "version_code")
+                     if key in facts)
 
 
 def extract_split_bundle(xapk: Path, dest: Path) -> list[Path]:
@@ -457,11 +518,26 @@ class _Native:
     """Driver-private state carried on the handle (never serialized)."""
 
     def __init__(self, provider: Any, env_id: str, adb: str,
-                 launcher_component: str) -> None:
+                 launcher_component: str,
+                 install_time_facts: dict[str, Any] | None = None,
+                 install_time_facts_diag: list[str] | None = None) -> None:
         self.provider = provider
         self.env_id = env_id
         self.adb = adb
         self.launcher_component = launcher_component
+        # CAMSCAN-010C: the install-time package-facts stash — ground
+        # truth captured right after _registry_verify (see the 010C
+        # provenance block above the PKG_FACTS_PHASE_* constants).
+        # Empty when the early read went blind (BEST-EFFORT: provision
+        # never fails on a blind early read — the execute-time read
+        # stays the fallback); whatever landed rides along, and the
+        # early diag lines sit beside it so a both-blind run fails
+        # honestly with the COMBINED (install-time + late)
+        # timestamped diagnostics.
+        self.install_time_facts: dict[str, Any] = dict(
+            install_time_facts or {})
+        self.install_time_facts_diag: list[str] = list(
+            install_time_facts_diag or [])
 
 
 class ReferenceDriver:
@@ -532,6 +608,12 @@ class ReferenceDriver:
              "TCG boot budget is provider-owned)…")
         env = provider.provision(spec)
         env_id = env.env_id
+        # CAMSCAN-010C: the install-time facts stash (initialized empty
+        # so the handle construction below never depends on the try
+        # block having reached the read; a raising path destroys the
+        # sandbox and never gets here).
+        install_facts: dict[str, Any] = {}
+        install_facts_diag: list[str] = []
         try:
             boot = provider.start(env_id)
             emit(f"  reference: booted {env.avd_name} "
@@ -543,6 +625,33 @@ class ReferenceDriver:
                 provider, env_id, ADB, apk, apk_url, emit)
             self._install_ladder(provider, env_id, ADB, install_cmd, emit)
             self._registry_verify(provider, env_id, ADB, emit)
+            # CAMSCAN-010C: the EARLY package-facts read — one full
+            # 010B _package_facts invocation (4x15s bounded blindness
+            # retry, timestamped diag) run right after _registry_verify
+            # succeeds: install confirmed, system freshest, BEFORE the
+            # GMS restore (whose post-restore transport flap is the
+            # 010B blindness class). The landed facts are INSTALL-TIME
+            # GROUND TRUTH — stable from registry confirmation — so
+            # execute() consumes the stash instead of re-reading them
+            # at the end of the sandbox's lifetime (the 2026-09-25
+            # campaign diagnosis: all-blind INSTANT '.set_timeout'
+            # rejections at ~51 min sandbox age). BEST-EFFORT: a blind
+            # early read NEVER fails provision — the late read stays
+            # the fallback; the diag rides the handle for the combined
+            # honest-failure diagnostics.
+            install_facts, install_facts_diag = self._package_facts(
+                provider, env_id, REFERENCE_PACKAGE, emit,
+                phase=PKG_FACTS_PHASE_INSTALL_TIME)
+            if install_facts:
+                emit("  reference: install-time package facts stashed ("
+                     + _facts_brief(install_facts)
+                     + ") — CAMSCAN-010C ground truth for execute()")
+            else:
+                emit("  reference: install-time package facts blind "
+                     f"after {PKG_FACTS_MAX_ATTEMPTS} bounded attempts "
+                     "(best-effort — provision continues; the "
+                     "execute-time read stays the fallback; its diag "
+                     "recorded on the handle)")
             self._restore_gms(provider, env_id, ADB, emit)
             launcher = self._resolve_launcher(provider, env_id, ADB, emit)
             self._grant_preconditions(provider, env_id, ADB,
@@ -603,8 +712,10 @@ class ReferenceDriver:
             installer_sha = RECORDED_XAPK_SHA256
         application = {
             "package": REFERENCE_PACKAGE,
-            # discovered at execution time (dumpsys package facts) — the
-            # handle carries placeholders that execute() replaces.
+            # discovered facts — placeholders here; execute() replaces
+            # them from the install-time stash when it landed
+            # (CAMSCAN-010C ground truth) and otherwise from the late
+            # dumpsys read (the 010B fallback).
             "version_name": "",
             "version_code": 0,
             "installer_sha256": installer_sha,
@@ -616,7 +727,9 @@ class ReferenceDriver:
             capabilities=provider_capabilities(request.provider_report),
             application=application,
             device=device,
-            native=_Native(provider, env_id, ADB, launcher),
+            native=_Native(provider, env_id, ADB, launcher,
+                           install_time_facts=install_facts,
+                           install_time_facts_diag=install_facts_diag),
         )
         emit(f"  reference: environment ready ({env_id}, delivery="
              f"{delivery}, launcher={launcher or 'resolved-at-launch'})")
@@ -706,8 +819,53 @@ class ReferenceDriver:
         # names every blind read; the runner (run.py) never bundles a
         # failed subject, so the empty placeholder never reaches the
         # validator.
-        facts, pkg_diag = self._package_facts(
-            bridge, application["package"], request.emit)
+        #
+        # CAMSCAN-010C: STASH-FIRST. The install-time stash
+        # (native.install_time_facts — captured right after the registry
+        # verify, when the system is freshest, precisely because the
+        # 2026-09-25 campaign runs died re-reading the facts ~51 min
+        # into the sandbox's lifetime) is the ground truth for what it
+        # carries: when it carries BOTH facts the late dumpsys read is
+        # NOT required. The late read (the 010B machinery, unchanged)
+        # runs only for facts the stash could not land, seeded with the
+        # stashed ones — the 010B doctrine "a landed fact is never
+        # re-read" extends naturally to the stash. Fact provenance —
+        # WHEN the facts were discovered — rides the driver's diag
+        # channel: the console line names the source, and a both-blind
+        # failure names BOTH diag sets (install-time + late) in the
+        # problems/reason. (The manifest contract is
+        # additionalProperties:false wherever a provenance field would
+        # sit and the evidence-cli schema is out of this work order's
+        # scope — the honest note is the diag, never a smuggled schema
+        # violation.)
+        install_facts = dict(native.install_time_facts)
+        install_diag = list(native.install_time_facts_diag)
+        facts: dict[str, Any] = {}
+        pkg_diag: list[str] = []
+        if all(key in install_facts
+               for key in ("version_name", "version_code")):
+            facts = install_facts
+            request.emit(
+                "  reference: package facts from the install-time stash ("
+                + _facts_brief(facts)
+                + ") — install-time ground truth (captured at "
+                "provision after registry verify; the late dumpsys read "
+                "is not required — CAMSCAN-010C)")
+        else:
+            if install_facts:
+                request.emit(
+                    "  reference: install-time stash partial ("
+                    + _facts_brief(install_facts)
+                    + ") — the late read fills the gap (the 010B "
+                    "fallback, seeded with the stashed facts)")
+            elif install_diag:
+                request.emit(
+                    "  reference: install-time stash empty (early read "
+                    "blind) — the late read runs as the 010B fallback")
+            facts, pkg_diag = self._package_facts(
+                native.provider, native.env_id,
+                application["package"], request.emit,
+                phase=PKG_FACTS_PHASE_LATE, seed=install_facts)
         application.update(facts)
         if len(facts) < 2:
             missing = [f"application.{key}"
@@ -715,13 +873,18 @@ class ReferenceDriver:
                        if key not in facts]
             problems.append(
                 f"package facts unreadable after "
-                f"{PKG_FACTS_MAX_ATTEMPTS} bounded attempts (probe-33 "
-                "blindness tolerance) — " + " and ".join(missing)
+                f"{PKG_FACTS_MAX_ATTEMPTS} bounded attempts at install "
+                f"time AND {PKG_FACTS_MAX_ATTEMPTS} at execute time "
+                "(probe-33 blindness tolerance; CAMSCAN-010C combined "
+                "install-time + late diagnostics) — "
+                + " and ".join(missing)
                 + " blind; the evidence bundle requires the discovered "
                 "facts (never an empty placeholder into the validator)")
             problems.append(
-                f"package-facts diagnostics ({len(pkg_diag)} lines): "
-                + " | ".join(pkg_diag))
+                f"package-facts diagnostics ("
+                f"{len(install_diag) + len(pkg_diag)} lines: "
+                f"{len(install_diag)} install-time + {len(pkg_diag)} "
+                "late): " + " | ".join(install_diag + pkg_diag))
         metadata = {
             "run_id": request.run_id,
             "scenario": request.scenario.id,
@@ -1684,12 +1847,18 @@ echo LAUNCHED
             (subject_dir / "ui" / f"{name}.xml").write_text(
                 dump.text, encoding="utf-8")
 
-    def _package_facts(self, bridge: Any, package: str,
-                       emit: Callable[[str], None]) \
+    def _package_facts(self, provider: Any, env_id: str, package: str,
+                       emit: Callable[[str], None], *, phase: str,
+                       seed: dict[str, Any] | None = None) \
             -> tuple[dict[str, Any], list[str]]:
         """dumpsys package facts (versionName/versionCode) — discovered,
         never statically derived; blindness-tolerant (CAMSCAN-010B, the
-        probe-33 port of observe.py commit eeeeb0b).
+        probe-33 port of observe.py commit eeeeb0b). CAMSCAN-010C: the
+        same machinery now serves BOTH read stages — the install-time
+        stash read (phase ``install-time``, invoked by provision right
+        after the registry verify) and the late execute-time fallback
+        (phase ``late``, invoked only for facts the stash could not
+        land).
 
         The 20260925T091135Z-S001-live postmortem: one blind transport
         read (the post-restore flap class) left version_name EMPTY and
@@ -1699,13 +1868,16 @@ echo LAUNCHED
         an absence observation); blind reads retry on observe.py's own
         package-facts cadence (PKG_FACTS_MAX_ATTEMPTS x
         PKG_FACTS_SETTLE_S), each recording a timestamped diag line
-        (the CAMSCAN-010A _ldiag style). Returns ``(facts, diag)``; the
-        caller fails the run honestly — readable reason naming the
-        blind reads — when the facts do not land.
+        (the CAMSCAN-010A _ldiag style; since 010C every diag and
+        console line carries its ``phase`` label so the combined
+        both-blind failure names both diag sets honestly).
+        ``seed`` carries facts another stage already landed (the 010C
+        stash seeding the late read) — a landed fact is never re-read.
+        Returns ``(facts, diag)``; the caller fails the run honestly —
+        readable reason naming the blind reads — when the facts do not
+        land.
         """
-        provider = bridge.provider
-        env_id = bridge.env_id
-        facts: dict[str, Any] = {}
+        facts: dict[str, Any] = dict(seed or {})
         diag: list[str] = []
 
         def _pdiag(message: str) -> None:
@@ -1722,7 +1894,9 @@ echo LAUNCHED
             for fact_key, marker in (("version_name", "versionName"),
                                      ("version_code", "versionCode")):
                 if fact_key in facts:
-                    continue          # landed on an earlier attempt
+                    # landed on an earlier attempt or seeded by the
+                    # other stage (the 010C stash) — never re-read
+                    continue
                 reason = self._read_package_fact(provider, env_id,
                                                  package, marker,
                                                  fact_key, facts)
@@ -1730,18 +1904,19 @@ echo LAUNCHED
                     # probe-33: a read that errors or answers without
                     # the expected version*= line is BLIND, never an
                     # absence observation — one timestamped diag line
-                    # per blind read
-                    _pdiag(f"[attempt {attempt}] {marker} read blind "
-                           f"({reason})")
+                    # per blind read (010C: phase-labeled so the
+                    # combined failure names both diag sets)
+                    _pdiag(f"[{phase} attempt {attempt}] {marker} read "
+                           f"blind ({reason})")
                     blind.append(marker)
             if not blind:
-                emit("  reference: package facts landed (version_name="
-                     f"{facts['version_name']!r}, version_code="
-                     f"{facts['version_code']})")
+                emit(f"  reference: {phase} package facts landed "
+                     f"(version_name={facts['version_name']!r}, "
+                     f"version_code={facts['version_code']})")
                 break
             if attempt < PKG_FACTS_MAX_ATTEMPTS:
-                emit(f"  reference: package facts blind on attempt "
-                     f"{attempt}/{PKG_FACTS_MAX_ATTEMPTS} ("
+                emit(f"  reference: {phase} package facts blind on "
+                     f"attempt {attempt}/{PKG_FACTS_MAX_ATTEMPTS} ("
                      + ", ".join(f"{m} unreadable" for m in blind)
                      + f") — settle {PKG_FACTS_SETTLE_S}s and retry "
                      "(probe-33 blindness tolerance)")
