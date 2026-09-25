@@ -9,7 +9,10 @@ the in-tool tests pin the driver *contract* through the
 RecordingDriver, the API-key preflight, and (CAMSCAN-010F) the
 onboarding-complete dispatch: registry tap first, the shared
 dump-first discovery ladder on UnknownTargetError, driven through a
-scripted bridge (no network, no SDK).
+scripted bridge (no network, no SDK). CAMSCAN-010G: the GENERIC tap
+path carries the same UnknownTargetError → label-discovery
+fallback (the shared helper from reference_live — the 010F
+placement pattern), pinned hermetically the same way.
 
 Honesty gates, in order:
 
@@ -46,7 +49,10 @@ from tools.lab_cli.drivers import (
     SubjectRunResult,
 )
 from tools.lab_cli.evidence import provider_capabilities
-from tools.lab_cli.reference_live import onboarding_discovery_loop
+from tools.lab_cli.reference_live import (
+    onboarding_discovery_loop,
+    tap_label_discovery_fallback,
+)
 from tools.lab_cli.scenarios import LabCliError
 from tools.lab_cli.steps import APP, StepPlan
 
@@ -298,8 +304,23 @@ class E2bLiveDriver:
                 ok = ok and result.ok
                 continue
             if verb == "tap_semantic":
-                result = bridge.tap_semantic(params["target"],
-                                             timeout=step_timeout)
+                # CAMSCAN-010G: registry FIRST (the design contract is
+                # authoritative for the implementation app — the
+                # permission-dialog globals included); on
+                # UnknownTargetError — the S003 tap:scan class — the
+                # SAME label-discovery fallback the reference driver
+                # runs (the shared helper from reference_live, the
+                # 010F onboarding-placement pattern): a fresh dump
+                # scanned for the target as a label needle; no match
+                # re-raises (honest).
+                try:
+                    result = bridge.tap_semantic(params["target"],
+                                                 timeout=step_timeout)
+                except UnknownTargetError as exc:
+                    result = tap_label_discovery_fallback(
+                        bridge, params["target"], exc,
+                        step_timeout=step_timeout, emit=emit,
+                        label="implementation")
             elif verb == "swipe":
                 result = bridge.swipe(params["x1"], params["y1"],
                                       params["x2"], params["y2"],
