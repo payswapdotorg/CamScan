@@ -27,6 +27,12 @@ Honesty rules:
   provisions, never executes, never touches runs/;
 - a FAIL/BLOCKED/PARTIAL verdict from compare is a SUCCESSFUL
   orchestration (exit 0) — parity-cli's own exit-code doctrine;
+- an existing run dir is refused ONLY when a subject about to be run
+  already has its subtree at ``run_dir/<subject>`` (subject-collision
+  semantics, CAMSCAN-010K); disjoint subjects pair into the same run
+  dir with an explicit ``pairing into existing run dir:`` line —
+  assembling the second subject into the run dir is exactly what arms
+  the auto-reconcile (both envs present → parity-cli compare + gap);
 - failure taxonomy (CAMSCAN-010J): an operational abort emits
   ``<subject>: FAILED — <reason>`` and cleans the staging tree; a
   BUNDLE failure emits ``<subject>: BUNDLE FAILED — staged evidence
@@ -208,9 +214,47 @@ def run_scenario(scenario: Scenario, opts: RunOptions) -> int:
          + ",".join(sorted(r.get("slug", "?") for r in reports)))
 
     if not opts.plan and run_dir.exists():
-        emit(f"run: run dir exists: {run_dir} (pass --stamp/--suffix for a "
-             "fresh id — never silently overwritten)")
-        return 1
+        # CAMSCAN-010K — subject-collision semantics. This guard dates
+        # from CAMSCAN-007 and read as a blanket ``run_dir.exists()``
+        # refusal; the pairing path it blocked was never exercised live
+        # until the implementation campaign of 2026-09-26 11:41:34 UTC
+        # (console sequence, verbatim):
+        #
+        #   [2026-09-26 11:41:34 UTC] S001 attempt 1 starting (stamp
+        #     20260925T180736Z, pairing into
+        #     /home/z/camscan/runs/20260925T180736Z-S001-live)
+        #   run: S001 application-launch env=implementation
+        #     runs-dir=/home/z/camscan/runs
+        #   run: run dir exists: /home/z/camscan/runs/20260925T180736Z-
+        #     S001-live (pass --stamp/--suffix for a fresh id — never
+        #     silently overwritten)
+        #   [2026-09-26 11:41:34 UTC] S001 attempt 1: operational
+        #     failure — fresh retry
+        #
+        # The campaign (lead-authored) pairs the implementation subject
+        # into the EXISTING reference run dir by reusing the reference
+        # run's stamp — which the evidence layer already supports by
+        # contract (``assemble_subject``): ``run_dir.mkdir(parents=True,
+        # exist_ok=True)`` creates OR reuses the run dir, refuses ONLY a
+        # same-subject collision ("run dir already carries a {subject}
+        # subtree" — the deep overwrite protection, unchanged), and
+        # lands ``scenario.yaml`` at the run root ONCE (shared by both
+        # subjects; a second assemble neither overwrites nor raises on
+        # the existing root copy). So the guard here mirrors exactly
+        # that contract: refuse when a subject ABOUT TO BE RUN
+        # (``opts.envs``) already has its subtree — the "run dir
+        # exists" message shape kept, the colliding names added — and
+        # proceed with an honest pairing line when the subjects are
+        # disjoint, so the campaign log records the pairing and the
+        # completion check's both-envs-present reconcile can fire.
+        colliding = [s for s in opts.envs if (run_dir / s).is_dir()]
+        if colliding:
+            emit(f"run: run dir exists: {run_dir} (subjects present: "
+                 f"{'+'.join(colliding)} — pass --stamp/--suffix for a "
+                 f"fresh id — never silently overwritten)")
+            return 1
+        emit(f"run: pairing into existing run dir: {run_dir} (new "
+             f"subjects: {'+'.join(opts.envs)})")
 
     ran: list[str] = []
     failures = 0
