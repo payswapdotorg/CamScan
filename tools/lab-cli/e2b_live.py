@@ -183,7 +183,19 @@ class E2bLiveDriver:
         from tools.adb_bridge.bridge import AdbBridge
 
         native: _Native = handle.native
+        # CAMSCAN-010J (part D): the bridge carries the bootstrap
+        # recipe's full-path ADB token (the same local the provider's
+        # own interact/capture internals compose). AdbBridge's
+        # duck-typed discovery falls back to a bare "adb" that is NOT
+        # on the sandbox PATH — the shared onboarding loop's init
+        # probe composes ``{bridge.adb} shell dumpsys window …`` and
+        # would flake with "/bin/bash: line 1: adb: command not found"
+        # (the 010E law: every device-side read carries the working
+        # adb prefix; the live S002 round 2026-09-26 09:17:47 UTC
+        # round-5 flake, one env over).
+        from lab.providers.e2b.bootstrap import ADB as _BOOTSTRAP_ADB
         bridge = AdbBridge(native.provider, native.env_id,
+                           adb=_BOOTSTRAP_ADB,
                            default_timeout_s=float(request.scenario
                                                    .step_timeout_seconds))
         subject_dir = Path(request.stage_dir) / request.subject

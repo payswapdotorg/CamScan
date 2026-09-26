@@ -933,6 +933,40 @@ def _onb_round_action(nodes: list[tuple[str, str, tuple[int, int]]]) \
     return refused
 
 
+def _onb_dump_node_count(dump_xml: str) -> int:
+    """CAMSCAN-010J (part A) — the completion verdict's NODE PROOF: how
+    many ``node`` elements a ui-hierarchy dump carries. ``>= 1`` (a
+    node under the hierarchy root counts — clickable or not: a real
+    screen always carries at least one node element) means a screen
+    actually answered; ``0`` means NO screen at all — an ok-but-empty
+    dump body, an empty-hierarchy shell (``<hierarchy/>``), or
+    unparseable uiautomator garbage mid-recovery. All of those parse
+    to zero CLICKABLE nodes (:func:`_onb_clickable_nodes` cannot
+    distinguish them from a genuinely control-free screen — the empty
+    hierarchy root itself is not a node); this helper can, and the
+    completion verdict requires the proof.
+
+    Provenance — the 2026-09-26 09:17:47 UTC live S002 round (the
+    010I-machinery round that completed then destroyed its own
+    evidence): rounds 1-8 dismissed the app's ANR ("ANR Wait dismissed
+    at (540,1241) (app recovering, subject='CamScanner')"), and round
+    9's dump — uiautomator strained in the exact window after 8 ANR
+    dismissals — carried no provable screen, yet the verdict site read
+    zero clickables as "no actionable control — onboarding complete".
+    The S002-1 false positive (commit 8e24fad: "the complete-onboarding
+    verdict was a FALSE POSITIVE — the step's ui dump shows the ANR
+    dialog which the loop treated as 'no actionable control =
+    complete'") ONE LEVEL DEEPER: not ANR-dialog-as-complete, but
+    EMPTY-DUMP-as-complete. The 010F valid-dump gate (a failed capture
+    settles and continues) protects the EXHAUSTION path; this proof
+    guards the COMPLETION path."""
+    try:
+        root = ET.fromstring(dump_xml or "")
+    except ET.ParseError:
+        return 0
+    return sum(1 for node in root.iter() if node.tag == "node")
+
+
 def dump_shows_anr(dump_xml: str) -> bool:
     """CAMSCAN-010G — does a ui-hierarchy dump carry the ANR-dialog
     signature (the aerr title text "… isn't responding", or the aerr
@@ -1086,6 +1120,21 @@ def onboarding_discovery_loop(bridge: Any, *, step_timeout: int,
     budget get their own honest reading (the app cannot stay
     responsive — that IS the observation).
 
+    CAMSCAN-010J — COMPLETION-GATE NODE PROOF (the empty-capture
+    honesty round, 2026-09-26 09:17:47 UTC): the completion verdict
+    additionally requires the round's dump to CARRY A SCREEN — a
+    parseable dump with >= 1 node element (the hierarchy root's
+    children; clickable or not). An ok-but-EMPTY or unparseable dump
+    (uiautomator strained mid-recovery — the exact window after a
+    long ANR storm) parses to zero clickable nodes, which pre-010J
+    the verdict site read as "no actionable control = complete": the
+    S002-1 false-positive class (8e24fad) one level deeper. Such a
+    round emits "dump carried no nodes — not treating as complete",
+    settles, and CONTINUES, consuming budget like any other round
+    (the honest exhaustion lines remain the loop's other exit). The
+    ANR-round behavior, the budget structure, and the exhaustion
+    lines are untouched.
+
     CAMSCAN-010H — INIT PATIENCE + ANR ATTRIBUTION (the overnight
     wall; see the ONB_* provenance block for the six honest-failure
     shapes). BUDGET INTERPLAY: the loop ends at WHICHEVER comes
@@ -1220,6 +1269,20 @@ def onboarding_discovery_loop(bridge: Any, *, step_timeout: int,
                  f"— not tapped, continuing")
             sleep(ONB_ROUND_SETTLE_S)
             continue
+        if _onb_dump_node_count(xml) < 1:
+            # CAMSCAN-010J (part A): the completion verdict requires a
+            # VALID dump with NODE PROOF (a parseable dump whose node
+            # count >= 1 — see _onb_dump_node_count). An ok-but-empty /
+            # unparseable / zero-node dump is NOT completion — the S002
+            # round-9 shape (uiautomator strained mid-recovery, the
+            # 8e24fad false-positive class one level deeper). The round
+            # emits the honest line, settles, and CONTINUES, consuming
+            # budget like any other round; the honest exhaustion lines
+            # remain the loop's other exit.
+            emit(f"{prefix} round {round_no}: dump carried no nodes "
+                 f"— not treating as complete")
+            sleep(ONB_ROUND_SETTLE_S)
+            continue
         emit(f"{prefix} round {round_no}: no actionable control "
              f"— onboarding complete")
         return True
@@ -1321,6 +1384,15 @@ def tap_label_discovery_fallback(bridge: Any, target: str,
              "DEATH — aborting (never hammer a dead sandbox)")
         raise error
     if dump.ok and dump.text:
+        # CAMSCAN-010J (part A.2) — the 010G fallback AUDITED for the
+        # same hole the loop's completion verdict had: this fallback
+        # shares NO completion verdict shape. Its only exits are a
+        # label tap (a return) or re-raising the original
+        # UnknownTargetError — an ok-but-empty dump body falls straight
+        # past this scan (nothing to needle-match), and an unparseable
+        # dump scans to zero clickables and re-raises too: honest
+        # failure, never a silent success. There is no "complete"
+        # verdict here for the node-proof gate to guard.
         xml = dump.text
         for needle in _label_needles(target):
             for text, desc, center in _onb_clickable_nodes(xml):
@@ -1653,7 +1725,22 @@ class ReferenceDriver:
         from tools.adb_bridge.bridge import AdbBridge
 
         native: _Native = handle.native
+        # CAMSCAN-010J (part D): the bridge carries the DRIVER's adb
+        # invocation token (native.adb — the bootstrap recipe's
+        # full-path ADB, the same local every driver-composed
+        # ``{adb} shell`` read uses; AdbBridge's duck-typed discovery
+        # falls back to a bare "adb" that is NOT on the sandbox PATH).
+        # Provenance — the live S002 round 2026-09-26 09:17:47 UTC,
+        # onboarding round 5 (verbatim): "init probe — /bin/bash:
+        # line 1: adb: command not found" (the shared loop's init
+        # probe is the one execute-path read that composes
+        # ``{bridge.adb} shell …``; taps/dumps/screenshots/logcat go
+        # through the interact/capture protocols, whose provider
+        # internals compose the full-path token — which is why only
+        # the probe flaked). The 010E law: every device-side read
+        # carries the (working) adb prefix.
         bridge = AdbBridge(native.provider, native.env_id,
+                           adb=native.adb,
                            default_timeout_s=float(request.scenario
                                                    .step_timeout_seconds))
         subject_dir = Path(request.stage_dir) / request.subject

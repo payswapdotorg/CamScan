@@ -212,6 +212,38 @@ def cleanup_staging(runs_dir: Path, run_id: str) -> None:
         pass
 
 
+def preserve_failed_bundle(runs_dir: Path, run_id: str) -> Path | None:
+    """CAMSCAN-010J (part C) — PRESERVE a failed-bundle staging tree.
+
+    Moves ``<runs_dir>/.staging/<run_id>`` to
+    ``<runs_dir>/.staging/<run_id>-bundlefailed`` (collision-suffixed
+    ``-2``, ``-3`` … when a prior preservation already holds the name)
+    and returns the ABSOLUTE path — the run's captures survive for
+    lead review. Provenance — the 2026-09-26 09:17:47 UTC live S002
+    round: the bundle step rejected a 0-byte artifact
+    ("artifacts[0].bytes must be a positive integer, got 0") and the
+    failure path's cleanup then DELETED the entire staged tree — the
+    round-9 dump and every capture from the run, the EXACT artifacts
+    the lead needed to adjudicate the completion verdict, were
+    destroyed by the pipeline that failed to bundle them. The
+    round-9 dump was unrecoverable; this preservation exists so that
+    never recurs. Returns None when there is no staging tree to
+    preserve (nothing staged — the caller emits the failure without a
+    path rather than promising a preservation that did not happen).
+    """
+    root = stage_root(runs_dir, run_id)
+    if not root.is_dir():
+        return None
+    parent = Path(runs_dir) / ".staging"
+    target = parent / f"{run_id}-bundlefailed"
+    suffix = 2
+    while target.exists():
+        target = parent / f"{run_id}-bundlefailed-{suffix}"
+        suffix += 1
+    shutil.move(str(root), str(target))
+    return target.resolve()
+
+
 def scenario_copy_for_stage(stage: Path, scenario_file: Path) -> None:
     """Ensure exactly one subject dir exists + place the verbatim
     scenario copy (bundle_run requires it at the stage root)."""

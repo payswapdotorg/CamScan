@@ -53,6 +53,12 @@ def cmd_bundle(args: argparse.Namespace) -> int:
                         if args.fixtures else None)
     for repair in result.repairs:
         print(f"repair: {repair}")
+    # CAMSCAN-010J: the bundle log names every excluded empty capture
+    # — the operator sees the gap at bundle time (a recorded gap, not
+    # a silent artifact drop and never a bundle failure).
+    for cap in result.empty_captures:
+        print(f"empty capture: {cap.path} (0 bytes) — excluded from "
+              "artifacts[], recorded in manifest empty_captures")
     if not result.ok:
         label = "bundle check FAILED (re-bundle required)" if args.check \
             else "bundle FAILED"
@@ -63,13 +69,17 @@ def cmd_bundle(args: argparse.Namespace) -> int:
     if args.check:
         print(f"bundle check ok: {result.run_id} [{result.subject}] "
               f"{len(result.artifacts)} artifacts — manifest.json and "
-              "sidecars up to date")
+              "sidecars up to date"
+              + (f"; {len(result.empty_captures)} empty capture(s) "
+                 "excluded" if result.empty_captures else ""))
     else:
         print(f"bundle ok: {result.run_id} [{result.subject}] "
               f"{len(result.artifacts)} artifacts "
               f"({result.total_bytes} bytes) -> manifest.json"
               + (f"; wrote {len(result.wrote_sidecars)} sidecar(s)"
-                 if result.wrote_sidecars else ""))
+                 if result.wrote_sidecars else "")
+              + (f"; {len(result.empty_captures)} empty capture(s) "
+                 "excluded" if result.empty_captures else ""))
     return 0
 
 
