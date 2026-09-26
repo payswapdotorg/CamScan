@@ -21,7 +21,47 @@ assertions:
   - onboarding-completed-flag-set
   output: []
 meta:
-  timeout_seconds: 1800
+  # CAMSCAN-010I — the wall reconciled with the sandbox-lifetime budget
+  # (the 2026-09-26 S002 live round, 05:19-07:37 UTC, two attempts, both
+  # operational failures — the deterministic conflict this re-peg fixes:
+  # the old 1800 wall fired BEFORE the 010H onboarding wall's honest-
+  # exhaustion line could carry its complete evidence, and the slow-path
+  # total boot ~600 + env-ready worst ~1500 + wall 1800 = 3900+ exceeded
+  # the E2B Hobby 3600 s total-lifetime cap — the sandbox died mid-flight).
+  #
+  # The formula (both inequalities pinned hermetically in
+  # tools/lab-cli/tests/test_labcli_budget_reconcile.py):
+  #   (i)  LAUNCH_LADDER_WALL_WORST_S (450) + ONB_WALL_BUDGET_S (900)
+  #        + EVIDENCE_TAIL_RESERVE_S (480) + WALL_MARGIN_S (90) = 1920
+  #        — the wall now COVERS the driver's internal budgets, so the
+  #        010H honest-exhaustion line fires with its complete evidence
+  #        INSIDE the wall (never the wall truncating a living loop);
+  #   (ii) ENV_READY_WORST_S (1500) + 1920 + DESTROY_MARGIN_S (60)
+  #        = 3480 <= 3600 — the sandbox survives the wall plus its
+  #        honest end (teardown's stop + destroy complete inside the cap).
+  #
+  # The two live attempt shapes, verbatim (the provenance for every
+  # number above — tools/lab-cli/reference_live.py carries the driver
+  # side):
+  #   attempt 2 (06:42-07:37): install attempt 1 Success; launch ladder
+  #     attempt 1 exit 224 "Failure calling service activity: Broken
+  #     pipe", attempt 2 zombie ("Complete" exit 0, no Status line),
+  #     attempt 3 "am start ok (Status: ok)" — then
+  #     "meta.timeout_seconds exceeded — BLOCKED (timeout), never
+  #     silently truncated" (the wall fired while the onboarding loop
+  #     still had budget);
+  #   attempt 1 (05:19-06:37): install 4 attempts (broken pipe x2,
+  #     zombie outcome-window, Success — ~25 min inside one sandbox);
+  #     launch attempt 1 "Can't find service: activity" exit 20,
+  #     attempt 2 "Error: Activity class {...MainActivity} does not
+  #     exist" + pm-path=''; onboarding rounds 5-35 all "RUN_ERROR:
+  #     The sandbox was not found" (the loop hammered a corpse —
+  #     fixed on the driver side by the 010I death-abort); then
+  #     "process-poll cut at age 3727s — reserving 480s for the
+  #     evidence phases" (127 s PAST the 3600 s cap — death forensics
+  #     all empty, exit -1; fixed on the driver side by the 010I
+  #     birth-anchored engagement at 3060 s).
+  timeout_seconds: 1920
   step_timeout_seconds: 120
   requires:
     gui: true

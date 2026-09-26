@@ -201,7 +201,10 @@ observable behavior only) through the probe-17 recipe
    with sandbox-side paths through the GMS-churn retry ladder
    (background install + `EXIT_n` marker, a 6-min outcome window per
    attempt — never a 20-min hang; package-service re-settle probes
-   between failed attempts; 8 bounded attempts; sandbox death → clean
+   between failed attempts; 3 bounded attempts (CAMSCAN-010I lottery
+   economics — the TCG broken-pipe install failures are
+   sandbox-correlated, so the fresh-sandbox outer retry is the
+   independent draw); sandbox death → clean
    abort with the sandbox destroyed; `pm path` registry verification
    after Success — probe 15's silent-commit-death lesson);
 4. **launch** — dynamic launcher resolution (`cmd package

@@ -44,7 +44,9 @@ run-003 / run-005 lessons / observe.py lines; never a bare number):
    install + EXIT_n marker (probe-21b pattern), a 6-min outcome window
    per attempt (never a 20-min hang — run-005 lesson a),
    package-service re-settle probes between failed attempts (run-003
-   lesson), up to 8 bounded attempts, sandbox death → clean abort
+   lesson), up to 3 bounded attempts (CAMSCAN-010I lottery economics —
+   the fresh-sandbox outer retry is the independent draw), sandbox
+   death → clean abort
    (destroy + raise — run-005 lesson b: never hammer a corpse), and an
    explicit ``pm path`` registry verification after Success (probe-15:
    an adb Success does NOT prove the package landed). Right after that
@@ -81,9 +83,13 @@ run-003 / run-005 lessons / observe.py lines; never a bare number):
    (problems/reason + the run-metadata action trace) — and since
    CAMSCAN-010D BOTH process-wait loops (this poll and the
    post-launch wait) are governed by the E2B Hobby total-lifetime
-   budget: each cuts early when the remaining sandbox lifetime drops
-   below LAUNCH_PROC_BUDGET_RESERVE_S so the evidence phases get
-   their minutes inside the 3600 s cap. Then the
+   budget: the post-launch wait cuts when the remaining sandbox
+   lifetime drops below LAUNCH_PROC_BUDGET_RESERVE_S, and since
+   CAMSCAN-010I the poll engages a margin earlier — at
+   E2B_TOTAL_LIFETIME_CAP_S − LAUNCH_PROC_BUDGET_RESERVE_S −
+   DESTROY_MARGIN_S = 3060 s true sandbox age (the epoch is the
+   birth mark ``_Native.sandbox_t0``) — so the evidence phases AND
+   the destroy both get their minutes inside the 3600 s cap. Then the
    SystemUI-ANR dismissal ladder after a SUCCESSFUL launch
    (uiautomator dump → Wait-button bounds → center tap; the proven
    (540, 1244) fallback).
@@ -135,9 +141,12 @@ created ~11:04:24, envd UNAVAILABLE at 12:04:24 = age exactly
 3600 s). set_timeout renewal cannot move that deadline under Hobby,
 so the driver governs its own waits against E2B_TOTAL_LIFETIME_CAP_S
 via ``_Native.sandbox_t0`` (the birth mark captured in provision()
-immediately BEFORE provider.provision): the launch-step process poll
-and the post-launch process wait cut early at
-LAUNCH_PROC_BUDGET_RESERVE_S (the ANR ladder still runs — it is
+immediately BEFORE provider.provision): the post-launch process wait
+cuts early at LAUNCH_PROC_BUDGET_RESERVE_S and — CAMSCAN-010I —
+the launch-step process poll engages at
+E2B_TOTAL_LIFETIME_CAP_S − LAUNCH_PROC_BUDGET_RESERVE_S −
+DESTROY_MARGIN_S = 3060 s true age (the evidence tail AND the
+destroy margin both fit the cap; the ANR ladder still runs — it is
 required for subsequent steps), and a package-facts read with the
 sandbox-death signature aborts the retries at once (never hammer a
 corpse) and fails the run honestly naming the expiry. A SIGINT
@@ -243,9 +252,27 @@ RETRY_BACKOFF_S = 30
 
 #: observe.py L367 + its comment: the google_apis image NEVER settles
 #: (GMS bg-ANR churn bursts every 5-10 min and kills the package service
-#: mid-stream at random); 8 bounded attempts span ~30 min of windows —
-#: "luck is real and bounded retries harvest it" (probes 17, 21b).
-INSTALL_MAX_ATTEMPTS = 8
+#: mid-stream at random); bounded retries harvest the transient
+#: windows (probes 17, 21b — "luck is real and bounded retries
+#: harvest it").
+#:
+#: CAMSCAN-010I — the cap is 3, not 8 (lottery economics, the
+#: 2026-09-26 S002 live round): the TCG broken-pipe install failures
+#: are SANDBOX-CORRELATED — attempt 1 burned 4 in-sandbox attempts
+#: (broken pipe x2, a zombie outcome window, then Success ≈ 25 min)
+#: while attempt 2's fresh sandbox won on attempt 1 — within one
+#: sandbox the retries are NOT independent lottery draws, so piling
+#: attempts inside a bad sandbox buys little; the FRESH-SANDBOX outer
+#: retry (the runner's next run — "a fresh run gets a fresh 60-min
+#: window", run-005 lesson) is the independent draw. Three bounded
+#: attempts span one full burst cycle (~15 min of windows + the
+#: gap-cadence settles) and keep the install phase inside the 010I
+#: ENV_READY_WORST_S reconciliation (8 x the 6-min OUTCOME_WINDOW_S
+#: alone is 2880 s — mathematically incompatible with any 3600 s
+#: lifetime reconciliation). The exhaustion line keeps its shape:
+#: the honest attempt-counted abort just fires earlier ("after 3
+#: bounded attempts").
+INSTALL_MAX_ATTEMPTS = 3
 
 #: run-005 lesson (a) (observe.py L397): a hung install stream eats the
 #: whole 20-min command timeout with no renewal opportunity — run each
@@ -708,6 +735,83 @@ E2B_TOTAL_LIFETIME_CAP_S = 3600
 #: minutes.
 LAUNCH_PROC_BUDGET_RESERVE_S = 480
 
+# ----------------------- budget reconciliation (CAMSCAN-010I)
+# CAMSCAN-010I — the scenario-wall vs sandbox-lifetime reconciliation
+# (the 2026-09-26 S002 live round, 05:19-07:37 UTC, two attempts, both
+# operational failures): the S002 scenario wall (meta.timeout_seconds
+# = 1800) fired BEFORE the 010H onboarding wall's honest-exhaustion
+# line could carry its complete evidence ("meta.timeout_seconds
+# exceeded — BLOCKED (timeout), never silently truncated" while the
+# loop still had budget), and the slow-path total (boot ~600 +
+# env-ready worst ~1500 + wall 1800 = 3900+) exceeded the E2B Hobby
+# 3600 s total-lifetime cap — the sandbox died mid-flight (attempt 1:
+# the onboarding loop hammered a corpse for 30 rounds, rounds 5-35
+# all "RUN_ERROR: The sandbox was not found"; the process-poll cut
+# printed age 3727 s — 127 s PAST the cap — and the death forensics
+# came back empty, exit -1). One margin arithmetic everywhere:
+#
+#:   (i)  the S002 wall must COVER the driver's internal budgets:
+#:        LAUNCH_LADDER_WALL_WORST_S + ONB_WALL_BUDGET_S +
+#:        EVIDENCE_TAIL_RESERVE_S + WALL_MARGIN_S = 450 + 900 + 480
+#:        + 90 = 1920 (the wall is re-pegged 1800 → 1920 in
+#:        lab/scenarios/S002-onboarding.yaml — the 010H honest-
+#:        exhaustion line now fires with its complete evidence INSIDE
+#:        the wall);
+#:   (ii) the sandbox lifetime must SURVIVE the wall plus its honest
+#:        end: ENV_READY_WORST_S + 1920 + DESTROY_MARGIN_S = 1500 +
+#:        1920 + 60 = 3480 <= 3600 (teardown's stop + destroy calls
+#:        complete inside the cap).
+#:
+#: Both inequalities are pinned hermetically
+#: (tools/lab-cli/tests/test_labcli_budget_reconcile.py) — a future
+#: budget change that breaks either side of the reconciliation fails
+#: the pins, never the live substrate.
+
+#: The launch ladder's worst-case wall-clock cost INSIDE one scenario
+#: wall — the MEASUREMENT, not a change (LAUNCH_MAX_ATTEMPTS and the
+#: ladder shape are untouched by 010I): the 2026-09-26 S002 attempt-2
+#: ladder shape took 3 attempts (attempt 1 broken-pipe exit 224
+#: "Failure calling service activity: Broken pipe", attempt 2 a
+#: zombie window ("Complete" exit 0, no Status line), attempt 3
+#: "am start ok (Status: ok)"), each bounded by
+#: LAUNCH_OUTCOME_WINDOW_S + LAUNCH_SETTLE_S plus the
+#: activity-service gate probes = 450 s worst.
+LAUNCH_LADDER_WALL_WORST_S = 450
+
+#: The evidence-tail reserve the scenario wall must cover AFTER the
+#: onboarding loop (captures + facts + logcat): the SAME 480 s the
+#: 010D governors defend (LAUNCH_PROC_BUDGET_RESERVE_S). An ALIAS,
+#: never a second number — the wall formula and the governor cite
+#: ONE reserve (the 2026-09-26 attempt-2 wall death proved the
+#: wall-side need; the 20260925T110418Z postmortem proved the
+#: governor-side need).
+EVIDENCE_TAIL_RESERVE_S = LAUNCH_PROC_BUDGET_RESERVE_S
+
+#: The wall formula's slack: the scenario wall must EXCEED the sum of
+#: the budgets it hosts so the driver's honest-exhaustion lines fire
+#: BEFORE the wall — never the wall truncating a loop that still has
+#: budget (the 2026-09-26 attempt-2 shape: the wall fired while the
+#: 010H loop was mid-patience). One TCG burst-cycle worth of slack.
+WALL_MARGIN_S = 90
+
+#: The env-ready worst case (provision → steps-ready: boot + install
+#: ladder + registry + facts + GMS restore): the live slow path —
+#: boot ~600 s + the flaky install ladder ~900 s ≈ 1500 s (the
+#: 2026-09-26 attempt 1: 4 install attempts ≈ 25 min inside one
+#: sandbox). Bounds the (ii) side of the reconciliation: any wall W
+#: with ENV_READY_WORST_S + W + DESTROY_MARGIN_S > 3600 cannot run
+#: to its own honest exhaustion inside ONE sandbox lifetime.
+ENV_READY_WORST_S = 1500
+
+#: The destroy margin: teardown's stop + destroy calls must complete
+#: inside the cap AFTER the wall expires — the run's honest end is
+#: not done until the paid sandbox is released. Also the governor's
+#: engagement padding (see ``_launch_process_poll``: the poll cuts at
+#: E2B_TOTAL_LIFETIME_CAP_S − LAUNCH_PROC_BUDGET_RESERVE_S −
+#: DESTROY_MARGIN_S = 3060 s true age, reserving BOTH the evidence
+#: tail and the destroy call).
+DESTROY_MARGIN_S = 60
+
 
 def _require_api_key() -> str:
     """Preflight the credential BEFORE any provisioning (no network)."""
@@ -731,7 +835,18 @@ def _file_sha256(path: Path) -> str:
 
 def _sandbox_dead(res: Any) -> bool:
     """run-005 lesson (b): sandbox death is NOT a retryable failure."""
-    blob = f"{res.stdout or ''}\n{res.stderr or ''}"
+    return _sandbox_dead_text(f"{res.stdout or ''}\n{res.stderr or ''}")
+
+
+def _sandbox_dead_text(blob: str) -> bool:
+    """CAMSCAN-010I — the string form of ``_sandbox_dead``: does a
+    dump/probe result's text carry any SANDBOX_DEATH_MARKERS entry?
+    The 2026-09-26 S002 attempt-1 shape: the onboarding loop's failed
+    ui dumps served "RUN_ERROR: The sandbox was not found" for 30
+    rounds (rounds 5-35) and the loop settled-and-continued on a
+    corpse every time — the loop and the tap-label fallback now check
+    their round results through this helper and abort at once (never
+    hammer a dead sandbox)."""
     return any(marker in blob for marker in SANDBOX_DEATH_MARKERS)
 
 
@@ -920,6 +1035,22 @@ def _onb_init_probe(bridge: Any, step_timeout: int) -> str:
     return text[:ONB_PROBE_TRUNC_CHARS] or "no focus lines (empty read)"
 
 
+def _onb_sandbox_death(emit: Callable[[str], None], prefix: str,
+                       round_no: int) -> bool:
+    """CAMSCAN-010I — the loop's death-abort emit, one source for the
+    verbatim line ("round n: SANDBOX DEATH — aborting (never hammer a
+    dead sandbox)"); every caller returns the False this returns —
+    the operational-failure shape (the step fails honestly; the
+    runner's teardown still owns the sandbox). Provenance: the
+    2026-09-26 S002 attempt-1 live shape — the loop settled-and-
+    continued on a corpse for 30 rounds (rounds 5-35, every ui dump
+    serving "RUN_ERROR: The sandbox was not found", each round a
+    12 s settle on a sandbox that could never answer again)."""
+    emit(f"{prefix} round {round_no}: SANDBOX DEATH — aborting "
+         "(never hammer a dead sandbox)")
+    return False
+
+
 def onboarding_discovery_loop(bridge: Any, *, step_timeout: int,
                               sleep: Callable[[float], None],
                               emit: Callable[[str], None],
@@ -1010,15 +1141,38 @@ def onboarding_discovery_loop(bridge: Any, *, step_timeout: int,
             # CAMSCAN-010H (part B.3): the per-checkpoint init-state
             # probe — one bounded line, driver-side emit only.
             probes_done += 1
-            emit(f"{prefix} round {round_no}: init probe — "
-                 f"{_onb_init_probe(bridge, step_timeout)}")
+            # CAMSCAN-010I: the probe RESULT is checked for the
+            # sandbox-death signature too — a corpse serves every
+            # read the same rejection, the probe included; the abort
+            # fires before the round's dump (never hammer a corpse).
+            probe = _onb_init_probe(bridge, step_timeout)
+            emit(f"{prefix} round {round_no}: init probe — {probe}")
+            if _sandbox_dead_text(probe):
+                return _onb_sandbox_death(emit, prefix, round_no)
         try:
             dump = bridge.ui_dump(timeout=step_timeout)
         except Exception as exc:  # noqa: BLE001 — a failed capture is a round, never a crash
+            # CAMSCAN-010I: a death signature on the round's own
+            # observation aborts at once — the exception branch is
+            # the transport's raising shape of the same corpse.
+            if _sandbox_dead_text(f"{type(exc).__name__}: {exc}"):
+                return _onb_sandbox_death(emit, prefix, round_no)
             emit(f"{prefix} round {round_no}: ui dump failed "
                  f"({type(exc).__name__}: {exc}) — settling")
             sleep(ONB_ROUND_SETTLE_S)
             continue
+        if _sandbox_dead_text((dump.error or "") + "\n"
+                              + (dump.text or "")):
+            # CAMSCAN-010I: the death signature rides the failed
+            # dump's error text (the live shape: "RUN_ERROR: The
+            # sandbox was not found") or, on a transport that serves
+            # the rejection as the dump body, the text — either way
+            # this round's observation is a corpse's answer: abort
+            # BEFORE the settle (the 30-round hammering shape), with
+            # the verbatim death line. A dump-unavailable round
+            # WITHOUT the signature keeps the 010H doctrine:
+            # settle-and-continue, consuming both budgets.
+            return _onb_sandbox_death(emit, prefix, round_no)
         if not dump.ok:
             emit(f"{prefix} round {round_no}: ui dump unavailable "
                  f"({(dump.error or 'no dump body')[:160]}) — settling")
@@ -1156,6 +1310,16 @@ def tap_label_discovery_fallback(bridge: Any, target: str,
     app is hung, not missing the control)."""
     prefix = f"  {label}:"
     dump = bridge.ui_dump(timeout=step_timeout)
+    if _sandbox_dead_text((dump.error or "") + "\n" + (dump.text or "")):
+        # CAMSCAN-010I: the fallback's one dump carries the
+        # sandbox-death signature — a corpse serves the rejection as
+        # the dump's error (or body); emit the death line and re-
+        # raise the original UnknownTargetError (the step fails
+        # honestly; NEVER a tap on a corpse's garbage, and never the
+        # misleading bare "unknown semantic target" story alone).
+        emit(f"{prefix} tap '{target}' by label discovery: SANDBOX "
+             "DEATH — aborting (never hammer a dead sandbox)")
+        raise error
     if dump.ok and dump.text:
         xml = dump.text
         for needle in _label_needles(target):
@@ -2589,15 +2753,35 @@ echo LAUNCHED
             # value against E2B_TOTAL_LIFETIME_CAP_S.
             remaining = (budget_remaining_s() if budget_remaining_s
                          is not None else float("inf"))
-            if remaining < LAUNCH_PROC_BUDGET_RESERVE_S:
-                age = E2B_TOTAL_LIFETIME_CAP_S - remaining
+            # CAMSCAN-010I: the cut's epoch is the sandbox's BIRTH
+            # (_Native.sandbox_t0 — the age below is the TRUE
+            # since-create age) and the engagement point is
+            # E2B_TOTAL_LIFETIME_CAP_S − LAUNCH_PROC_BUDGET_RESERVE_S
+            # − DESTROY_MARGIN_S = 3060 s true age: the poll must
+            # leave BOTH the evidence tail (480 s) AND the destroy
+            # margin (60 s — teardown's stop + destroy) inside the
+            # cap. The 2026-09-26 S002 attempt-1 cut printed age
+            # 3727 s — 127 s PAST the cap — because the old
+            # engagement (remaining < 480 = age 3120) left the round-
+            # boundary cadence no absorption for the stalled rounds
+            # of a dying transport; engaging at 3060 gives the
+            # evidence phases and the destroy their money before the
+            # cap. LAUNCH_MAX_ATTEMPTS, the ladder shape, and the
+            # post-launch wait's own 010D threshold are untouched
+            # (010I scope: this cut's epoch/arithmetic only).
+            age = E2B_TOTAL_LIFETIME_CAP_S - remaining
+            if age >= (E2B_TOTAL_LIFETIME_CAP_S
+                       - LAUNCH_PROC_BUDGET_RESERVE_S
+                       - DESTROY_MARGIN_S):
                 _ldiag(f"process-poll cut at age {age:.0f}s — reserving "
                        f"{LAUNCH_PROC_BUDGET_RESERVE_S}s for the evidence "
-                       f"phases — E2B Hobby total-lifetime cap "
+                       f"phases + {DESTROY_MARGIN_S}s destroy margin — "
+                       f"E2B Hobby total-lifetime cap "
                        f"{E2B_TOTAL_LIFETIME_CAP_S}s")
                 emit(f"  reference: process-poll cut at age {age:.0f}s — "
                      f"reserving {LAUNCH_PROC_BUDGET_RESERVE_S}s for the "
-                     "evidence phases — E2B Hobby total-lifetime cap "
+                     f"evidence phases + {DESTROY_MARGIN_S}s destroy "
+                     "margin — E2B Hobby total-lifetime cap "
                      f"{E2B_TOTAL_LIFETIME_CAP_S}s")
                 break
             self._sleep(PROCESS_WAIT_S)

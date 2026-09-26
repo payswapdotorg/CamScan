@@ -1819,16 +1819,34 @@ def test_execute_post_launch_wait_cut_reserves_evidence_budget(
     """CAMSCAN-010D (a) — the 20260925T110418Z-S001-live killer:
     _post_launch's PROCESS_WAIT_ROUNDS x PROCESS_WAIT_S (400 s) wait
     ran at sandbox age ~3200→3600 s and starved the evidence phases of
-    the sandbox's final minutes. The governor cuts the wait BEFORE any
-    round whose remaining budget is under LAUNCH_PROC_BUDGET_RESERVE_S
-    — a timestamped emit line names the age, the reserve and the cap —
+    the sandbox's final minutes. The governor cuts the wait when the
+    remaining budget drops below LAUNCH_PROC_BUDGET_RESERVE_S — a
+    timestamped emit line names the age, the reserve and the cap —
     and the ANR ladder STILL RUNS after the cut (it is REQUIRED for
-    subsequent steps: the SystemUI dialog blocks the app UI)."""
+    subsequent steps: the SystemUI dialog blocks the app UI).
+
+    CAMSCAN-010I interplay note: the launch-step process poll now
+    engages EARLIER (3060 s true age — cap − reserve − destroy
+    margin) than this wait's own 010D threshold (3120 s), so the
+    original shape (the poll running untouched at 3115 s while
+    _post_launch cut before its first round) is structurally
+    unreachable — any sandbox aged past 3120 cuts the POLL first.
+    The adapted pin: the poll starts HEALTHY under the 3060
+    engagement (age 3050, budget 550 s), lands the process in its
+    one round, and _post_launch then MARCHES its rounds into the
+    death zone until its own 010D cut fires at age 3130 s."""
     monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
     monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
     xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
     provider = ScriptedProvider()
     provider.on("cat /root/install.out", "Success\nEXIT_0\n")
+    # the app-ps reads: the POLL's single round finds the process
+    # (the launch step's own evidence); every later read is
+    # clean-absent (exit 0, empty stdout — the wait must keep
+    # marching, not break early) until its 010D cut fires
+    provider.on("ps -A | grep com.intsig.camscanner",
+                "u0a123 4321 com.intsig.camscanner\n", "", "", "", "",
+                "", "", "", "")
     # the ANR ladder's ui dumps: round 1 shows the Wait button over
     # the splash, round 2 the dialog is gone (observe.py 6b shape)
     provider.ui_xmls = [
@@ -1840,18 +1858,15 @@ def test_execute_post_launch_wait_cut_reserves_evidence_budget(
     lines: list[str] = []
     handle = driver.provision(_provision_request(lines, apk=xapk))
 
-    # an AGED sandbox (the 20260925T110418Z death zone): the clock
-    # after provision is 2 x BOOT_SETTLE_S; the ladder's one attempt
-    # adds OUTCOME_POLL_S; the launch-step poll runs exactly one round
-    # (PROCESS_WAIT_S) and lands the process — so _post_launch starts
-    # at clock 2*BOOT_SETTLE_S + OUTCOME_POLL_S + PROCESS_WAIT_S. The
-    # birth mark pins THAT age at 3125 s: budget 475 s < the 480 s
-    # reserve → the cut fires before round 1, while the launch-step
-    # poll (age 3115 s, budget 485 s ≥ the reserve) ran its round
-    # untouched.
-    clock_at_post_launch = (2 * BOOT_SETTLE_S + OUTCOME_POLL_S
-                            + PROCESS_WAIT_S)
-    handle.native.sandbox_t0 = clock_at_post_launch - 3125
+    # the poll starts at clock 2*BOOT_SETTLE_S + OUTCOME_POLL_S (the
+    # ladder's one attempt adds the outcome poll's sleep) pinned to
+    # age 3050 s — budget 550 s, healthy under the 010I engagement
+    # (3060 s): the poll runs its single round UNTOUCHED and lands
+    # the process; _post_launch then starts at age 3060 s (budget
+    # 540 s ≥ 480 s) and burns seven 10 s rounds until its round-top
+    # check passes age 3120 s → the 010D cut fires at age 3130 s.
+    clock_at_poll = (2 * BOOT_SETTLE_S + OUTCOME_POLL_S)
+    handle.native.sandbox_t0 = clock_at_poll - 3050
 
     scenario = resolve_scenario("S001", REPO_ROOT / "lab" / "scenarios")
     plans = plan_steps(scenario.steps, None)
@@ -1866,21 +1881,27 @@ def test_execute_post_launch_wait_cut_reserves_evidence_budget(
     # the run itself still succeeds (am-confirmed launch; the ANR
     # ladder still dismissed the dialog)
     assert result.ok is True, result.reason
-    # the cut fired ONCE with the exact story: age, reserve, cap —
-    # timestamped in the probe-29 style (pinned 00:00:00 by the
-    # injected wall clock)
+    # the poll ran its ONE round untouched (the 010I engagement did
+    # not bite at age 3050 — no cut line ever emits; the round's ps
+    # read is the first of the eight counted below, and the launch
+    # step's success means the poll found the process there)
+    assert not any("process-poll cut at age" in line for line in lines)
+    # the _post_launch cut fired ONCE with the exact story: age,
+    # reserve, cap — timestamped in the probe-29 style (pinned
+    # 00:00:00 by the injected wall clock)
     cut = [line for line in lines if "process-wait cut at age" in line]
     assert len(cut) == 1
-    assert "00:00:00 process-wait cut at age 3125s" in cut[0]
+    assert "00:00:00 process-wait cut at age 3130s" in cut[0]
     assert (f"reserving {LAUNCH_PROC_BUDGET_RESERVE_S}s for the "
             "evidence phases") in cut[0]
     assert (f"E2B Hobby total-lifetime cap "
             f"{E2B_TOTAL_LIFETIME_CAP_S}s") in cut[0]
-    # the wait was cut BEFORE its first round: the post-launch ps
-    # reads are ZERO (the launch-step poll's single round is the only
-    # app-ps read) and the full-wait "not observed" line never ran
+    # the wait was cut at its age-3130 round-top: the app-ps reads
+    # are the poll's ONE round plus the wait's SEVEN death-zone
+    # rounds (ages 3060-3120) — the cut stopped round 8 before its
+    # sleep/read, and the full-wait "not observed" line never ran
     assert len([c for c in provider.exec_log
-                if "grep com.intsig.camscanner" in c]) == 1
+                if "grep com.intsig.camscanner" in c]) == 8
     assert not any("app process not observed within" in line
                    for line in lines)
     # the ANR ladder STILL RAN after the cut (required for subsequent
