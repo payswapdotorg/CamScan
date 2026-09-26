@@ -222,11 +222,14 @@ def test_anr_rounds_dismiss_wait_then_complete():
         ANR_WAIT_CENTER, ANR_WAIT_CENTER, (540, 1454), (980, 2210)]
     assert not any((a.x, a.y) == ANR_CLOSE_CENTER
                    for a in provider.interactions)
-    # the per-round emit lines
+    # the per-round emit lines (CAMSCAN-010H: the ANR rounds carry
+    # the ATTRIBUTION — this dump's title is the app's own)
     assert any("onboarding round 1: ANR Wait dismissed at (756,1244) "
-               "(app recovering)" in line for line in lines)
+               "(app recovering, subject='CamScanner')" in line
+               for line in lines)
     assert any("onboarding round 2: ANR Wait dismissed at (756,1244) "
-               "(app recovering)" in line for line in lines)
+               "(app recovering, subject='CamScanner')" in line
+               for line in lines)
     assert any("onboarding round 3: permission granted at (540,1454)"
                in line for line in lines)
     assert any("onboarding round 4: control 'Next' tapped at (980,2210)"
@@ -234,7 +237,10 @@ def test_anr_rounds_dismiss_wait_then_complete():
     assert any("onboarding round 5: no actionable control "
                "— onboarding complete" in line for line in lines)
     # one settle after each acting round (the completion round: none)
-    assert clock.slept == [ONB_ROUND_SETTLE_S] * 4
+    # — CAMSCAN-010H: the loop's one-off leading settle (2 x
+    # ONB_ROUND_SETTLE_S) opens the budget.
+    assert clock.slept == [2 * ONB_ROUND_SETTLE_S] + \
+        [ONB_ROUND_SETTLE_S] * 4
 
 
 def test_anr_exhaustion_honest_fail():
@@ -262,10 +268,19 @@ def test_anr_exhaustion_honest_fail():
     assert any(f"round {ONB_MAX_ROUNDS}: ANR Wait dismissed at (756,1244)"
                in line for line in lines)
     # the dedicated honest-exhaustion line; never a completion verdict
+    # (CAMSCAN-010H: the line now carries the per-subject counts —
+    # this dump's subject is the app itself, all 40 rounds)
     assert any("app ANR-looping — budget exhausted, honest fail"
                in line for line in lines)
+    assert any(f"app ANR-looping — budget exhausted, honest fail "
+               f"(rounds: CamScanner={ONB_MAX_ROUNDS})" in line
+               for line in lines)
     assert not any("onboarding complete" in line for line in lines)
-    assert clock.slept == [ONB_ROUND_SETTLE_S] * ONB_MAX_ROUNDS
+    # CAMSCAN-010H: the leading settle + one settle per ANR round (the
+    # round budget grew 12 → 40; the wall budget never fires at this
+    # fake-clock pace: 24 + 40x12 = 504 s < 900 s).
+    assert clock.slept == [2 * ONB_ROUND_SETTLE_S] + \
+        [ONB_ROUND_SETTLE_S] * ONB_MAX_ROUNDS
 
 
 def test_anr_can_never_complete_even_at_last_round():
@@ -288,12 +303,15 @@ def test_anr_can_never_complete_even_at_last_round():
     # never tapped, the ANR round was never completion
     assert [(a.x, a.y) for a in provider.interactions] == [ANR_WAIT_CENTER]
     assert any(f"onboarding round {ONB_MAX_ROUNDS}: ANR Wait dismissed "
-               "at (756,1244) (app recovering)" in line for line in lines)
+               "at (756,1244) (app recovering, subject='CamScanner')"
+               in line for line in lines)
     assert not any("onboarding complete" in line for line in lines)
-    # mixed rounds (11 trap + 1 ANR): the generic honest exhaustion
+    # mixed rounds (39 trap + 1 ANR): the generic honest exhaustion
     assert any(f"discovery exhausted {ONB_MAX_ROUNDS} rounds "
                "without completing" in line for line in lines)
-    assert clock.slept == [ONB_ROUND_SETTLE_S] * ONB_MAX_ROUNDS
+    # CAMSCAN-010H: the leading settle + one settle per round.
+    assert clock.slept == [2 * ONB_ROUND_SETTLE_S] + \
+        [ONB_ROUND_SETTLE_S] * ONB_MAX_ROUNDS
 
 
 # ------------------------------------------------ tap-label fallback
@@ -405,6 +423,10 @@ def test_tap_label_fallback_never_taps_close_app_and_names_anr():
                    for a in provider.interactions)
     assert any("no label match and the dump shows the ANR dialog"
                in line for line in lines)
+    # CAMSCAN-010H: the fallback's honest note is ATTRIBUTED — this
+    # dump's title is the app's own ANR.
+    assert any("no label match and the dump shows the ANR dialog "
+               "(subject='CamScanner')" in line for line in lines)
     assert any("hung" in line for line in lines)
 
 

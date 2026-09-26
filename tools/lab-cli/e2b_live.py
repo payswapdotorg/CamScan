@@ -94,12 +94,17 @@ class E2bLiveDriver:
     slug = "e2b-live"
 
     def __init__(self, apk: Path | None = None, *,
-                 sleep: Callable[[float], None] = time.sleep) -> None:
+                 sleep: Callable[[float], None] = time.sleep,
+                 monotonic: Callable[[], float] = time.monotonic) -> None:
         self.apk = Path(apk) if apk is not None else None
         #: time injection — the onboarding discovery ladder's settles
         #: are fake-clock-driven in the hermetic tests (the
-        #: ReferenceDriver pattern; CAMSCAN-010F).
+        #: ReferenceDriver pattern; CAMSCAN-010F). CAMSCAN-010H: the
+        #: injected monotonic feeds the shared ladder's WALL budget
+        #: (ONB_WALL_BUDGET_S — the same injection pattern, so the
+        #: hermetic wall-exhaustion tests drive BOTH drivers).
         self._sleep = sleep
+        self._monotonic = monotonic
 
     # ------------------------------------------------------------- lifecycle
 
@@ -298,8 +303,8 @@ class E2bLiveDriver:
                 except UnknownTargetError:
                     ok = ok and onboarding_discovery_loop(
                         bridge, step_timeout=step_timeout,
-                        sleep=self._sleep, emit=emit,
-                        label="implementation")
+                        sleep=self._sleep, monotonic=self._monotonic,
+                        emit=emit, label="implementation")
                     continue
                 ok = ok and result.ok
                 continue

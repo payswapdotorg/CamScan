@@ -369,14 +369,70 @@ ANR_ROUND_SETTLE_S = 8
 #: (last resort when the dump-tap ladder cannot dismiss the dialog).
 ANR_FALLBACK_TAP = (540, 1244)
 
-#: CAMSCAN-010F — the dump-first onboarding discovery ladder's budget
-#: (the _anr_ladder shape ported to onboarding): up to 12 bounded
-#: rounds — permission dialogs AND onboarding pages both consume
-#: rounds (the live S002 chain shows both classes in sequence) — with
-#: an 8 s settle between rounds (TCG-paced, the same cadence as the
-#: ANR ladder's ANR_ROUND_SETTLE_S).
-ONB_MAX_ROUNDS = 12
-ONB_ROUND_SETTLE_S = 8
+#: CAMSCAN-010F / CAMSCAN-010H — the dump-first onboarding discovery
+#: ladder's budget (the _anr_ladder shape ported to onboarding):
+#: permission dialogs AND onboarding pages both consume rounds (the
+#: live S002 chain shows both classes in sequence), TCG-paced settles
+#: between rounds.
+#:
+#: CAMSCAN-010H — INIT PATIENCE (the overnight wall). The lead's
+#: review of SIX live S002/S003 attempts (2026-09-26 00:00-04:35 UTC,
+#: all honest failures): every attempt that won the install lottery
+#: AND the launch lottery (am start ok, app process up, top-most
+#: com.intsig.camscanner instance) then hit the SAME wall — the app
+#: never becomes dumpable-with-real-UI. The observed shapes, verbatim
+#: emit lines:
+#:
+#:   - "ANR Wait dismissed at (540,1244)" repeatedly — the
+#:     launch-phase ladder's 3 rounds + fallback, then the onboarding
+#:     loop's in-loop rounds 1-4 — and the ANR dialog RE-APPEARS
+#:     within seconds of each Wait dismissal;
+#:   - "ui dump unavailable (RuntimeError: ui hierarchy dump failed: )"
+#:     for the remaining rounds (uiautomator itself strained);
+#:   - S003's tap-label fallback fired live and reported honestly:
+#:     "no label match and the dump shows the ANR dialog — the app is
+#:     hung (isn't responding), not missing the control".
+#:
+#: VLM-verified nuance (the lead's analysis of the S001 screenshot
+#: 01-launch.png): the ANR dialog observed at launch time was the
+#: PIXEL LAUNCHER's ("Pixel Launcher isn't responding") with the
+#: CamScanner splash logo behind it — system-wide strain under TCG,
+#: not only the app; the 21:08 S002-1 dump (pre-010G) showed the
+#: APP's own ANR ("CamScanner isn't responding"). BOTH shapes occur
+#: (010H part A attributes them).
+#:
+#: THEORY: CamScanner 7.25.5's first-run init under TCG (8 vCPU
+#: shared, software emulation) needs FAR more wall-clock patience
+#: than the 010F budgets (12 rounds x 8 s ~= 2-4 min) — each Wait
+#: dismissal gives the blocked threads more time, and the init may
+#: complete given sustained patience inside the sandbox's ~3600 s
+#: lifetime. The budgets below extract the MAXIMUM observable truth
+#: within the substrate's limits: an honest PASS if patience wins, a
+#: diagnostic-rich BLOCKED if it does not.
+ONB_MAX_ROUNDS = 40
+ONB_ROUND_SETTLE_S = 12
+
+#: CAMSCAN-010H (part B.1) — the loop's WALL-CLOCK budget, counted
+#: from the LOOP's start (never the run's): the loop ends at
+#: WHICHEVER comes first — round budget, wall budget, or completion.
+#: 900 s = 15 min of sustained patience, comfortably inside the E2B
+#: Hobby ~3600 s total-lifetime cap (010D) with room for the evidence
+#: phases after it. FakeClock-injected through the monotonic
+#: parameter (the sleep-injection pattern).
+ONB_WALL_BUDGET_S = 900
+
+#: CAMSCAN-010H (part B.3) — the per-checkpoint init-state probe
+#: cadence: every 5th round (5, 10, …) emits ONE one-line probe (the
+#: foreground window/activity from dumpsys window — is the app's
+#: activity even foregrounded? is the launcher covering it?), hard-
+#: capped at ONB_PROBE_MAX probes total (cheap, bounded, driver-side
+#: emits only — the evidence phase structure stays observe.py's).
+ONB_PROBE_EVERY_ROUNDS = 5
+ONB_PROBE_MAX = 8
+
+#: CAMSCAN-010H (part B.3) — the probe payload truncation bound (one
+#: line, ~160 chars — a checkpoint hint, never a dump).
+ONB_PROBE_TRUNC_CHARS = 160
 
 #: CAMSCAN-010F — the permission-dialog affirmatives, checked FIRST
 #: every round: the registered global selectors' exact texts
@@ -469,6 +525,18 @@ _ONB_BOUNDS_RE = re.compile(
 _ANR_SIGNATURE_RE = re.compile(
     r"(?:isn.t responding"
     r'|resource-id="android:id/aerr_(?:wait|close)")')
+
+#: CAMSCAN-010H (part A) — the ANR-dialog TITLE capture, for
+#: ATTRIBUTION (who is not responding): "X isn't responding" → X.
+#: BOTH live shapes are first-class: the APP's own ANR (the 21:08
+#: S002-1 dump, pre-010G: text="CamScanner isn't responding") AND
+#: the system-side ANR the lead VLM-verified on the S001 screenshot
+#: 01-launch.png ("Pixel Launcher isn't responding" over the
+#: CamScanner splash — system-wide strain under TCG, not only the
+#: app). The apostrophe matched loosely (a dot) — the 010G signature
+#: matcher's convention (raw or typographic in the dump text).
+_ANR_SUBJECT_RE = re.compile(
+    r'text="([^"]{1,120}?)\s+isn.t responding"')
 
 #: CAMSCAN-010G — the ANR dialog's Wait button resource-id (the
 #: camera-campaign-proven dismissal target; NEVER aerr_close —
@@ -761,6 +829,27 @@ def dump_shows_anr(dump_xml: str) -> bool:
     return _ANR_SIGNATURE_RE.search(dump_xml or "") is not None
 
 
+def dump_anr_subject(dump_xml: str) -> str | None:
+    """CAMSCAN-010H (part A) — WHO is not responding: the ANRing
+    component's name parsed from the dialog title text ("X isn't
+    responding" → "X") — 'Pixel Launcher', 'CamScanner', or any
+    other component. None when no title is parseable (no ANR
+    signature at all, or a partially-rendered dialog whose title has
+    not landed — :func:`dump_shows_anr` stays the presence oracle;
+    this is the attribution sibling). Typographic-apostrophe tolerant
+    (the 010G matcher's dot convention). Provenance — BOTH live
+    shapes: the app's own "CamScanner isn't responding" (the 21:08
+    S002-1 dump, pre-010G) and the system-side "Pixel Launcher isn't
+    responding" over the CamScanner splash (the S001 screenshot
+    01-launch.png, VLM-verified by the lead — system-wide strain
+    under TCG, not only the app)."""
+    match = _ANR_SUBJECT_RE.search(dump_xml or "")
+    if not match:
+        return None
+    subject = " ".join(match.group(1).split())
+    return subject or None
+
+
 def _onb_anr_wait_center(dump_xml: str) -> tuple[int, int] | None:
     """The ANR dialog's Wait button bounds-center: the aerr_wait
     resource-id first, the text="Wait" node as fallback (the
@@ -787,10 +876,56 @@ def _onb_anr_wait_center(dump_xml: str) -> tuple[int, int] | None:
     return by_text
 
 
+def _onb_anr_subject_counts(subjects: dict[str, int]) -> str:
+    """CAMSCAN-010H (part A.3) — the per-subject ANR round counts as
+    one emit suffix: "(rounds: CamScanner=9, Pixel Launcher=3)".
+    Deterministic order: count descending, then name ascending (the
+    overnight wall showed BOTH subjects in one loop — the counts are
+    the BLOCKED verdict's attribution evidence)."""
+    parts = ", ".join(
+        f"{name}={count}" for name, count in
+        sorted(subjects.items(), key=lambda item: (-item[1], item[0])))
+    return f"(rounds: {parts})"
+
+
+#: CAMSCAN-010H (part B.3) — the init-state probe command: the
+#: foreground window / focused-app lines from dumpsys window. The
+#: 010E lesson applies verbatim: dumpsys is an ANDROID binary — the
+#: probe carries the adb-shell prefix built from the bridge's own
+#: adb token (a bare Linux-side dumpsys is deterministically "command
+#: not found").
+_ONB_INIT_PROBE_CMD = ("dumpsys window | grep -E "
+                       "'mCurrentFocus|mFocusedApp'")
+
+
+def _onb_init_probe(bridge: Any, step_timeout: int) -> str:
+    """CAMSCAN-010H (part B.3) — one cheap, bounded init-state probe:
+    the foreground window/activity (dumpsys window's mCurrentFocus /
+    mFocusedApp lines) through the provider's shell, whitespace-
+    collapsed to ONE line and truncated to ONB_PROBE_TRUNC_CHARS
+    ("is the app's activity even foregrounded? is the launcher
+    covering it?" — the BLOCKED verdict's diagnostic value).
+    Best-effort by contract: a failed read reports the failure shape,
+    never raises — a probe must not cost the loop a round."""
+    try:
+        res = bridge.provider.execute(
+            bridge.env_id,
+            f"{bridge.adb} shell {_ONB_INIT_PROBE_CMD}",
+            timeout=float(step_timeout))
+        raw = ((res.stdout or "").strip()
+               or (res.stderr or "").strip())
+    except Exception as exc:  # noqa: BLE001 — best-effort, never fatal
+        raw = f"probe error: {type(exc).__name__}: {exc}"
+    text = " ".join(raw.split())
+    return text[:ONB_PROBE_TRUNC_CHARS] or "no focus lines (empty read)"
+
+
 def onboarding_discovery_loop(bridge: Any, *, step_timeout: int,
                               sleep: Callable[[float], None],
                               emit: Callable[[str], None],
-                              label: str) -> bool:
+                              label: str,
+                              monotonic: Callable[[], float] = time.monotonic,
+                              ) -> bool:
     """CAMSCAN-010F — the dump-first onboarding discovery ladder (the
     PROVEN _anr_ladder shape: dump → bounds-regex → center-tap →
     settle → bounded rounds), shared by both live drivers: the
@@ -818,10 +953,65 @@ def onboarding_discovery_loop(bridge: Any, *, step_timeout: int,
     of onboarding controls IS completion). Exhausted rounds → False —
     the honest failure; ANR dialogs persisting through the ENTIRE
     budget get their own honest reading (the app cannot stay
-    responsive — that IS the observation)."""
+    responsive — that IS the observation).
+
+    CAMSCAN-010H — INIT PATIENCE + ANR ATTRIBUTION (the overnight
+    wall; see the ONB_* provenance block for the six honest-failure
+    shapes). BUDGET INTERPLAY: the loop ends at WHICHEVER comes
+    first — the ROUND budget (ONB_MAX_ROUNDS), the WALL budget
+    (ONB_WALL_BUDGET_S, counted from the LOOP's start on the
+    injected monotonic clock — never the run's), or completion;
+    dump-unavailable rounds settle-and-continue and consume BOTH
+    budgets like any other round. ANR PERSISTENCE: as long as rounds
+    show the ANR signature the loop keeps dismissing Wait and
+    CONTINUES — the dedicated exhaustion line fires only when a
+    budget dies while the ANR persists, and it carries the
+    per-subject counts (part A: the loop's ANR rounds attribute WHO
+    is not responding — the app itself or the system-side launcher
+    over its splash; behavior is UNCHANGED for both subjects: Wait,
+    never Close app). CHECKPOINT PROBES: every ONB_PROBE_EVERY_ROUNDS
+    rounds one bounded one-line init-state probe (the foreground
+    window/activity), hard-capped at ONB_PROBE_MAX — driver-side
+    emits only, the evidence phase structure stays observe.py's.
+    PART C.1: the loop opens with a ONE-OFF leading settle of
+    2 x ONB_ROUND_SETTLE_S — the app's first breath before the first
+    dump is doubled (the launch ladder itself is untouched; this is
+    the only launch-adjacent change and it lives here)."""
     prefix = f"  {label}: onboarding"
     anr_rounds = 0
+    anr_subjects: dict[str, int] = {}
+    probes_done = 0
+    # CAMSCAN-010H (part B.1): the wall budget's epoch is the LOOP's
+    # start — the launch/install minutes never eat the onboarding
+    # patience (and the FakeClock-driven tests inject monotonic).
+    started = monotonic()
+    # CAMSCAN-010H (part C.1): the one-off leading settle — the FIRST
+    # round's breath is doubled (2 x ONB_ROUND_SETTLE_S) so the
+    # post-am-confirmed hand-off gives the app one longer stretch of
+    # init time before the first dump. Applied exactly once, here in
+    # the loop — NOT a launch-ladder change.
+    sleep(2 * ONB_ROUND_SETTLE_S)
     for round_no in range(1, ONB_MAX_ROUNDS + 1):
+        if monotonic() - started >= ONB_WALL_BUDGET_S:
+            # CAMSCAN-010H (part B.1): the WALL budget exhausted —
+            # honest failure (the round budget may be far from spent;
+            # whichever budget dies first ends the loop).
+            emit(f"{prefix} wall budget {ONB_WALL_BUDGET_S}s exhausted "
+                 f"after {round_no - 1} rounds — honest failure")
+            if anr_subjects:
+                # part B.2: the budget died while the ANR persisted —
+                # the dedicated line, with the attribution counts.
+                emit(f"{prefix} app ANR-looping — budget exhausted, "
+                     f"honest fail "
+                     f"{_onb_anr_subject_counts(anr_subjects)}")
+            return False
+        if (round_no % ONB_PROBE_EVERY_ROUNDS == 0
+                and probes_done < ONB_PROBE_MAX):
+            # CAMSCAN-010H (part B.3): the per-checkpoint init-state
+            # probe — one bounded line, driver-side emit only.
+            probes_done += 1
+            emit(f"{prefix} round {round_no}: init probe — "
+                 f"{_onb_init_probe(bridge, step_timeout)}")
         try:
             dump = bridge.ui_dump(timeout=step_timeout)
         except Exception as exc:  # noqa: BLE001 — a failed capture is a round, never a crash
@@ -839,16 +1029,23 @@ def onboarding_discovery_loop(bridge: Any, *, step_timeout: int,
             # CAMSCAN-010G: an ANR round can NEVER complete — the app
             # is hung, not onboarded. Tap Wait's bounds-center (the
             # camera-campaign-proven dismissal), settle, next round.
+            # CAMSCAN-010H (part A): the round is ATTRIBUTED — who
+            # is not responding (the app itself, or the system-side
+            # launcher over its splash); behavior is UNCHANGED for
+            # both subjects (Wait, never Close app).
             anr_rounds += 1
+            subject = dump_anr_subject(xml) or "unknown"
+            anr_subjects[subject] = anr_subjects.get(subject, 0) + 1
             center = _onb_anr_wait_center(xml)
             if center is not None:
                 bridge.tap(*center)
                 emit(f"{prefix} round {round_no}: ANR Wait dismissed "
-                     f"at ({center[0]},{center[1]}) (app recovering)")
+                     f"at ({center[0]},{center[1]}) (app recovering, "
+                     f"subject='{subject}')")
             else:
-                emit(f"{prefix} round {round_no}: ANR dialog present — "
-                     f"Wait button not located, settling (never "
-                     f"'Close app')")
+                emit(f"{prefix} round {round_no}: ANR dialog present "
+                     f"(subject='{subject}') — Wait button not located, "
+                     f"settling (never 'Close app')")
             sleep(ONB_ROUND_SETTLE_S)
             continue
         kind, hit, center = _onb_round_action(_onb_clickable_nodes(xml))
@@ -875,8 +1072,11 @@ def onboarding_discovery_loop(bridge: Any, *, step_timeout: int,
     if anr_rounds >= ONB_MAX_ROUNDS:
         # CAMSCAN-010G: every round of the budget was an ANR round —
         # the app cannot stay responsive; that IS the observation (the
-        # existing failure path handles the rest).
-        emit(f"{prefix} app ANR-looping — budget exhausted, honest fail")
+        # existing failure path handles the rest). CAMSCAN-010H (part
+        # A.3): the line carries the per-subject counts — the
+        # attribution of the exhaustion.
+        emit(f"{prefix} app ANR-looping — budget exhausted, honest fail "
+             f"{_onb_anr_subject_counts(anr_subjects)}")
         return False
     emit(f"{prefix} discovery exhausted {ONB_MAX_ROUNDS} rounds "
          f"without completing — honest failure")
@@ -977,9 +1177,16 @@ def tap_label_discovery_fallback(bridge: Any, target: str,
                          f"at ({center[0]},{center[1]}) (desc='{desc}')")
                     return result
         if dump_shows_anr(xml):
+            # CAMSCAN-010H (part A): the fallback's honest ANR note is
+            # ATTRIBUTED too — who is not responding (the S003 live
+            # shape fired this line; the overnight wall showed BOTH
+            # the app's own and the launcher's ANR over the splash).
+            subject = dump_anr_subject(xml)
+            note = f" (subject='{subject}')" if subject else ""
             emit(f"{prefix} tap '{target}' by label discovery: no label "
-                 f"match and the dump shows the ANR dialog — the app is "
-                 f"hung (isn't responding), not missing the control")
+                 f"match and the dump shows the ANR dialog{note} — the "
+                 f"app is hung (isn't responding), not missing the "
+                 f"control")
     raise error
 
 
@@ -2036,10 +2243,12 @@ echo LAUNCHED
         The step's screenshot+dump evidence pair is captured by the
         existing per-step observe machinery; budget exhaustion is the
         honest False (the driver's existing failure path does the
-        rest)."""
+        rest). CAMSCAN-010H: the driver's injected monotonic feeds the
+        ladder's WALL budget (FakeClock-driven in the hermetic tests —
+        the sleep-injection pattern)."""
         return onboarding_discovery_loop(
             bridge, step_timeout=step_timeout, sleep=self._sleep,
-            emit=emit, label="reference")
+            monotonic=self._monotonic, emit=emit, label="reference")
 
     # ------------------------------------------- launch step (CAMSCAN-010A)
 

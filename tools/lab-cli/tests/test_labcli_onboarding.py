@@ -230,7 +230,10 @@ def test_onboarding_discovery_full_path_permission_next_complete():
     assert any("onboarding round 3: no actionable control "
                "— onboarding complete" in line for line in lines)
     # one settle after each acting round (the completion round: none)
-    assert clock.slept == [ONB_ROUND_SETTLE_S, ONB_ROUND_SETTLE_S]
+    # — CAMSCAN-010H: the loop's one-off leading settle (2 x
+    # ONB_ROUND_SETTLE_S) opens the budget.
+    assert clock.slept == [2 * ONB_ROUND_SETTLE_S,
+                           ONB_ROUND_SETTLE_S, ONB_ROUND_SETTLE_S]
     # the deny button was never touched (permission affirmative won)
     assert not any(a.x == 540 and a.y == 1580 for a in provider.interactions)
 
@@ -252,7 +255,8 @@ def test_onboarding_discovery_skip_path():
                in line for line in lines)
     assert any("round 2: no actionable control — onboarding complete"
                in line for line in lines)
-    assert clock.slept == [ONB_ROUND_SETTLE_S]
+    # CAMSCAN-010H: the leading settle opens the budget (part C).
+    assert clock.slept == [2 * ONB_ROUND_SETTLE_S, ONB_ROUND_SETTLE_S]
 
 
 def test_onboarding_discovery_trap_exclusion_honest_fail():
@@ -281,7 +285,11 @@ def test_onboarding_discovery_trap_exclusion_honest_fail():
     ui_captures = [op for op in provider.ops
                    if op[0] == "capture" and op[1] == "ui_hierarchy"]
     assert len(ui_captures) == ONB_MAX_ROUNDS
-    assert clock.slept == [ONB_ROUND_SETTLE_S] * ONB_MAX_ROUNDS
+    # CAMSCAN-010H: the leading settle + one settle per refused round
+    # (the round budget grew 12 → 40; the wall budget 900 s never
+    # fires on a fake clock at this pace: 24 + 40x12 = 504 s).
+    assert clock.slept == [2 * ONB_ROUND_SETTLE_S] + \
+        [ONB_ROUND_SETTLE_S] * ONB_MAX_ROUNDS
 
 
 def test_onboarding_discovery_capture_failure_settles_and_continues():
@@ -313,7 +321,10 @@ def test_onboarding_discovery_capture_failure_settles_and_continues():
                for line in failures)
     assert any(f"discovery exhausted {ONB_MAX_ROUNDS} rounds" in line
                for line in lines)
-    assert clock.slept == [ONB_ROUND_SETTLE_S] * ONB_MAX_ROUNDS
+    # CAMSCAN-010H: the leading settle + one settle per failed round
+    # (dump-unavailable rounds consume budget — 010H part B.2).
+    assert clock.slept == [2 * ONB_ROUND_SETTLE_S] + \
+        [ONB_ROUND_SETTLE_S] * ONB_MAX_ROUNDS
     # the shared ladder is the SAME implementation both drivers run
     assert onboarding_discovery_loop.__module__ == "tools.lab_cli.reference_live"
 
@@ -466,7 +477,9 @@ def test_e2b_live_onboarding_registry_miss_falls_back_to_discovery(
         encoding="utf-8")
     bridge = _bridge(provider, targets=registry)
     clock = FakeClock()
-    driver = E2bLiveDriver(sleep=clock.sleep)
+    # CAMSCAN-010H: monotonic injected too — the shared ladder's wall
+    # budget is fake-clock-driven (the sleep-injection pattern).
+    driver = E2bLiveDriver(sleep=clock.sleep, monotonic=clock.monotonic)
     scenario = resolve_scenario("S002", REPO_ROOT / "lab" / "scenarios")
     plans = plan_steps(scenario.steps, None)
     lines: list[str] = []
@@ -481,7 +494,9 @@ def test_e2b_live_onboarding_registry_miss_falls_back_to_discovery(
                "tapped at (980,2210)" in line for line in lines)
     assert any("implementation: onboarding round 3: no actionable "
                "control — onboarding complete" in line for line in lines)
-    assert clock.slept == [ONB_ROUND_SETTLE_S, ONB_ROUND_SETTLE_S]
+    # CAMSCAN-010H: the leading settle + two acting-round settles.
+    assert clock.slept == [2 * ONB_ROUND_SETTLE_S,
+                           ONB_ROUND_SETTLE_S, ONB_ROUND_SETTLE_S]
 
 
 def test_e2b_live_onboarding_registry_first_design_contract_tap():
