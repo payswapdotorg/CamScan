@@ -156,6 +156,30 @@ def hash_artifacts(artifacts: list[ArtifactRec]) -> None:
         art.sha256, art.size = sha256_file(art.abs_path)
 
 
+def split_empty_captures(artifacts: list[ArtifactRec]) \
+        -> tuple[list[ArtifactRec], list[ArtifactRec]]:
+    """CAMSCAN-010J — partition hashed artifacts into (real, empty).
+
+    A ``size == 0`` file in the subject tree is an EMPTY CAPTURE — a
+    legitimately-empty read (a blank frame, an empty buffer written
+    under strain — e.g. the reference driver's unconditional
+    ``logs/logcat.txt`` write when the capture came back empty). It is
+    never evidence (there is nothing to hash-check or upload) and
+    NEVER fatal: the manifest's ``artifacts[]`` positive-bytes
+    contract stays for REAL artifacts, while empties are excluded and
+    recorded under the honest ``empty_captures`` key instead of
+    killing the whole bundle (the 2026-09-26 09:17:47 UTC S002 round:
+    "artifacts[0].bytes must be a positive integer, got 0" destroyed
+    the run's evidence write). One policy, two readers: bundle
+    (records the exclusion) and verify (must not flag a recorded
+    empty as an unmanifested artifact). Call AFTER
+    :func:`hash_artifacts` — only then is ``size`` the on-disk truth.
+    """
+    real = [a for a in artifacts if a.size > 0]
+    empty = [a for a in artifacts if a.size <= 0]
+    return real, empty
+
+
 def check_sidecars(artifacts: list[ArtifactRec],
                    sidecars: list[SidecarRec],
                    *, require_outputs: bool = True) -> list[str]:

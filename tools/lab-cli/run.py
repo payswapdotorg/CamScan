@@ -26,7 +26,14 @@ Honesty rules:
 - ``--plan`` does ONLY the resolution + planned lines — it never
   provisions, never executes, never touches runs/;
 - a FAIL/BLOCKED/PARTIAL verdict from compare is a SUCCESSFUL
-  orchestration (exit 0) — parity-cli's own exit-code doctrine.
+  orchestration (exit 0) — parity-cli's own exit-code doctrine;
+- failure taxonomy (CAMSCAN-010J): an operational abort emits
+  ``<subject>: FAILED — <reason>`` and cleans the staging tree; a
+  BUNDLE failure emits ``<subject>: BUNDLE FAILED — staged evidence
+  preserved at <absolute path> — <reason>`` and PRESERVES the staged
+  tree under ``runs/.staging/<run_id>-bundlefailed`` (evidence for
+  lead review — never again destroyed by the pipeline that failed to
+  bundle it).
 """
 from __future__ import annotations
 
@@ -240,15 +247,47 @@ def run_scenario(scenario: Scenario, opts: RunOptions) -> int:
             driver, scenario, subject, run_id, chosen, step_plans,
             fixtures, stage, opts)
         if not result.ok:
+            # operational abort (pre-evidence): the existing cleanup —
+            # a failed execution staged nothing worth preserving (the
+            # driver's problems/reason carry the story), and the
+            # existing "FAILED — <reason>" emit is the campaign-grepped
+            # operational-failure line (CAMSCAN-010J keeps this path
+            # byte-identical on purpose).
             failures += 1
             ev.cleanup_staging(opts.runs_dir, run_id)
             emit(f"  {subject}: FAILED — {result.reason}")
             for problem in result.problems:
                 emit(f"    - {problem}")
             continue
+        # ---- evidence phase: scenario copy → bundle → assemble ----
+        # CAMSCAN-010J (part C): a BUNDLE failure no longer destroys
+        # the run's staged evidence. Provenance — the live S002 round
+        # 2026-09-26 09:17:47 UTC: the bundle rejected a 0-byte
+        # artifact and the failure cleanup then DELETED the staged tree
+        # (the round-9 dump + every capture — the exact artifacts the
+        # lead needed to adjudicate the completion verdict — gone; the
+        # round-9 dump was unrecoverable). Now: the tree is MOVED to
+        # .staging/<run_id>-bundlefailed, the failure emit carries the
+        # ABSOLUTE preserved path, and the taxonomy distinguishes
+        # BUNDLE FAILED from the operational FAILED line above (the
+        # campaign script greps these lines). The move happens BEFORE
+        # the finally-cleanup below fires — the cleanup's rmtree of
+        # .staging/<run_id> is then a no-op and the .staging parent is
+        # not empty, so the preserved tree survives it.
         try:
             ev.scenario_copy_for_stage(stage, scenario.file)
-            n_artifacts = ev.bundle_stage(stage, opts.repo_root)
+            try:
+                n_artifacts = ev.bundle_stage(stage, opts.repo_root)
+            except LabCliError as exc:
+                failures += 1
+                preserved = ev.preserve_failed_bundle(opts.runs_dir,
+                                                      run_id)
+                if preserved is not None:
+                    emit(f"  {subject}: BUNDLE FAILED — staged evidence "
+                         f"preserved at {preserved} — {exc}")
+                else:
+                    emit(f"  {subject}: BUNDLE FAILED — {exc}")
+                continue
             ev.assemble_subject(stage, opts.runs_dir, run_id, subject,
                                 scenario.file, emit)
         finally:

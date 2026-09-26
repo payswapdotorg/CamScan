@@ -20,6 +20,12 @@ Behavior:
 - every artifact under the subject dir is streamed-hashed; sidecars are
   normalized to the canonical sha256sum form; sidecars are *required*
   (and written) for ``outputs/`` artifacts;
+- CAMSCAN-010J (empty-capture honesty): a size==0 file in the subject
+  tree is EXCLUDED from ``artifacts[]`` (whose positive-bytes contract
+  is unchanged for real artifacts) and recorded under the manifest's
+  optional ``empty_captures`` key as ``[{"path": …, "bytes": 0}]`` —
+  presence is recorded, never fatal; a bundle log line names each
+  excluded empty capture so the operator sees the gap at bundle time;
 - an existing ``manifest.json`` is repaired in place (per-key repairs
   are printed); a stale ``r2_key`` is dropped when the artifact content
   changed since its upload;
@@ -38,6 +44,7 @@ from .integrity import (
     ArtifactRec,
     canonical_sidecar,
     hash_artifacts,
+    split_empty_captures,
     walk_subject,
 )
 from .schema import SUBJECTS, EvidenceCliError, validate_manifest
@@ -57,6 +64,11 @@ class BundleResult:
     subject: str
     manifest: dict | None = None
     artifacts: list[ArtifactRec] = field(default_factory=list)
+    #: CAMSCAN-010J — the size==0 files EXCLUDED from artifacts[] and
+    #: recorded under the manifest's honest ``empty_captures`` key (a
+    #: legitimately-empty capture is a recorded gap, never a bundle
+    #: failure and never evidence).
+    empty_captures: list[ArtifactRec] = field(default_factory=list)
     repairs: list[str] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
     wrote_manifest: bool = False
@@ -91,7 +103,9 @@ def _short(hash_value: object, length: int = 12) -> str:
 def diff_manifests(old: dict, new: dict) -> list[str]:
     """Human-readable per-key differences between two manifests."""
     lines: list[str] = []
-    meta_keys = (set(old) | set(new)) - {"artifacts"}
+    # CAMSCAN-010J: empty_captures is disk-derived like artifacts —
+    # per-path lines below, never a truncated blob repr in meta_keys.
+    meta_keys = (set(old) | set(new)) - {"artifacts", "empty_captures"}
     for key in sorted(meta_keys):
         if old.get(key) != new.get(key):
             lines.append(f"{key}: {_short(old.get(key))} → {_short(new.get(key))}")
@@ -115,6 +129,14 @@ def diff_manifests(old: dict, new: dict) -> list[str]:
         if "r2_key" in oe and "r2_key" not in ne:
             lines.append(f"artifacts[{path}].r2_key: dropped "
                          "(content changed since upload)")
+    old_caps = {e.get("path") for e in old.get("empty_captures", [])
+                if isinstance(e, dict)}
+    new_caps = {e.get("path") for e in new.get("empty_captures", [])
+                if isinstance(e, dict)}
+    for path in sorted(new_caps - old_caps):
+        lines.append(f"empty_captures[{path}]: added")
+    for path in sorted(old_caps - new_caps):
+        lines.append(f"empty_captures[{path}]: removed")
     return lines
 
 
@@ -182,6 +204,10 @@ def bundle_run(run_dir: Path, *, check: bool = False,
             "or an existing manifest.json")
         return result
     meta.pop("artifacts", None)  # artifacts are rebuilt from disk
+    # CAMSCAN-010J: empty_captures is disk-derived too (like
+    # artifacts) — a stale copy from an old manifest never survives a
+    # re-bundle; the record is rebuilt from the walk below.
+    meta.pop("empty_captures", None)
 
     if meta.get("run_id") != result.run_id:
         result.problems.append(
@@ -208,6 +234,24 @@ def bundle_run(run_dir: Path, *, check: bool = False,
         result.problems.append(f"no artifacts under {subject}/")
         return result
     hash_artifacts(artifacts)
+    # CAMSCAN-010J (part B): the empty-capture partition — a size==0
+    # file in the subject tree is EXCLUDED from artifacts[] (the
+    # positive-bytes contract stays for REAL artifacts) and recorded
+    # under the manifest's honest empty_captures key instead of
+    # failing the whole bundle. Provenance — the live S002 round
+    # 2026-09-26 09:17:47 UTC: one 0-byte file in the tree (a
+    # legitimately-empty capture written under strain) served
+    # "artifacts[0].bytes must be a positive integer, got 0" and
+    # killed the run's entire evidence write; the class is what
+    # matters — ANY 0-byte file must never destroy the run.
+    artifacts, empty_caps = split_empty_captures(artifacts)
+    result.empty_captures = empty_caps
+    if not artifacts:
+        # every walked file was empty — no real evidence at all (the
+        # pre-existing no-artifacts failure, unchanged: a run with no
+        # artifacts is not evidence).
+        result.problems.append(f"no artifacts under {subject}/")
+        return result
     result.artifacts = artifacts
 
     # ----------------------------------------------------- artifacts[]
@@ -227,6 +271,15 @@ def bundle_run(run_dir: Path, *, check: bool = False,
 
     manifest = dict(meta)
     manifest["artifacts"] = artifact_entries
+    if empty_caps:
+        # CAMSCAN-010J (part B): the honest record — presence is
+        # recorded, never fatal. Absent when the tree carries no
+        # empty captures (schema-valid both ways; deterministically
+        # rebuilt from the walk on every re-bundle).
+        manifest["empty_captures"] = [
+            {"path": art.path, "bytes": 0}
+            for art in sorted(empty_caps, key=lambda a: a.path)
+        ]
     result.manifest = manifest
     result.problems.extend(validate_manifest(manifest))
 

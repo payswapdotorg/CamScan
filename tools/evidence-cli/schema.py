@@ -20,6 +20,11 @@ Validated contract (EVIDENCE.md, "manifest.json contract"):
   dir (``screenshots/ recordings/ ui/ logs/ outputs/``), 64-lowercase-hex
   ``sha256``, positive integer ``bytes``; ``r2_key`` when present must be
   exactly ``runs/<run-id>/<subject>/<path>``;
+- ``empty_captures`` (CAMSCAN-010J, OPTIONAL): the size==0 subject-tree
+  files excluded from ``artifacts[]`` — each entry ``{"path", "bytes"}``
+  with the same subject-relative path shape and ``bytes`` exactly 0;
+  presence is recorded, never fatal (the positive-bytes contract above
+  stays for REAL artifacts);
 - timestamps: ISO-8601 with timezone, ``finished_at >= started_at``.
 
 ``validate_manifest`` accumulates problems and returns them — it never
@@ -55,6 +60,14 @@ KEBAB_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 TOP_LEVEL_KEYS = ("run_id", "scenario", "subject", "provider",
                    "application", "device", "fixtures", "artifacts",
                    "action_trace", "started_at", "finished_at")
+
+#: CAMSCAN-010J — the OPTIONAL empty-capture record: top-level keys
+#: permitted beyond the required eleven. ``empty_captures`` carries
+#: ``[{"path": …, "bytes": 0}]`` — the size==0 subject-tree files the
+#: bundle EXCLUDED from ``artifacts[]`` (a legitimately-empty capture:
+#: a recorded gap, never evidence, never fatal). Optional and absent
+#: when the tree carries none (schema-valid both ways).
+OPTIONAL_TOP_LEVEL_KEYS = ("empty_captures",)
 
 _PROVIDER_KEYS = ("slug", "capabilities", "environment_id")
 _APPLICATION_KEYS = ("package", "version_name", "version_code",
@@ -144,7 +157,8 @@ def validate_manifest(doc: Any) -> list[str]:
     if not isinstance(doc, dict):
         return ["manifest: expected a JSON object at top level"]
 
-    _check_keys(problems, "manifest", doc, TOP_LEVEL_KEYS)
+    _check_keys(problems, "manifest", doc, TOP_LEVEL_KEYS,
+                allowed=TOP_LEVEL_KEYS + OPTIONAL_TOP_LEVEL_KEYS)
 
     run_id = doc.get("run_id")
     _check_str(problems, "run_id", run_id)
@@ -284,6 +298,44 @@ def validate_manifest(doc: Any) -> list[str]:
                         problems.append(
                             f"{label}.r2_key must be exactly {expected!r} "
                             f"(got {r2_key!r})")
+
+    empty_caps = doc.get("empty_captures")
+    if empty_caps is not None:
+        # CAMSCAN-010J: the optional empty-capture record — a list of
+        # {path, bytes} entries naming the size==0 files the bundle
+        # excluded from artifacts[] (presence recorded, never fatal;
+        # the positive-bytes contract stays for real artifacts).
+        if not isinstance(empty_caps, list):
+            problems.append("empty_captures: expected a list of "
+                            "{path, bytes} entries")
+        else:
+            listed_artifact_paths: set = set()
+            if isinstance(artifacts, list):
+                listed_artifact_paths = {
+                    e.get("path") for e in artifacts
+                    if isinstance(e, dict)}
+            seen_empty: set[str] = set()
+            for i, entry in enumerate(empty_caps):
+                label = f"empty_captures[{i}]"
+                _check_keys(problems, label, entry, ("path", "bytes"))
+                if not isinstance(entry, dict):
+                    continue
+                epath = entry.get("path")
+                epath_problem = check_artifact_path(epath)
+                if epath_problem:
+                    problems.append(f"{label}.path: {epath_problem}")
+                elif epath in listed_artifact_paths:
+                    problems.append(f"{label}.path {epath!r}: already "
+                                    "listed as an artifact")
+                elif epath in seen_empty:
+                    problems.append(f"{label}.path {epath!r}: duplicate "
+                                    "empty-capture path")
+                else:
+                    seen_empty.add(epath)
+                ebytes = entry.get("bytes")
+                if not _is_int(ebytes) or ebytes != 0:
+                    problems.append(f"{label}.bytes must be exactly 0 for "
+                                    f"an empty capture, got {ebytes!r}")
 
     trace = doc.get("action_trace")
     if not isinstance(trace, list):

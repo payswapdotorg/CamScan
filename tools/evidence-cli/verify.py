@@ -10,7 +10,11 @@ Checks, in order:
 3. **sidecars** — ``outputs/`` artifacts require one, every existing
    sidecar must agree, and sidecars covering non-artifacts fail;
 4. **layout** — disk contents match the manifest exactly (no missing,
-   no unmanifested files, category rules hold);
+   no unmanifested files, category rules hold); CAMSCAN-010J: size==0
+   files are EMPTY CAPTURES under the same exclusion policy the bundle
+   applies (``integrity.split_empty_captures``) — a manifest-recorded
+   ``empty_captures`` entry is the honest record of the gap; a disk
+   empty the manifest does NOT record is flagged as unmanifested;
 5. **fixtures** — declared ids/hashes are whitelisted in the corpus;
 6. **R2** (only when all four credential env vars are present) — every
    recorded ``r2_key`` is HEAD-checked: object exists and its size
@@ -43,6 +47,7 @@ from .integrity import (
     SHA_OK,
     CheckRow,
     hash_artifacts,
+    split_empty_captures,
     walk_subject,
 )
 from .schema import SUBJECTS, EvidenceCliError, validate_manifest
@@ -104,6 +109,22 @@ def verify_manifest(manifest_path: Path, *,
     artifacts, sidecars, walk_problems = walk_subject(result.run_dir / subject)
     result.problems.extend(walk_problems)
     hash_artifacts(artifacts)
+    # CAMSCAN-010J: the SAME empty-capture partition the bundle applies
+    # (integrity.split_empty_captures — one policy, two readers): a
+    # size==0 file on disk is an EXCLUDED capture, not an artifact. A
+    # disk empty the manifest records under empty_captures is fine (the
+    # honest record); one it does NOT record is an unmanifested gap —
+    # flagged below like any other disk/manifest disagreement.
+    artifacts, disk_empty_caps = split_empty_captures(artifacts)
+    raw_empty = doc.get("empty_captures")
+    manifest_empty_paths = (
+        {e.get("path") for e in raw_empty if isinstance(e, dict)}
+        if isinstance(raw_empty, list) else set())
+    for art in sorted(disk_empty_caps, key=lambda a: a.path):
+        if art.path not in manifest_empty_paths:
+            result.problems.append(
+                "on-disk empty capture not in manifest empty_captures: "
+                f"{art.path}")
     disk_by_path = {a.path: a for a in artifacts}
 
     sidecar_by_target: dict[str, str | None] = {}
