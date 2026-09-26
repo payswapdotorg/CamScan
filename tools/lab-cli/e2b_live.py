@@ -24,7 +24,11 @@ Honesty gates, in order:
    gradle build path is the provider's ``gradle`` capability and stays
    an operator choice, never a silent fallback;
 3. teardown runs on EVERY path (the runner enforces it in ``finally``)
-   — paid environments are never leaked.
+   — paid environments are never leaked. CAMSCAN-010L: provision()
+   owns its OWN failures the same way — every step after the sandbox
+   exists (start, reset, report) destroys it before re-raising, so a
+   provision that fails never leaks one either (the runner's
+   ``finally`` only guards execute()).
 
 Timeout layering (SCENARIO-DSL, never conflated): provider
 bootstrap/boot budgets stay provider-owned
@@ -137,46 +141,79 @@ class E2bLiveDriver:
                      f"(TCG boot budget is provider-owned)…")
         provider = E2BProvider()
         env = provider.provision(spec)
-        provider.start(env.env_id)
-        permissions = {
-            perm: True
-            for pre in request.scenario.preconditions
-            if (perm := _PRECONDITION_PERMISSIONS.get(pre))
-        }
-        provider.reset(env.env_id, ResetSpec(
-            wipe_data=True,
-            reinstall_apk=str(apk) if apk else None,
-            permissions=permissions,
-        ))
-        report = provider.report(env.env_id) or {}
-        device = {
-            "model": str(report.get("device_model") or env.spec.device_profile),
-            "android_version": str(report.get("android_version") or ""),
-            "screen": str(report.get("resolution") or ""),
-            "locale": str(report.get("locale") or env.spec.locale),
-            "timezone": str(report.get("timezone") or env.spec.timezone),
-            "permission_baseline": permissions,
-        }
-        application = {
-            "package": IMPLEMENTATION_PACKAGE,
-            # discovered at execution time (dumpsys package facts) — the
-            # handle carries placeholders that execute() replaces.
-            "version_name": "",
-            "version_code": 0,
-            "installer_sha256": _file_sha256(apk),
-        }
-        handle = DriverHandle(
-            subject=request.subject,
-            provider_slug="e2b",
-            environment_id=env.env_id,
-            capabilities=provider_capabilities(request.provider_report),
-            application=application,
-            device=device,
-            native=_Native(provider, env.env_id),
-        )
-        request.emit(f"  {request.subject}: environment ready "
-                     f"({env.env_id})")
-        return handle
+        # CAMSCAN-010L (part B) — provision-failure destroy. The
+        # runner's teardown invariant ("teardown runs on EVERY path out
+        # of execute — a driver never gets to leak a paid environment
+        # by raising", run.py) covers execute() ONLY: provision() is
+        # called OUTSIDE any teardown scope, so until the handle is
+        # returned nothing destroys this sandbox on a raising path.
+        # Live provenance (the S001 attempt 1 of 2026-09-26 12:06:43
+        # UTC): reset() raised the "adb: failed to stat" RuntimeError
+        # (the part-A host-path bug) ~23 min in, and the attempt-1
+        # sandbox (ib0ahyaj…) was STILL RUNNING 11 minutes after the
+        # campaign's "sandbox cleanly aborted" line — the lead killed
+        # it by hand via the E2B API (Sandbox.connect + kill). Every
+        # step below that can raise after provider.provision()
+        # succeeds is therefore wrapped: best-effort destroy (a
+        # destroy failure is emitted with the teardown emit shape and
+        # NEVER masks the original), then the ORIGINAL exception
+        # propagates. BaseException included — a SIGINT campaign stop
+        # must not leak either (the reference driver's 010D lesson,
+        # same _destroy_quietly pattern). The provider cleans up its
+        # OWN provision() failures internally, so that call correctly
+        # stays outside the wrapper.
+        try:
+            provider.start(env.env_id)
+            permissions = {
+                perm: True
+                for pre in request.scenario.preconditions
+                if (perm := _PRECONDITION_PERMISSIONS.get(pre))
+            }
+            provider.reset(env.env_id, ResetSpec(
+                wipe_data=True,
+                reinstall_apk=str(apk) if apk else None,
+                permissions=permissions,
+            ))
+            report = provider.report(env.env_id) or {}
+            device = {
+                "model": str(report.get("device_model")
+                             or env.spec.device_profile),
+                "android_version": str(report.get("android_version")
+                                       or ""),
+                "screen": str(report.get("resolution") or ""),
+                "locale": str(report.get("locale") or env.spec.locale),
+                "timezone": str(report.get("timezone")
+                                or env.spec.timezone),
+                "permission_baseline": permissions,
+            }
+            application = {
+                "package": IMPLEMENTATION_PACKAGE,
+                # discovered at execution time (dumpsys package facts)
+                # — the handle carries placeholders that execute()
+                # replaces.
+                "version_name": "",
+                "version_code": 0,
+                "installer_sha256": _file_sha256(apk),
+            }
+            handle = DriverHandle(
+                subject=request.subject,
+                provider_slug="e2b",
+                environment_id=env.env_id,
+                capabilities=provider_capabilities(request.provider_report),
+                application=application,
+                device=device,
+                native=_Native(provider, env.env_id),
+            )
+            request.emit(f"  {request.subject}: environment ready "
+                         f"({env.env_id})")
+            return handle
+        except BaseException:
+            try:
+                provider.destroy(env.env_id)
+            except Exception as exc:  # noqa: BLE001 — best-effort only
+                request.emit(f"  {request.subject}: destroy failed "
+                             f"({exc})")
+            raise
 
     def execute(self, handle: DriverHandle,
                 request: ExecutionRequest) -> SubjectRunResult:
