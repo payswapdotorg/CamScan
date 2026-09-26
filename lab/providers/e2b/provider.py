@@ -483,8 +483,55 @@ class E2BProvider:
             env.last_error = str(detail)
             raise RuntimeError(f"reset boot failed: {detail}")
         env.status = "ready"
+        apk_install_path = reset.reinstall_apk
+        apk_detail: Any = reset.reinstall_apk
         if reset.reinstall_apk:
-            install = self._adb(env_id, f"install -r -t {reset.reinstall_apk}",
+            # CAMSCAN-010L (part A) — push-then-install. The driver
+            # contract has always said "push + install through the
+            # provider contract" (e2b_live --apk), but reset() passed
+            # the path straight to an adb that runs INSIDE the sandbox
+            # — a HOST path does not exist there. Live provenance (the
+            # lead's implementation-campaign S001 attempt 1, launched
+            # 2026-09-26 12:06:43 UTC on post-010K code, console
+            # verbatim):
+            #   RuntimeError: apk reinstall failed: Performing Streamed
+            #   Install adb: failed to stat
+            #   /home/z/lead-staging/impl-apk/app-debug.apk: No such
+            #   file or directory
+            # When the APK exists on the LAB HOST (the driver passes a
+            # host path), push it through the existing transfer
+            # machinery (transfer(), below — sb.files.write +
+            # size-verified) to a stable in-sandbox path and install
+            # THAT. A path that does NOT exist locally is passed
+            # through to adb verbatim — caller-side in-sandbox paths
+            # keep working (backward compatibility; the reference
+            # driver's split installs never route through
+            # reinstall_apk at all — its own install-multiple ladder
+            # owns that flow).
+            local_apk = Path(reset.reinstall_apk)
+            try:
+                # unstatable (e.g. a permission-restricted host dir) is
+                # not knowably a local file — pass through verbatim and
+                # let the in-sandbox adb give its own verdict (today's
+                # behavior for that path); the decision line itself
+                # must never raise.
+                is_local_file = local_apk.is_file()
+            except OSError:
+                is_local_file = False
+            if is_local_file:
+                apk_install_path = f"/tmp/{local_apk.name}"
+                apk_detail = {"local": reset.reinstall_apk,
+                              "sandbox": apk_install_path}
+                try:
+                    self.transfer(env_id, "push", local_apk,
+                                  apk_install_path)
+                except Exception as exc:  # raising wrap — never blind
+                    raise RuntimeError(
+                        f"apk reinstall failed: push "
+                        f"{reset.reinstall_apk} -> {apk_install_path} "
+                        f"failed: {exc}") from exc
+            install = self._adb(env_id,
+                                f"install -r -t {apk_install_path}",
                                 timeout=self.cfg.install_timeout_s)
             if install.exit_code != 0:
                 raise RuntimeError(f"apk reinstall failed: {install.stdout} {install.stderr}")
@@ -494,7 +541,7 @@ class E2BProvider:
         for key, value in reset.settings.items():
             self._adb(env_id, f"shell settings put {key} {value}", timeout=120)
         self._trace(env_id, "lifecycle", label="reset", detail={
-            "wipe_data": reset.wipe_data, "apk": reset.reinstall_apk,
+            "wipe_data": reset.wipe_data, "apk": apk_detail,
             "permissions": reset.permissions, "settings": reset.settings})
 
     def snapshot(self, env_id: str, name: str) -> str:
