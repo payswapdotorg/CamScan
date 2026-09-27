@@ -374,7 +374,8 @@ class E2bLiveDriver:
                     result = tap_label_discovery_fallback(
                         bridge, params["target"], exc,
                         step_timeout=step_timeout, emit=emit,
-                        label="implementation")
+                        label="implementation",
+                        sleep=self._sleep, monotonic=self._monotonic)
             elif verb == "swipe":
                 result = bridge.swipe(params["x1"], params["y1"],
                                       params["x2"], params["y2"],

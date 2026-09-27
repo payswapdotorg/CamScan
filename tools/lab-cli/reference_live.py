@@ -220,15 +220,33 @@ _PRECONDITION_PERMISSIONS = {
 # probe-17 (lab/substrate/REFERENCE-INSTALL-2026-09-22.md), the run-003 /
 # run-005 lessons, or the observe.py line it mirrors. Never a bare number.
 
+#: PROBE-31 (CAMSCAN-010N substance, lead-patched 2026-09-27): the
+#: step-phase ANR patience for the tap-label fallback — the S003 wall
+#: (4 deterministic occurrences: tap 'scan' → dump shows the ANR
+#: dialog → instant re-raise while the app's recovery arc was still
+#: in flight). The PROVEN onboarding-loop ANR-round pattern ported
+#: to the generic tap path: every ANR round dismisses the dialog's
+#: Wait button (camera-campaign-proven; NEVER "Close app"), settles,
+#: and takes a FRESH dump — the needle scan re-runs each round. The
+#: wall budget matches the ONB calibration (900 s ≈ one TCG burst
+#: cycle, probe-29: inter-burst gaps run 5-10 min).
+TAP_ANR_MAX_ROUNDS = 15
+TAP_ANR_SETTLE_S = 60
+TAP_ANR_WALL_BUDGET_S = 900
+
 #: probe-17 step 1: after boot_completed, wait for the package service to
 #: answer, "then +60 s settle" before the dexopt/install sequence.
 BOOT_SETTLE_S = 60
 
 #: run-003 lesson (observe.py L447): the package service can die
 #: MID-STREAM and recover minutes later — between failed install attempts,
-#: probe `pm list packages` until it answers again; "up to ~120 s service
-#: re-settle" = 8 probes x 15 s.
-SERVICE_SETTLE_MAX_PROBES = 8
+#: probe `pm list packages` until it answers again. PROBE-30 (2026-09-27
+#: campaign, attempt-2 forensics: 764 s TCG boot then "package service did
+#: not settle after boot" at 8x15=120 s patience — the starved regime's
+#: service settle outlives 120 s): extend to 40 probes x 15 s = 600 s; the
+#: E2B Hobby 3600 s total cap leaves >=2200 s for install+steps after even
+#: the worst (boot 800 + settle 600) prefix.
+SERVICE_SETTLE_MAX_PROBES = 40
 SERVICE_SETTLE_POLL_S = 15                      # observe.py L456 (sleep 15)
 
 #: probe-22 (2026-09-24 night-regime forensics): the GMS churn sources
@@ -1339,7 +1357,10 @@ def tap_label_discovery_fallback(bridge: Any, target: str,
                                  error: UnknownTargetError, *,
                                  step_timeout: int,
                                  emit: Callable[[str], None],
-                                 label: str) -> Any:
+                                 label: str,
+                                 sleep: Callable[[float], None] = time.sleep,
+                                 monotonic: Callable[[], float] =
+                                 time.monotonic) -> Any:
     """CAMSCAN-010G (part B) — the tap-label discovery fallback for the
     GENERIC tap path of BOTH live drivers (the 010F shared-placement
     pattern: the helper lives here beside the loop and e2b_live
@@ -1370,59 +1391,112 @@ def tap_label_discovery_fallback(bridge: Any, target: str,
     the original UnknownTargetError re-raises — honest failure,
     unchanged semantics for genuinely absent controls; when the dump
     carries the ANR signature the honest reason is emitted first (the
-    app is hung, not missing the control)."""
+    app is hung, not missing the control).
+
+    PROBE-31 (CAMSCAN-010N substance, lead-patched 2026-09-27): the
+    STEP-PHASE ANR patience — the S003 wall (4 deterministic
+    occurrences: tap 'scan' → the dump shows the ANR dialog → the
+    fallback re-raised instantly, the run died while the app's
+    recovery arc was still in flight). Port of the PROVEN
+    onboarding-loop ANR-round pattern (010G/010H): a round whose dump
+    carries the ANR signature and no label match is an ANR ROUND —
+    the dialog's Wait button is dismissed at its bounds-center (the
+    camera-campaign-proven dismissal; NEVER "Close app"), the round
+    settles (TAP_ANR_SETTLE_S), and a FRESH dump is taken next round;
+    the needle scan re-runs on every round, so the moment the app
+    recovers and renders the control the tap lands. The ladder is
+    bounded BOTH by rounds (TAP_ANR_MAX_ROUNDS) and a WALL budget
+    (TAP_ANR_WALL_BUDGET_S on the injected monotonic — the ONB
+    calibration, one TCG burst cycle) and ends at whichever comes
+    first; exhaustion re-raises the ORIGINAL UnknownTargetError with
+    its own attributed exhaustion line — the honest failure, exactly
+    the 010H reading: an app that cannot stay responsive through the
+    whole patience arc IS the observation. A round with NO ANR
+    signature and no match still re-raises immediately (one dump,
+    unchanged single-shot semantics for genuinely absent controls);
+    a dump carrying the sandbox-death signature aborts the ladder at
+    ANY round (never hammer a dead sandbox — 010I)."""
     prefix = f"  {label}:"
-    dump = bridge.ui_dump(timeout=step_timeout)
-    if _sandbox_dead_text((dump.error or "") + "\n" + (dump.text or "")):
-        # CAMSCAN-010I: the fallback's one dump carries the
-        # sandbox-death signature — a corpse serves the rejection as
-        # the dump's error (or body); emit the death line and re-
-        # raise the original UnknownTargetError (the step fails
-        # honestly; NEVER a tap on a corpse's garbage, and never the
-        # misleading bare "unknown semantic target" story alone).
-        emit(f"{prefix} tap '{target}' by label discovery: SANDBOX "
-             "DEATH — aborting (never hammer a dead sandbox)")
+    started = monotonic()
+    anr_rounds = 0
+    anr_subjects: dict[str, int] = {}
+    for round_no in range(1, TAP_ANR_MAX_ROUNDS + 1):
+        if round_no > 1 and monotonic() - started >= TAP_ANR_WALL_BUDGET_S:
+            break        # wall budget exhausted → the honest raise below
+        dump = bridge.ui_dump(timeout=step_timeout)
+        if _sandbox_dead_text((dump.error or "") + "\n" + (dump.text or "")):
+            # CAMSCAN-010I: a dump carrying the sandbox-death signature
+            # — a corpse serves the rejection as the dump's error (or
+            # body); emit the death line and re-raise the original
+            # UnknownTargetError (the step fails honestly; NEVER a tap
+            # on a corpse's garbage, and never the misleading bare
+            # "unknown semantic target" story alone).
+            emit(f"{prefix} tap '{target}' by label discovery: SANDBOX "
+                 "DEATH — aborting (never hammer a dead sandbox)")
+            raise error
+        if dump.ok and dump.text:
+            # CAMSCAN-010J (part A.2) — the 010G fallback AUDITED for the
+            # same hole the loop's completion verdict had: this fallback
+            # shares NO completion verdict shape. Its only exits are a
+            # label tap (a return) or re-raising the original
+            # UnknownTargetError — an ok-but-empty dump body falls straight
+            # past this scan (nothing to needle-match), and an unparseable
+            # dump scans to zero clickables and re-raises too: honest
+            # failure, never a silent success. There is no "complete"
+            # verdict here for the node-proof gate to guard.
+            xml = dump.text
+            for needle in _label_needles(target):
+                for text, desc, center in _onb_clickable_nodes(xml):
+                    if any(bad in value.lower()
+                           for value in (text, desc)
+                           for bad in _LABEL_EXCLUSION_SUBSTRINGS):
+                        continue          # NEVER the ANR app-killer button
+                    if needle in text.lower():
+                        result = bridge.tap(center[0], center[1],
+                                            timeout=step_timeout)
+                        emit(f"{prefix} tap '{target}' by label discovery "
+                             f"at ({center[0]},{center[1]}) (text='{text}')")
+                        return result
+                    if needle in desc.lower():
+                        result = bridge.tap(center[0], center[1],
+                                            timeout=step_timeout)
+                        emit(f"{prefix} tap '{target}' by label discovery "
+                             f"at ({center[0]},{center[1]}) (desc='{desc}')")
+                        return result
+            if dump_shows_anr(xml):
+                # PROBE-31: the ANR round — dismiss Wait, settle, and
+                # take a fresh dump next round; the needle scan re-runs
+                # every round so recovery lands the tap (the 010G/010H
+                # onboarding pattern, now on the generic tap path).
+                anr_rounds += 1
+                subject = dump_anr_subject(xml)
+                if subject:
+                    anr_subjects[subject] = anr_subjects.get(subject, 0) + 1
+                note = f" (subject='{subject}')" if subject else ""
+                emit(f"{prefix} tap '{target}' by label discovery: no label "
+                     f"match and the dump shows the ANR dialog{note} — the "
+                     f"app is hung (isn't responding), not missing the "
+                     f"control")
+                wait_center = _onb_anr_wait_center(xml)
+                if wait_center is not None:
+                    bridge.tap(wait_center[0], wait_center[1],
+                               timeout=step_timeout)
+                    subj_tag = f", subject='{subject}'" if subject else ""
+                    emit(f"{prefix} tap '{target}' ANR Wait dismissed at "
+                         f"({wait_center[0]},{wait_center[1]}) "
+                         f"(app recovering{subj_tag})")
+                else:
+                    emit(f"{prefix} tap '{target}' ANR dialog's Wait button "
+                         "not locatable — settling without dismissal")
+                sleep(TAP_ANR_SETTLE_S)
+                continue
         raise error
-    if dump.ok and dump.text:
-        # CAMSCAN-010J (part A.2) — the 010G fallback AUDITED for the
-        # same hole the loop's completion verdict had: this fallback
-        # shares NO completion verdict shape. Its only exits are a
-        # label tap (a return) or re-raising the original
-        # UnknownTargetError — an ok-but-empty dump body falls straight
-        # past this scan (nothing to needle-match), and an unparseable
-        # dump scans to zero clickables and re-raises too: honest
-        # failure, never a silent success. There is no "complete"
-        # verdict here for the node-proof gate to guard.
-        xml = dump.text
-        for needle in _label_needles(target):
-            for text, desc, center in _onb_clickable_nodes(xml):
-                if any(bad in value.lower()
-                       for value in (text, desc)
-                       for bad in _LABEL_EXCLUSION_SUBSTRINGS):
-                    continue          # NEVER the ANR app-killer button
-                if needle in text.lower():
-                    result = bridge.tap(center[0], center[1],
-                                        timeout=step_timeout)
-                    emit(f"{prefix} tap '{target}' by label discovery "
-                         f"at ({center[0]},{center[1]}) (text='{text}')")
-                    return result
-                if needle in desc.lower():
-                    result = bridge.tap(center[0], center[1],
-                                        timeout=step_timeout)
-                    emit(f"{prefix} tap '{target}' by label discovery "
-                         f"at ({center[0]},{center[1]}) (desc='{desc}')")
-                    return result
-        if dump_shows_anr(xml):
-            # CAMSCAN-010H (part A): the fallback's honest ANR note is
-            # ATTRIBUTED too — who is not responding (the S003 live
-            # shape fired this line; the overnight wall showed BOTH
-            # the app's own and the launcher's ANR over the splash).
-            subject = dump_anr_subject(xml)
-            note = f" (subject='{subject}')" if subject else ""
-            emit(f"{prefix} tap '{target}' by label discovery: no label "
-                 f"match and the dump shows the ANR dialog{note} — the "
-                 f"app is hung (isn't responding), not missing the "
-                 f"control")
+    # PROBE-31: the ANR persisted through the whole patience arc —
+    # the attributed exhaustion line, then the honest re-raise.
+    emit(f"{prefix} tap '{target}' by label discovery: ANR patience "
+         f"exhausted after {anr_rounds} ANR round(s) "
+         f"{_onb_anr_subject_counts(anr_subjects)} — re-raising the "
+         f"honest failure")
     raise error
 
 
@@ -2992,7 +3066,8 @@ echo LAUNCHED
                     result = tap_label_discovery_fallback(
                         bridge, params["target"], exc,
                         step_timeout=step_timeout, emit=emit,
-                        label="reference")
+                        label="reference",
+                        sleep=self._sleep, monotonic=self._monotonic)
             elif verb == "swipe":
                 result = bridge.swipe(params["x1"], params["y1"],
                                       params["x2"], params["y2"],

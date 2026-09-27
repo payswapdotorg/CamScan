@@ -56,6 +56,8 @@ from tools.lab_cli.reference_live import (
     ANR_WAIT_RES_ID,
     ONB_MAX_ROUNDS,
     ONB_ROUND_SETTLE_S,
+    TAP_ANR_MAX_ROUNDS,
+    TAP_ANR_SETTLE_S,
     _label_needles,
     _Native,
     _onb_anr_wait_center,
@@ -407,10 +409,19 @@ def test_tap_label_fallback_never_taps_close_app_and_names_anr():
     'close' target but is NEVER tapped (it kills the app); with no
     remaining match the original UnknownTargetError re-raises and the
     emit names the real reason — the app is hung, not missing the
-    control (the shared ANR signature, PART A's helper)."""
+    control (the shared ANR signature, PART A's helper).
+
+    PROBE-31 (CAMSCAN-010N substance): the re-raise now comes only
+    AFTER the step-phase ANR patience arc — every ANR round dismisses
+    the dialog's Wait button (the camera-campaign-proven dismissal;
+    Close app still NEVER tapped), settles TAP_ANR_SETTLE_S, and takes
+    a fresh dump; the ANR persisting through the whole arc is the
+    honest exhaustion (attributed, per-subject counts) — the app that
+    cannot stay responsive IS the observation. FakeClock keeps the
+    15-round arc hermetic."""
     provider = ScriptedProvider()
     provider.ui_xmls = [ANR_DUMP]
-    driver, _clock = _make_driver(provider)
+    driver, clock = _make_driver(provider)
     bridge = _bridge(provider)
     lines: list[str] = []
     native = _Native(provider, "e2b-fake01", "", "")
@@ -418,9 +429,12 @@ def test_tap_label_fallback_never_taps_close_app_and_names_anr():
     with pytest.raises(UnknownTargetError):
         driver._invoke_plan(bridge, plan, "com.intsig.camscanner",
                             120, native, lines.append)
-    assert provider.interactions == []        # Close app NEVER tapped
+    # Close app NEVER tapped — the app-killer guard holds on every
+    # round; the ONLY taps are the Wait dismissals (one per ANR round)
     assert not any((a.x, a.y) == ANR_CLOSE_CENTER
                    for a in provider.interactions)
+    assert [(a.x, a.y) for a in provider.interactions] == \
+        [ANR_WAIT_CENTER] * TAP_ANR_MAX_ROUNDS
     assert any("no label match and the dump shows the ANR dialog"
                in line for line in lines)
     # CAMSCAN-010H: the fallback's honest note is ATTRIBUTED — this
@@ -428,6 +442,44 @@ def test_tap_label_fallback_never_taps_close_app_and_names_anr():
     assert any("no label match and the dump shows the ANR dialog "
                "(subject='CamScanner')" in line for line in lines)
     assert any("hung" in line for line in lines)
+    # PROBE-31: the Wait dismissal line per round + the exhaustion line
+    assert any("ANR Wait dismissed at "
+               f"({ANR_WAIT_CENTER[0]},{ANR_WAIT_CENTER[1]}) "
+               "(app recovering, subject='CamScanner')" in line
+               for line in lines)
+    assert any(f"tap 'close' by label discovery: ANR patience exhausted "
+               f"after {TAP_ANR_MAX_ROUNDS} ANR round(s) "
+               "(rounds: CamScanner="
+               f"{TAP_ANR_MAX_ROUNDS}) — re-raising the honest failure"
+               in line for line in lines)
+    # the settles: one per ANR round (the injected FakeClock sleep)
+    assert clock.slept == [TAP_ANR_SETTLE_S] * TAP_ANR_MAX_ROUNDS
+
+
+def test_tap_label_fallback_anr_storm_then_recovery_lands_tap():
+    """PROBE-31's core value — the S003 recovery arc: two ANR-storm
+    rounds (Wait dismissed, settled, re-dumped) then the app recovers
+    and renders the clickable 'Scan' control — the round-3 needle scan
+    finds it, the tap lands, and the step is OK. The S003 wall (4
+    deterministic deaths at the first ANR dump) becomes a transient
+    storm the driver outlasts."""
+    provider = ScriptedProvider()
+    provider.ui_xmls = [ANR_DUMP, ANR_DUMP, SCAN_DUMP]
+    driver, clock = _make_driver(provider)
+    bridge = _bridge(provider)                # the real targets.yaml
+    lines: list[str] = []
+    native = _Native(provider, "e2b-fake01", "", "")
+    (plan,) = plan_steps(["tap: scan"], None)
+    ok, _diag = driver._invoke_plan(bridge, plan, "com.intsig.camscanner",
+                                    120, native, lines.append)
+    assert ok is True
+    # two Wait dismissals, then the Scan tap — the recovery arc
+    assert [(a.x, a.y) for a in provider.interactions] == \
+        [ANR_WAIT_CENTER, ANR_WAIT_CENTER, (540, 2110)]
+    assert any("tap 'scan' by label discovery at (540,2110) "
+               "(text='Scan')" in line for line in lines)
+    assert not any("ANR patience exhausted" in line for line in lines)
+    assert clock.slept == [TAP_ANR_SETTLE_S] * 2
 
 
 def test_registry_first_registered_id_never_fires_fallback():
