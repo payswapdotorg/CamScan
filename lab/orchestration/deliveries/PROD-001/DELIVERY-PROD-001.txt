@@ -1,0 +1,116 @@
+CAMSCAN-PROD-001 DELIVERY
+=========================
+
+Worker:      Worker 1 (Capture & Scan Engine track)
+Work order:  CAMSCAN-PROD-001 — capture foundation (PACKET REVISION 2)
+Base sha:    69ee49256ca647c3a1f0ec5d8689204f07624f9a (PRODUCT-FOUNDATION, lead-owned wave-0 contract layer)
+Branch:      work/CAMSCAN-PROD-001
+Head commit: f1356c986b09ea435baa30328db8e822464a327d
+Commit msg:  CAMSCAN-PROD-001: capture foundation — CameraX preview, permission gate,
+             capture lifecycle, stable camera state on the lead PRODUCT-FOUNDATION base
+
+Bundle (in-repo):        camscan-prod-001.bundle
+Bundle (parent copy):    /home/z/camscan-prod-001.bundle
+Bundle sha256:           d86116f5069c71db71a729d903926c8c6ef8d8558ab9f6c1cd0c25b7c0f80a80
+Bundle range:            69ee49256ca647c3a1f0ec5d8689204f07624f9a..work/CAMSCAN-PROD-001
+Bundle contents:         ref refs/heads/work/CAMSCAN-PROD-001 = f1356c986b09ea435baa30328db8e822464a327d
+                         (git bundle verify: okay; requires base 69ee492)
+
+ADDED FILES (13 files, 2158 insertions; no existing file modified):
+
+  app/src/main/java/org/payswap/camscan/capture/camera/CameraPermissionGate.kt
+    - §6.1 permission state machine: NOT_REQUESTED/REQUESTED/GRANTED/DENIED_SOFT/
+      DENIED_PERMANENT; requestStarted() + onPermissionResult(granted);
+      RationaleChecker fun interface; canRequest = NOT_REQUESTED|DENIED_SOFT;
+      DENIED_PERMANENT only on denial + rationale==false. Pure Kotlin, no android.*.
+
+  app/src/main/java/org/payswap/camscan/capture/camera/CameraStateMachine.kt
+    - §6.2 capture lifecycle machine: IDLE/OPENING/READY/CAPTURING/ERROR/CLOSED;
+      bindStarted/cameraReady/captureStarted/captureComplete/captureFailed/
+      cameraError(recoverable)/close; illegal events return false + diagnostic
+      string, never throw; recoverable -> OPENING (rebind), permanent -> ERROR
+      (terminal until close). Pure Kotlin, no android.*.
+
+  app/src/main/java/org/payswap/camscan/capture/camera/StableCameraState.kt
+    - §6.3 immutable settings + pure reducer: lensFacing BACK|FRONT, flash
+      AUTO|ON|OFF (AUTO default), available; events ToggleFlash / SwitchLens /
+      SetAvailable; lens switch rejected while unavailable; rejected events
+      return the same instance. Pure Kotlin, no android.*.
+
+  app/src/main/java/org/payswap/camscan/capture/camera/CapturedShot.kt
+    - §6.5 in-memory capture value (file, capturedAtMillis via TimeSource,
+      lensFacing, flash).
+
+  app/src/main/java/org/payswap/camscan/capture/camera/CameraController.kt
+    - §6.4 CameraX glue: Preview+ImageCapture bound to a LifecycleOwner via
+      ProcessCameraProvider.getInstance (ListenableFuture listener pattern, no
+      blocking gets); rebind on lens switch and recoverable error (bounded to 3
+      consecutive attempts, then permanent ERROR); takeStill(target, callback)
+      with sealed CaptureOutcome Saved/Failed and reason taxonomy
+      IO/CAPTURE_FAILED/CAMERA_UNAVAILABLE/NOT_READY/NO_PERMISSION; flash-mode
+      mapping onto ImageCapture; listener interface; no Activity/Fragment
+      imports beyond LifecycleOwner/Context.
+
+  app/src/main/java/org/payswap/camscan/capture/camera/ScanFragment.kt
+    - §6.5 live scan surface: hosts CameraController, drives the machine
+      through it; permission overlay + RequestPermission launcher; capture
+      button enabled only in READY; flash/lens controls; graceful unavailable
+      state; CapturedShot kept in memory and re-armed per capture;
+      onCaptureResult fired on scan_done_button; onScanAbandoned on back-exit.
+
+  app/src/main/java/org/payswap/camscan/capture/camera/CameraScanLauncher.kt
+    - §6.6 core.navigation.ScanLauncher implementation: replace into
+      host.containerViewId via host FragmentManager, addToBackStack "scan",
+      returns true; onScanFinished(null) for both finished (no document id yet —
+      PROD-004 owns persistence) and abandoned paths.
+
+  app/src/main/res/layout/fragment_scan.xml
+    - Scan surface layout; contract-frozen ids scan_camera_preview,
+      scan_capture_button, scan_flash_toggle, scan_switch_camera,
+      scan_permission_request_button, scan_permission_rationale,
+      scan_unavailable_state, scan_done_button; PreviewView compat mode.
+
+  app/src/main/res/values/strings_capture.xml
+    - All scan_ strings incl. per-state permission rationale texts and flash
+      state labels (scan_ prefix, worker-disjoint file).
+
+  app/src/test/java/org/payswap/camscan/capture/camera/CameraPermissionGateTest.kt
+    - §6.7 exhaustive transition tables: 17 tests.
+
+  app/src/test/java/org/payswap/camscan/capture/camera/CameraStateMachineTest.kt
+    - §6.7 exhaustive transition tables: 31 tests.
+
+  app/src/test/java/org/payswap/camscan/capture/camera/StableCameraStateTest.kt
+    - §6.7 exhaustive reducer tables + defaults + rejections: 18 tests.
+
+  app/src/androidTest/java/org/payswap/camscan/capture/camera/ScanFragmentLaunchTest.kt
+    - §6.8 FragmentScenario skeleton asserting all 8 semantic ids; documented
+      as running at the lead integration station (lab AVD), not in this
+      sandbox.
+
+MODIFIED FILES: none. The §4 contract layer (gradle/libs.versions.toml,
+app/build.gradle.kts, AndroidManifest.xml, core/** files, ScanEntry.kt) is
+consumed READ-ONLY from the base commit and is byte-identical to
+69ee49256ca647c3a1f0ec5d8689204f07624f9a (verified: empty diff).
+
+VERIFICATION PERFORMED IN SANDBOX (beyond the §7 minimum):
+  - Toolchain bootstrapped user-locally (no root): Temurin JDK 17.0.20.1+
+    javac 17.0.20.1; Android cmdline-tools; platforms;android-35,
+    build-tools;35.0.0, platform-tools; licenses accepted.
+  - ./gradlew :app:testDebugUnitTest  -> BUILD SUCCESSFUL; 67 tests total,
+    66 new (PermissionGate 17 / StateMachine 31 / StableCameraState 18),
+    0 failures, 0 errors, 0 skipped (JUnit XML reports).
+  - ./gradlew :app:lintDebug          -> BUILD SUCCESSFUL (abortOnError=true).
+  - ./gradlew :app:compileDebugAndroidTestKotlin -> BUILD SUCCESSFUL.
+  - ./gradlew :app:assembleDebug      -> BUILD SUCCESSFUL (debug APK built;
+    native-lib strip notice only, no error).
+  - git status clean-tree discipline: only the 13 boundary files added; no
+    build artifacts or local.properties tracked; contract layer untouched.
+  - NOT run in sandbox: connectedAndroidTest (no emulator/device here) — the
+    §6.8 skeleton runs at the lead integration station. No reference-app
+    observation (reference substrate credential remains absent in this
+    sandbox, consistent with the S003/S004 NOT-OBSERVED records).
+
+Status vocabulary (binding): implemented != verified != reconciled != accepted.
+This delivery is implemented + locally verified (unit/lint/compile/assemble);
+reconciliation and acceptance remain with Worker 3 / the lead.

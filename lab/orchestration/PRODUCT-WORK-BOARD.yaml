@@ -71,6 +71,14 @@ waves:
       - W2: CAMSCAN-PROD-005,CAMSCAN-PROD-006,CAMSCAN-PROD-007
       - W3: CAMSCAN-PROD-009 plus scan parity scenarios
     integration_gate: CAMSCAN-PROD-013
+    delivered:
+      CAMSCAN-PROD-001:
+        status: delivered 2026-09-27 (worker re-execution; supersedes first execution 71bc2d1)
+        branch: work/CAMSCAN-PROD-001
+        head: f1356c986b09ea435baa30328db8e822464a327d
+        bundle_sha256: d86116f5069c71db71a729d903926c8c6ef8d8558ab9f6c1cd0c25b7c0f80a80
+        worker_verification: "Gradle gate green in-sandbox: testDebugUnitTest 66/66, lintDebug, assembleDebug, compileDebugAndroidTest; instrumentation skeleton deferred to lead station"
+        record: lab/orchestration/deliveries/PROD-001/
   wave_2:
     title: daily-workflow
     work:
