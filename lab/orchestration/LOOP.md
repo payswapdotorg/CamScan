@@ -14,7 +14,23 @@ DISCOVER → REFERENCE → SPECIFY → IMPLEMENT → VERIFY → RECONCILE
   evidence bundles land in runs/ + R2.
 - **RECONCILE** — Worker 3 compares evidence; PASS → lead records acceptance;
   divergence → gap report → back to Worker 1.
-- Bounded scenarios only: never implement the whole app before discovering
-  behavioral divergence.
+- Bounded scenarios remain the acceptance units, but they no longer prevent broad
+  product implementation. Workers build the product in parallel vertical slices
+  from the product architecture/feature matrix; the parity scenario loop verifies
+  each completed slice against the observable reference.
 - The loop status truth is `lab/parity-ledger/ledger.json`; the tech lead is the
   only writer.
+
+
+## Product loop
+
+The repository now runs two nested loops:
+
+```
+PRODUCT: contract → parallel implementation → integration → build/test
+PARITY:  reference → executable scenario → both sides → evidence
+         → reconcile → gap → implement → rerun → accept
+```
+
+The product loop keeps all three workers productive. The parity loop prevents
+the implementation from drifting away from observable CamScanner behavior.
