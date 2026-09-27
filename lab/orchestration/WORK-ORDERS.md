@@ -70,3 +70,51 @@ assumptions: …
 open questions / handoffs: …
 base sha: <40-hex>
 ```
+
+
+## Full product implementation program — added 2026-09-27
+
+The historical CAMSCAN-001..011 work orders remain the laboratory bootstrap record.
+The following product program is the active implementation queue and is derived from
+the product architecture lock and feature matrix.
+
+### Product work streams
+
+| WO | Worker | Scope | Acceptance |
+|---|---|---|---|
+| CAMSCAN-PROD-001 | W1 | Capture foundation: CameraX preview, permission, capture lifecycle, stable camera state | live camera screen + unit/instrumentation tests |
+| CAMSCAN-PROD-002 | W1 | Document detection: quad detection, confidence, temporal stabilization, framing overlay | clean/skewed/receipt fixtures + reference scenario |
+| CAMSCAN-PROD-003 | W1 | Geometry/processing: perspective correction, enhancement, quality gates | image-processing tests + reference output comparison |
+| CAMSCAN-PROD-004 | W1 | Scan session: review, crop, rotate, retake, multi-page capture | end-to-end scanner journey |
+| CAMSCAN-PROD-005 | W2 | Product shell/navigation/home/library | major navigation flow on AVD |
+| CAMSCAN-PROD-006 | W2 | Document/page persistence and viewer | save/reopen/order tests |
+| CAMSCAN-PROD-007 | W2 | PDF/JPG export and native sharing | readable output + Android Sharesheet verification |
+| CAMSCAN-PROD-008 | W2 | Import, merge/split/compress and page management | document-workspace scenario suite |
+| CAMSCAN-PROD-009 | W3 | OCR engine adapter + OCR result model | deterministic OCR harness + live reference behavior |
+| CAMSCAN-PROD-010 | W3 | OCR indexing/search and text export/share | search + text workflow |
+| CAMSCAN-PROD-011 | W3 | Signature, annotation, watermark, protection tools | tool-specific scenarios + output verification |
+| CAMSCAN-PROD-012 | W3 | Specialist scan modes and reconciliation automation | ID/book/business-card scenarios + gap loop |
+| CAMSCAN-PROD-013 | TL + all | First complete P0 scanner parity loop | reference + implementation + reconciliation PASS |
+| CAMSCAN-PROD-014 | TL + all | P1 daily workflow parity loop | library/OCR/edit/export suite passes |
+| CAMSCAN-PROD-015 | TL + all | P2/P3 expansion and hardening | feature matrix covered with truthful statuses |
+
+### Parallelism rule
+
+CAMSCAN-PROD-001/005/009 may be dispatched in parallel after the lead publishes the
+shared contract. Subsequent work remains parallel where path ownership permits.
+
+### First campaign gate
+
+No P1/P2 campaign may be treated as the main success milestone until
+CAMSCAN-PROD-013 demonstrates:
+
+Home → Scan → Detect → Capture → Correct → Enhance → Review → Save →
+Library → Export PDF/JPG → Share
+
+on CamScan, with a current reference run and Worker 3 reconciliation.
+
+### Status rule
+
+Product work orders are implementation queue items, not parity acceptance. A
+green unit-test result does not change the parity ledger. Only the evidence/reconciliation
+loop can move a feature to accepted.
