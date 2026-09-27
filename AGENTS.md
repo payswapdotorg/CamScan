@@ -64,3 +64,29 @@ gates at the integration station and never trusts reported numbers.
 `implemented` ≠ `verified` ≠ `reconciled` ≠ `accepted`. A feature is `accepted` only
 after a scenario PASS recorded in the ledger with current evidence. Never report
 "implemented" when only code exists; never turn an untested feature into a pass.
+
+
+## Product-program operating model (effective 2026-09-27)
+
+The repository now has a permanent three-worker product implementation program. Read
+lab/orchestration/FULL-APP-PROGRAM.md and the product architecture documents before
+dispatching product work.
+
+| Agent | Product surface | Primary acceptance |
+|---|---|---|
+| Tech lead | architecture, reference oracle, scenarios, ledger, work orders, integration/merge | current evidence + CI + parity |
+| Worker 1 | app capture + processing + scan engine | scanner fixture tests + live scan flow |
+| Worker 2 | app document/library/export/navigation | persistence + output tests + live workspace flow |
+| Worker 3 | app OCR/tools/search + reconciliation tooling | OCR/tool tests + reconciliation + live verification |
+
+Worker path ownership is deliberate. Do not create competing implementations of the same
+domain model in different worker trees. Shared contracts are lead-owned and live in
+docs/PRODUCT-ARCHITECTURE-LOCK.md and docs/SCAN-ENGINE-CONTRACT.md.
+
+The previous rule that the team must avoid implementing broader product behavior until
+the entire reference app is discovered is superseded. The correct rule is: implement
+vertical product slices in parallel, but never mark a slice accepted until its observable
+reference behavior has been exercised or explicitly documented as NOT OBSERVED.
+
+Android Studio is not an agent dependency. Android CLI, SDK, Emulator, ADB and Gradle
+are the canonical execution stack.
