@@ -985,6 +985,32 @@ def _onb_dump_node_count(dump_xml: str) -> int:
     return sum(1 for node in root.iter() if node.tag == "node")
 
 
+def _onb_dump_has_app_node(dump_xml: str, app_package: str) -> bool:
+    """CAMSCAN-010K — does the dump carry at least one node whose
+    package IS the expected app? The 20260927T143704Z-S002-live
+    false positive (#3 of the class, commit-invalidated same day):
+    the launch dump showed "CamScanner isn't responding" and the
+    onboarding loop's COMPLETION dump was the LAUNCHER surface
+    (24 nodes, every one package="com.google.android.apps.
+    nexuslauncher", texts Chrome/Messages/Sunday, Sep 27) — the app
+    had DIED mid-onboarding, and launcher icons match no permission/
+    affirmative/exclusion pattern, so the verdict site read "no
+    actionable control = complete". A dump whose every node is
+    foreign carries NO app surface: under uiautomator's all-windows
+    hierarchy an app dialog (permission, ANR) still shows the app's
+    window nodes UNDERNEATH — only the app's ABSENCE removes them.
+    Unparseable dumps carry nothing (the 010J node-proof already
+    guards that path; this helper stays the package oracle)."""
+    try:
+        root = ET.fromstring(dump_xml)
+    except ET.ParseError:
+        return False
+    for node in root.iter():
+        if node.tag == "node" and (node.get("package") or "") == app_package:
+            return True
+    return False
+
+
 def dump_shows_anr(dump_xml: str) -> bool:
     """CAMSCAN-010G — does a ui-hierarchy dump carry the ANR-dialog
     signature (the aerr title text "… isn't responding", or the aerr
@@ -1108,6 +1134,7 @@ def onboarding_discovery_loop(bridge: Any, *, step_timeout: int,
                               emit: Callable[[str], None],
                               label: str,
                               monotonic: Callable[[], float] = time.monotonic,
+                              app_package: str | None = None,
                               ) -> bool:
     """CAMSCAN-010F — the dump-first onboarding discovery ladder (the
     PROVEN _anr_ladder shape: dump → bounds-regex → center-tap →
@@ -1174,10 +1201,25 @@ def onboarding_discovery_loop(bridge: Any, *, step_timeout: int,
     PART C.1: the loop opens with a ONE-OFF leading settle of
     2 x ONB_ROUND_SETTLE_S — the app's first breath before the first
     dump is doubled (the launch ladder itself is untouched; this is
-    the only launch-adjacent change and it lives here)."""
+    the only launch-adjacent change and it lives here).
+
+    CAMSCAN-010K — APP-FOREGROUND COMPLETION GATE (the third S002
+    false-positive, run 20260927T143704Z, 2026-09-27): the completion
+    verdict additionally requires the round's dump to carry at least
+    one node of the expected APP PACKAGE (``app_package``; None
+    disables the gate). The launcher-after-app-death surface matches
+    no onboarding pattern and previously read as "no actionable
+    control = complete" with a LAUNCHER dump as evidence. App-gone
+    rounds are named, settle, and continue; the exhaustion lines
+    carry the app-gone attribution (the 010H anr_subjects pattern)."""
     prefix = f"  {label}: onboarding"
     anr_rounds = 0
     anr_subjects: dict[str, int] = {}
+    # CAMSCAN-010K: rounds whose dump carried NO app-package node —
+    # the app-left-foreground counter (the launcher-surface class;
+    # attribution for the exhaustion line, the 010H anr_subjects
+    # pattern applied to the app-gone shape).
+    app_gone_rounds = 0
     probes_done = 0
     # CAMSCAN-010H (part B.1): the wall budget's epoch is the LOOP's
     # start — the launch/install minutes never eat the onboarding
@@ -1202,6 +1244,13 @@ def onboarding_discovery_loop(bridge: Any, *, step_timeout: int,
                 emit(f"{prefix} app ANR-looping — budget exhausted, "
                      f"honest fail "
                      f"{_onb_anr_subject_counts(anr_subjects)}")
+            if app_gone_rounds:
+                # CAMSCAN-010K: the budget died with app-gone rounds on
+                # record — the launcher-surface attribution, mirroring
+                # the ANR line's shape.
+                emit(f"{prefix} app left the foreground — budget "
+                     f"exhausted, honest fail "
+                     f"(app-gone rounds: {app_gone_rounds})")
             return False
         if (round_no % ONB_PROBE_EVERY_ROUNDS == 0
                 and probes_done < ONB_PROBE_MAX):
@@ -1301,6 +1350,27 @@ def onboarding_discovery_loop(bridge: Any, *, step_timeout: int,
                  f"— not treating as complete")
             sleep(ONB_ROUND_SETTLE_S)
             continue
+        if (app_package is not None
+                and not _onb_dump_has_app_node(xml, app_package)):
+            # CAMSCAN-010K — the APP-FOREGROUND completion gate: the
+            # verdict additionally requires the dump to carry the
+            # APP'S OWN surface. The 20260927T143704Z-S002-live false
+            # positive: after the launch-time ANR the app DIED, the
+            # system fell back to the launcher, and the launcher's
+            # icons (Chrome/Messages) match no onboarding pattern —
+            # pre-010K that read as "no actionable control =
+            # complete" with a LAUNCHER dump as the evidence. The
+            # app-gone round is NAMED, settles, and continues like
+            # any other round; the budget exhaustion lines (with the
+            # app-gone attribution) remain the honest other exit.
+            # A None app_package disables the gate (back-compat for
+            # callers without a package).
+            app_gone_rounds += 1
+            emit(f"{prefix} round {round_no}: app left the foreground "
+                 f"(no '{app_package}' nodes in the dump) — not "
+                 "treating as complete")
+            sleep(ONB_ROUND_SETTLE_S)
+            continue
         emit(f"{prefix} round {round_no}: no actionable control "
              f"— onboarding complete")
         return True
@@ -1312,6 +1382,21 @@ def onboarding_discovery_loop(bridge: Any, *, step_timeout: int,
         # attribution of the exhaustion.
         emit(f"{prefix} app ANR-looping — budget exhausted, honest fail "
              f"{_onb_anr_subject_counts(anr_subjects)}")
+        return False
+    if app_gone_rounds >= ONB_MAX_ROUNDS:
+        # CAMSCAN-010K: every round of the budget was an app-gone
+        # round — the app left the foreground (died mid-onboarding)
+        # and never came back; that IS the observation, and the
+        # attribution line mirrors the 010H ANR-looping shape.
+        emit(f"{prefix} app left the foreground for the whole budget "
+             f"— honest fail (app-gone rounds: {app_gone_rounds})")
+        return False
+    if app_gone_rounds > 0:
+        # CAMSCAN-010K: mixed-budget attribution — exhaustion with
+        # SOME app-gone rounds among the others.
+        emit(f"{prefix} discovery exhausted {ONB_MAX_ROUNDS} rounds "
+             f"without completing — honest failure "
+             f"(app-gone rounds: {app_gone_rounds})")
         return False
     emit(f"{prefix} discovery exhausted {ONB_MAX_ROUNDS} rounds "
          f"without completing — honest failure")
@@ -2573,7 +2658,8 @@ echo LAUNCHED
         the sleep-injection pattern)."""
         return onboarding_discovery_loop(
             bridge, step_timeout=step_timeout, sleep=self._sleep,
-            monotonic=self._monotonic, emit=emit, label="reference")
+            monotonic=self._monotonic, emit=emit, label="reference",
+            app_package=app)
 
     # ------------------------------------------- launch step (CAMSCAN-010A)
 

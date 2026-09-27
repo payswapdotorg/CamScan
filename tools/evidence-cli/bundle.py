@@ -63,6 +63,13 @@ class BundleResult:
     run_id: str
     subject: str
     manifest: dict | None = None
+    #: Where the CURRENT bundle manifest lives on disk — the run root
+    #: (single-subject stage dirs, the pre-assembly flow) or the subject
+    #: subtree (assembled run dirs, the evidence.py contract: no run-root
+    #: manifest; each subject subtree is a complete single-subject
+    #: bundle). None until a manifest is actually found/read. upload_run
+    #: stamps r2_keys and REWRITES the manifest at this exact path.
+    manifest_path: Path | None = None
     artifacts: list[ArtifactRec] = field(default_factory=list)
     #: CAMSCAN-010J — the size==0 files EXCLUDED from artifacts[] and
     #: recorded under the manifest's honest ``empty_captures`` key (a
@@ -197,12 +204,37 @@ def bundle_run(run_dir: Path, *, check: bool = False,
         if target == "old":
             old_manifest = doc
         meta.update(doc)  # run-metadata.json iterated last: runner wins
+    if (run_dir / "manifest.json").is_file():
+        result.manifest_path = run_dir / "manifest.json"
 
     if not meta:
-        result.problems.append(
-            "no metadata source: need run-metadata.json (runner-written) "
-            "or an existing manifest.json")
-        return result
+        # CAMSCAN-010K (pipeline half) — the ASSEMBLED-RUN-DIR fallback:
+        # evidence.py's assembly leaves the bundle manifest INSIDE the
+        # subject subtree (runs/<run-id>/<subject>/manifest.json) with
+        # NO run-root manifest — the 2026-09-27 campaign upload missed
+        # the landed S002 run dir entirely ("uploads: 0 new run dir(s)"
+        # with the run on disk; the campaign's old-layout condition plus
+        # this metadata gate). The subject manifest is a COMPLETE
+        # metadata source (run_id/subject/scenario/provider/application/
+        # device/fixtures/action_trace/timestamps) — read it as both the
+        # old manifest (r2_key carryover) and the meta.
+        subject_manifest = run_dir / subject / "manifest.json"
+        if subject_manifest.is_file():
+            try:
+                doc = jsonio.load(subject_manifest)
+            except (OSError, ValueError) as e:
+                result.problems.append(f"{subject}/manifest.json: "
+                                       f"unreadable ({e})")
+                doc = None
+            if isinstance(doc, dict):
+                old_manifest = doc
+                meta.update(doc)
+                result.manifest_path = subject_manifest
+        if not meta:
+            result.problems.append(
+                "no metadata source: need run-metadata.json (runner-written) "
+                "or an existing manifest.json (run root or subject subtree)")
+            return result
     meta.pop("artifacts", None)  # artifacts are rebuilt from disk
     # CAMSCAN-010J: empty_captures is disk-derived too (like
     # artifacts) — a stale copy from an old manifest never survives a
@@ -338,7 +370,10 @@ def bundle_run(run_dir: Path, *, check: bool = False,
                 result.problems.append(
                     f"sidecar {art.path}{SIDECAR_SUFFIX} needs writing — "
                     "re-bundle required")
-        old_path = run_dir / "manifest.json"
+        # CAMSCAN-010K (pipeline half): the on-disk manifest to compare
+        # against — the run root (stage flow) or the subject subtree
+        # (assembled flow), wherever the current manifest lives.
+        old_path = result.manifest_path or (run_dir / "manifest.json")
         if not old_path.is_file():
             result.problems.append("manifest.json missing — re-bundle "
                                   "required")

@@ -110,6 +110,15 @@ def walk_subject(subject_dir: Path) -> tuple[list[ArtifactRec],
 
     for entry in entries:
         if not entry.is_dir():
+            if entry.name == "manifest.json":
+                # CAMSCAN-010K (pipeline half): the assembled-run-dir
+                # contract (evidence.py: "no run-root manifest; each
+                # subject subtree is a COMPLETE single-subject bundle
+                # — own manifest.json at the subtree root"). The
+                # subject-root manifest is METADATA (the bundle
+                # output the assembly moved with the subtree), never
+                # an artifact.
+                continue
             problems.append(
                 f"unexpected file at subject root: {entry.name} "
                 "(artifacts live under category dirs: "

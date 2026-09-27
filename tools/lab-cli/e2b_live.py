@@ -353,7 +353,8 @@ class E2bLiveDriver:
                     ok = ok and onboarding_discovery_loop(
                         bridge, step_timeout=step_timeout,
                         sleep=self._sleep, monotonic=self._monotonic,
-                        emit=emit, label="implementation")
+                        emit=emit, label="implementation",
+                        app_package=app)
                     continue
                 ok = ok and result.ok
                 continue

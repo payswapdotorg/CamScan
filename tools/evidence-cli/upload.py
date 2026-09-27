@@ -88,11 +88,16 @@ def upload_run(run_dir: Path, *, fixtures_ref: Path | None = None,
         result.objects.append({"key": key, "sha256": entry["sha256"],
                                "bytes": entry["bytes"], "verified": True})
 
-    # 3. stamp r2_key + rewrite the manifest deterministically.
+    # 3. stamp r2_key + rewrite the manifest deterministically — at
+    # the manifest's ACTUAL location (the run root for stage-flow dirs;
+    # the subject subtree for assembled run dirs, CAMSCAN-010K's
+    # pipeline half: the subject manifest is the complete bundle and
+    # gets the r2_key stamps exactly like the root manifest did).
     for entry in manifest["artifacts"]:
         entry["r2_key"] = f"runs/{run_id}/{subject}/{entry['path']}"
-    jsonio.dump(run_dir / "manifest.json", manifest)
-    manifest_data = (run_dir / "manifest.json").read_bytes()
+    manifest_path = precheck.manifest_path or (run_dir / "manifest.json")
+    jsonio.dump(manifest_path, manifest)
+    manifest_data = manifest_path.read_bytes()
     result.manifest_sha256 = sha256_bytes(manifest_data)
     result.manifest_bytes = len(manifest_data)
 

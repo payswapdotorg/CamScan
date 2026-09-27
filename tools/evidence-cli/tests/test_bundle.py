@@ -237,3 +237,46 @@ def test_bundle_missing_run_dir(tmp_path):
     result = bundle_run(tmp_path / "nope")
     assert not result.ok
     assert any("does not exist" in p for p in result.problems)
+
+
+# --------------- CAMSCAN-010K (pipeline half): assembled-run-dir layout
+
+def test_bundle_assembled_layout_subject_manifest_fallback(tmp_path):
+    """CAMSCAN-010K (pipeline half) — the ASSEMBLED run-dir layout
+    (evidence.py's contract: no run-root manifest; the bundle manifest
+    lives at the subject subtree root; run-metadata.json never moved).
+
+    The stage flow first (bundle writes the root manifest + sidecars),
+    then the assembly shuffle (subject subtree keeps the manifest as
+    its subtree-root metadata; the root manifest and run-metadata.json
+    do not survive the move) — then check=True must PASS with
+    manifest_path pointing INSIDE the subject subtree. This is the
+    2026-09-27 campaign-upload miss regression: the landed S002 run
+    dir failed 'no metadata source' and the campaign reported
+    'uploads: 0 new run dir(s)' with the run on disk."""
+    run = build_run_tree(tmp_path, subject="reference",
+                         run_id="20260927T150000Z-S002-unit")
+    # stage flow: bundle writes the root manifest + sidecars
+    result = bundle_run(run, fixtures_ref=REPO_ROOT)
+    assert result.ok, result.problems
+    assert (run / "manifest.json").is_file()
+
+    # assembly shuffle: the subject subtree carries the manifest; the
+    # root manifest and run-metadata.json do not move with it
+    (run / "reference" / "manifest.json").write_bytes(
+        (run / "manifest.json").read_bytes())
+    (run / "manifest.json").unlink()
+    (run / "run-metadata.json").unlink()
+
+    # the assembled dir: check=True resolves the SUBJECT manifest as
+    # both the metadata source and the on-disk comparison target
+    checked = bundle_run(run, check=True, fixtures_ref=REPO_ROOT)
+    assert checked.ok, checked.problems
+    assert checked.manifest_path == run / "reference" / "manifest.json"
+    assert checked.manifest is not None
+    assert checked.manifest["run_id"] == run.name
+    assert checked.manifest["subject"] == "reference"
+    assert len(checked.manifest["artifacts"]) == 11
+    # the subject-root manifest is METADATA, never an artifact
+    assert not any(a["path"] == "manifest.json"
+                   for a in checked.manifest["artifacts"])

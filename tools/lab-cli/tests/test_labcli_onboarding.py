@@ -99,9 +99,11 @@ S001_EVIDENCE_GARBAGE = "cat: /sdcard/window_dump.xml: Permission denied\n"
 
 
 def _node(text: str = "", desc: str = "", clickable: bool = True,
-          bounds: str = "[0,0][1080,2280]") -> str:
+          bounds: str = "[0,0][1080,2280]",
+          package: str = "com.intsig.camscanner") -> str:
     return (f'<node text="{text}" content-desc="{desc}" '
             f'clickable="{"true" if clickable else "false"}" '
+            f'package="{package}" '
             f'bounds="{bounds}"/>')
 
 
@@ -149,6 +151,41 @@ SKIP_DUMP = _dump(
 TRAP_DUMP = _dump(
     _node("Upgrade to Premium", clickable=True,
           bounds="[100,2000][980,2140]"),         # center (540,2070)
+)
+
+#: CAMSCAN-010K — the launcher surface AFTER the app died mid-
+#: onboarding (the 20260927T143704Z-S002-live false positive #3,
+#: verbatim shape: 24 nexuslauncher nodes, Chrome/Messages/date —
+#: texts that match no permission/affirmative/exclusion pattern;
+#: every node's package is the LAUNCHER's, none the app's).
+LAUNCHER_PACKAGE = "com.google.android.apps.nexuslauncher"
+LAUNCHER_DUMP = _dump(
+    _node("Sunday, Sep 27", clickable=False,
+          bounds="[0,80][1080,200]", package=LAUNCHER_PACKAGE),
+    _node("Chrome", clickable=True,
+          bounds="[60,1700][320,1960]", package=LAUNCHER_PACKAGE),
+    _node("Messages", clickable=True,
+          bounds="[380,1700][640,1960]", package=LAUNCHER_PACKAGE),
+)
+
+#: CAMSCAN-010K — the app's own clean screen WITH app-package nodes
+#: (the completion-grade dump: a real app surface always carries its
+#: own package on its window nodes).
+CLEAN_APP_DUMP = _dump(
+    _node("CamScanner", clickable=False, bounds="[84,120][500,200]"),
+    _node(desc="Camera", clickable=True,
+          bounds="[470,2060][610,2200]"),         # center (540,2130)
+)
+
+#: CAMSCAN-010K — the IMPLEMENTATION app's clean screen (the e2b_live
+#: driver passes org.payswap.camscan as its app_package; the fallback
+#: test's completion round must carry the implementation package).
+IMP_CLEAN_DUMP = _dump(
+    _node("CamScan", clickable=False, bounds="[84,120][500,200]",
+          package="org.payswap.camscan"),
+    _node(desc="Camera", clickable=True,
+          bounds="[470,2060][610,2200]",
+          package="org.payswap.camscan"),       # center (540,2130)
 )
 
 
@@ -470,7 +507,7 @@ def test_e2b_live_onboarding_registry_miss_falls_back_to_discovery(
     falls into the SAME dump-first discovery loop, which completes on
     the same dump sequence (permission → Next → clean)."""
     provider = ScriptedProvider()
-    provider.ui_xmls = [PERMISSION_DUMP, NEXT_DUMP, CLEAN_DUMP]
+    provider.ui_xmls = [PERMISSION_DUMP, NEXT_DUMP, IMP_CLEAN_DUMP]
     registry = tmp_path / "targets-miss.yaml"
     registry.write_text(
         "schema: 1\nprofile:\n  device: pixel_4\ntargets: {}\napps: {}\n",
@@ -544,3 +581,127 @@ def test_recording_driver_renders_onboarding_complete_verb(tmp_path):
     verdict = jsonio_load(run_dir / "reconciliation" / "verdict.json")
     assert verdict["verdict"] == "PASS"
     assert verdict["scenario"] == "onboarding"
+
+
+# --------------------------- CAMSCAN-010K (app-foreground completion gate)
+
+def test_onboarding_discovery_launcher_surface_never_completes():
+    """CAMSCAN-010K — the launcher-after-app-death surface NEVER reads
+    as completion: the 20260927T143704Z-S002-live false positive #3
+    verbatim (every node package=com.google.android.apps.nexuslauncher,
+    Chrome/Messages/date texts that match no onboarding pattern). The
+    driver passes app_package='com.intsig.camscanner'; each round is
+    NAMED app-gone, settles, continues; the budget dies with the
+    dedicated attribution line; the launcher icons are NEVER tapped."""
+    provider = ScriptedProvider()
+    provider.ui_xmls = [LAUNCHER_DUMP]              # repeats every round
+    driver, _clock = _make_driver(provider)
+    bridge = _bridge(provider)
+    lines: list[str] = []
+    native = _Native(provider, "e2b-fake01", "", "")
+    ok = driver._onboarding_complete(bridge, native, "com.intsig.camscanner",
+                                     120, lines.append)
+    assert ok is False
+    # the launcher icons were NEVER tapped (Chrome/Messages stay inert)
+    assert provider.interactions == []
+    # every round is a NAMED app-gone round (the per-round signature;
+    # the final attribution line is asserted separately below)
+    gone = [line for line in lines
+            if "app left the foreground" in line
+            and "not treating as complete" in line]
+    assert len(gone) == ONB_MAX_ROUNDS
+    assert any("no 'com.intsig.camscanner' nodes in the dump" in line
+               for line in gone)
+    # the dedicated exhaustion attribution (the 010H ANR-looping shape)
+    assert any(f"app left the foreground for the whole budget — honest "
+               f"fail (app-gone rounds: {ONB_MAX_ROUNDS})" in line
+               for line in lines)
+    # completion NEVER fired
+    assert not any("onboarding complete" in line for line in lines)
+    # one fresh dump per round (the rounds were dump-driven)
+    ui_captures = [op for op in provider.ops
+                   if op[0] == "capture" and op[1] == "ui_hierarchy"]
+    assert len(ui_captures) == ONB_MAX_ROUNDS
+
+
+def test_onboarding_discovery_anr_then_launcher_honest_fail():
+    """CAMSCAN-010K — the live false-run SHAPE end to end: the app's
+    own ANR dialog first (Wait dismissed at the bounds-center), then
+    the app DIES and the launcher takes the surface for the rest of
+    the budget. Mixed-budget attribution: anr_rounds=1 survives in
+    the record, app-gone rounds carry the exhaustion line; completion
+    NEVER fires; the Wait tap is the only interaction."""
+    app_anr = _dump(
+        _node("CamScanner isn't responding", clickable=False,
+              bounds="[84,960][996,1060]", package="android"),
+        _node("Wait", clickable=True,
+              bounds="[590,1240][790,1340]", package="android"),
+    )
+    provider = ScriptedProvider()
+    provider.ui_xmls = [app_anr] + [LAUNCHER_DUMP] * ONB_MAX_ROUNDS
+    driver, _clock = _make_driver(provider)
+    bridge = _bridge(provider)
+    lines: list[str] = []
+    native = _Native(provider, "e2b-fake01", "", "")
+    ok = driver._onboarding_complete(bridge, native, "com.intsig.camscanner",
+                                     120, lines.append)
+    assert ok is False
+    # the ANR round dismissed Wait at its bounds-center — the ONLY tap
+    assert [(a.x, a.y) for a in provider.interactions] == [(690, 1290)]
+    assert any("ANR Wait dismissed at (690,1290) (app recovering, "
+               "subject='CamScanner')" in line for line in lines)
+    # the launcher rounds are app-gone rounds (every round after the
+    # ANR round; the per-round signature, not the attribution line)
+    gone = [line for line in lines
+            if "app left the foreground" in line
+            and "not treating as complete" in line]
+    assert len(gone) == ONB_MAX_ROUNDS - 1
+    # mixed-budget attribution: exhaustion with app-gone rounds among
+    # the others (the ANR round consumed one of the budget's rounds)
+    assert any(f"discovery exhausted {ONB_MAX_ROUNDS} rounds without "
+               f"completing — honest failure "
+               f"(app-gone rounds: {ONB_MAX_ROUNDS - 1})" in line
+               for line in lines)
+    # completion NEVER fired
+    assert not any("onboarding complete" in line for line in lines)
+
+
+def test_onboarding_discovery_app_gate_disabled_when_package_none():
+    """CAMSCAN-010K back-compat: app_package=None DISABLES the gate —
+    a launcher dump reads as the old 'no actionable control =
+    complete' verdict (the loop's direct callers without a package
+    keep the pre-010K semantics; both live drivers always pass the
+    package)."""
+    from tools.lab_cli.reference_live import onboarding_discovery_loop
+    provider = ScriptedProvider()
+    provider.ui_xmls = [LAUNCHER_DUMP]
+    bridge = _bridge(provider)
+    lines: list[str] = []
+    clock = FakeClock()
+    ok = onboarding_discovery_loop(
+        bridge, step_timeout=120, sleep=clock.sleep,
+        emit=lines.append, label="bare", monotonic=clock.monotonic,
+        app_package=None)
+    assert ok is True
+    assert any("no actionable control — onboarding complete" in line
+               for line in lines)
+    assert not any("app left the foreground" in line for line in lines)
+
+
+def test_onboarding_discovery_completion_requires_app_surface():
+    """CAMSCAN-010K positive control: the SAME clean screen completes
+    ONLY when its nodes carry the app's package — the gate is a
+    package oracle, not a blanket refusal (a real app surface always
+    carries its own package on its window nodes)."""
+    provider = ScriptedProvider()
+    provider.ui_xmls = [CLEAN_APP_DUMP]
+    driver, _clock = _make_driver(provider)
+    bridge = _bridge(provider)
+    lines: list[str] = []
+    native = _Native(provider, "e2b-fake01", "", "")
+    ok = driver._onboarding_complete(bridge, native, "com.intsig.camscanner",
+                                     120, lines.append)
+    assert ok is True
+    assert any("round 1: no actionable control — onboarding complete"
+               in line for line in lines)
+    assert not any("app left the foreground" in line for line in lines)
