@@ -2,8 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
 
-    <!-- CAMSCAN-001 skeleton: single placeholder launcher activity, no permissions,
-         no network, no services. Features arrive from parity scenarios only. -->
+    <!-- CAMSCAN-PROD-001: the scan path needs the camera. The feature is optional at
+         install time (required=false) so non-camera devices still install CamScan and
+         receive a graceful no-camera state. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
