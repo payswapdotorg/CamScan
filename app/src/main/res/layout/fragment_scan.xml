@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CAMSCAN-PROD-001 §6.5: the live scan surface.
+
+     The scan_* ids are contract-frozen for ADB parity tests — do not rename:
+     scan_camera_preview, scan_capture_button, scan_flash_toggle,
+     scan_switch_camera, scan_permission_request_button,
+     scan_permission_rationale, scan_unavailable_state, scan_done_button.
+
+     Framework-only style attributes on purpose: the layout must inflate under
+     any host theme (FragmentScenario included). -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black">
+
+    <androidx.camera.view.PreviewView
+        android:id="@+id/scan_camera_preview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@string/scan_preview_camera"
+        app:implementationMode="compatible" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="end|center_vertical"
+        android:padding="16dp">
+
+        <Button
+            android:id="@+id/scan_flash_toggle"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:text="@string/scan_flash_auto"
+            android:contentDescription="@string/scan_flash_auto" />
+
+        <Button
+            android:id="@+id/scan_switch_camera"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:text="@string/scan_switch_camera"
+            android:contentDescription="@string/scan_switch_camera" />
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/scan_capture_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="32dp"
+        android:minWidth="96dp"
+        android:minHeight="48dp"
+        android:enabled="false"
+        android:text="@string/scan_capture"
+        android:contentDescription="@string/scan_capture" />
+
+    <Button
+        android:id="@+id/scan_done_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="16dp"
+        android:minHeight="48dp"
+        android:visibility="gone"
+        android:text="@string/scan_done"
+        android:contentDescription="@string/scan_done" />
+
+    <LinearLayout
+        android:id="@+id/scan_permission_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="?android:attr/colorBackground"
+        android:padding="24dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/scan_permission_rationale"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:text="@string/scan_permission_needed" />
+
+        <Button
+            android:id="@+id/scan_permission_request_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:minHeight="48dp"
+            android:text="@string/scan_permission_request"
+            android:contentDescription="@string/scan_permission_request" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/scan_unavailable_state"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:padding="24dp"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="@string/scan_unavailable"
+        android:visibility="gone" />
+
+</FrameLayout>

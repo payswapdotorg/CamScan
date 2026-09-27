@@ -1,0 +1,18 @@
+<resources>
+    <!-- CAMSCAN-PROD-001 §6.5: scan-surface strings only. Worker-disjoint by
+         design — every name carries the scan_ prefix; other workers own other
+         resource files. -->
+    <string name="scan_preview_camera">Camera preview</string>
+    <string name="scan_capture">Capture</string>
+    <string name="scan_done">Done</string>
+    <string name="scan_flash_auto">Flash auto</string>
+    <string name="scan_flash_on">Flash on</string>
+    <string name="scan_flash_off">Flash off</string>
+    <string name="scan_switch_camera">Switch camera</string>
+    <string name="scan_permission_needed">CamScan needs camera access to scan documents. Allow the camera to continue.</string>
+    <string name="scan_permission_denied_soft">Camera access was declined. Tap Allow camera, then try scanning again.</string>
+    <string name="scan_permission_denied_permanent">Camera access is blocked. Allow it in the system settings, then come back to scan.</string>
+    <string name="scan_permission_request">Allow camera</string>
+    <string name="scan_unavailable">The camera is not available on this device.</string>
+    <string name="scan_capture_failed">Capture failed. Try again.</string>
+</resources>
