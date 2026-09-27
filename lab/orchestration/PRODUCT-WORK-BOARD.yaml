@@ -1,0 +1,117 @@
+version: 1
+updated: 2026-09-27
+authority:
+  architecture: docs/PRODUCT-ARCHITECTURE-LOCK.md
+  features: docs/PRODUCT-FEATURE-MATRIX.md
+  scanner_contract: docs/SCAN-ENGINE-CONTRACT.md
+  program: lab/orchestration/FULL-APP-PROGRAM.md
+  acceptance: lab/parity-ledger/ledger.json
+
+priority:
+  P0: scanner vertical slice
+  P1: daily document workflow
+  P2: advanced document tools
+  P3: ecosystem
+
+workers:
+  W1:
+    name: capture-and-scan-engine
+    paths:
+      - app/src/main/java/org/payswap/camscan/capture/**
+      - app/src/main/java/org/payswap/camscan/processing/**
+      - app/src/main/java/org/payswap/camscan/core/image/**
+      - app/src/test/**
+    work_orders:
+      - CAMSCAN-PROD-001
+      - CAMSCAN-PROD-002
+      - CAMSCAN-PROD-003
+      - CAMSCAN-PROD-004
+  W2:
+    name: document-workspace-and-export
+    paths:
+      - app/src/main/java/org/payswap/camscan/document/**
+      - app/src/main/java/org/payswap/camscan/library/**
+      - app/src/main/java/org/payswap/camscan/export/**
+      - app/src/main/java/org/payswap/camscan/settings/**
+      - app/src/androidTest/**
+    work_orders:
+      - CAMSCAN-PROD-005
+      - CAMSCAN-PROD-006
+      - CAMSCAN-PROD-007
+      - CAMSCAN-PROD-008
+  W3:
+    name: ocr-tools-and-verification
+    paths:
+      - app/src/main/java/org/payswapdotorg/camscan/ocr/**
+      - app/src/main/java/org/payswap/camscan/ocr/**
+      - app/src/main/java/org/payswap/camscan/tools/**
+      - app/src/main/java/org/payswap/camscan/search/**
+      - lab/reconciliation/**
+      - tools/parity-cli/**
+    work_orders:
+      - CAMSCAN-PROD-009
+      - CAMSCAN-PROD-010
+      - CAMSCAN-PROD-011
+      - CAMSCAN-PROD-012
+
+waves:
+  wave_0:
+    title: contracts
+    work:
+      - publish domain model
+      - publish scan engine interfaces
+      - publish navigation destinations
+      - publish persistence contracts
+    gate: all workers consume the same contracts
+  wave_1:
+    title: scanner-vertical-slice
+    parallel:
+      - W1: CAMSCAN-PROD-001,CAMSCAN-PROD-002,CAMSCAN-PROD-003,CAMSCAN-PROD-004
+      - W2: CAMSCAN-PROD-005,CAMSCAN-PROD-006,CAMSCAN-PROD-007
+      - W3: CAMSCAN-PROD-009 plus scan parity scenarios
+    integration_gate: CAMSCAN-PROD-013
+  wave_2:
+    title: daily-workflow
+    work:
+      - W2: CAMSCAN-PROD-008
+      - W3: CAMSCAN-PROD-010
+    integration_gate: CAMSCAN-PROD-014
+  wave_3:
+    title: advanced-tools
+    work:
+      - W3: CAMSCAN-PROD-011,CAMSCAN-PROD-012
+    integration_gate: P2 feature scenarios reconciled
+  wave_4:
+    title: ecosystem-and-hardening
+    work:
+      - all: CAMSCAN-PROD-015
+    integration_gate: feature matrix truthfully covered
+
+dispatch_rules:
+  - One worker packet is one bounded work order.
+  - Workers may work concurrently when paths are disjoint.
+  - Shared domain changes require a lead-owned contract commit first.
+  - Workers never declare parity acceptance.
+  - Live reference execution remains lead-controlled.
+  - Every accepted feature requires current evidence and a ledger PASS.
+  - Android Studio is never a worker dependency.
+  - E2B is the current substrate; camera_fixture=false remains honest until a deterministic camera fixture is empirically proven.
+
+scanner_p0_user_journey:
+  - home
+  - new_scan
+  - camera_permission
+  - camera_preview
+  - document_detection
+  - capture
+  - perspective_correction
+  - enhancement
+  - review
+  - retake_or_edit
+  - save
+  - multi_page
+  - library
+  - reopen
+  - export_pdf
+  - export_jpg
+  - share
