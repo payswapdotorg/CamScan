@@ -39,13 +39,14 @@ CamScanner reference → observe behavior → record executable scenario
 
 Read next: [ARCHITECTURE.md](ARCHITECTURE.md) · [LAB.md](LAB.md) · [AGENTS.md](AGENTS.md) · [SECURITY.md](SECURITY.md)
 
-## Current state (honest, 2026-09-21)
+## Current state (honest, 2026-09-27)
 
 ```
-Parity Lab Infrastructure: IN PROGRESS
-CamScan Product: BOOTSTRAP
-CamScanner Oracle: NOT YET ESTABLISHED
-Parity Acceptance: 0 scenarios accepted
+Parity Lab Infrastructure: OPERATIONAL / CONTINUOUS HARDENING
+CamScan Product: FULL-PRODUCT IMPLEMENTATION PROGRAM ACTIVE
+CamScanner Oracle: ESTABLISHED FOR LIVE REFERENCE EXECUTION, BEHAVIORAL COVERAGE CONTINUES
+Parity Acceptance: 0 scenarios accepted until evidence supports PASS
+Product Priority: P0 document scanning end to end
 ```
 
 - **LabProvider `e2b`: implemented** (`lab/providers/e2b/` — baked TCG recipe,
@@ -69,3 +70,24 @@ The project is parity-complete only when the accepted scenario suite passes acro
 behavior, state, UI contract and outputs, with no unresolved critical/high-severity
 differences except explicitly documented external blockers. Final reports distinguish
 `PASS / PARTIAL / FAIL / BLOCKED / NOT OBSERVED`. An untested feature is never a pass.
+
+
+## Full product implementation
+
+CamScan is now explicitly being developed as a complete product, not only as a
+parity harness. The implementation target and worker boundaries are locked in:
+
+- [Product architecture lock](docs/PRODUCT-ARCHITECTURE-LOCK.md)
+- [Product feature matrix](docs/PRODUCT-FEATURE-MATRIX.md)
+- [Product roadmap](docs/PRODUCT-ROADMAP.md)
+- [Scan engine contract](docs/SCAN-ENGINE-CONTRACT.md)
+- [Full app implementation program](lab/orchestration/FULL-APP-PROGRAM.md)
+
+The first milestone is the complete scanner journey:
+
+Home → New Scan → Camera → detection/guidance → capture → crop/perspective
+correction → enhancement → review → save → library → PDF/JPG → share.
+
+The app must continue beyond that milestone into document management, OCR/search,
+editing, signatures, annotation, watermarks, protection, conversion and optional
+cloud/ecosystem capabilities. The parity lab remains the acceptance mechanism.
