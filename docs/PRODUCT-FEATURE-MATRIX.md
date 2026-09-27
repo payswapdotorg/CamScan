@@ -86,3 +86,11 @@ Feature status is:
 implemented -> verified -> reconciled -> accepted
 
 Code existing in app/ is never sufficient for acceptance.
+
+
+## Current reference sources
+
+- CamScanner Android product listing: https://play.google.com/store/apps/details?id=com.intsig.camscanner
+- CamScanner product site: https://www.camscanner.com/
+- CamScanner FAQ: https://www.camscanner.com/faq
+- CamScanner developer scanning capabilities: https://dev.camscanner.com/
