@@ -56,14 +56,16 @@ workers:
 waves:
   wave_0:
     title: contracts
+    status: landed 2026-09-27 — PRODUCT-FOUNDATION commit 69ee49256ca647c3a1f0ec5d8689204f07624f9a on main
     work:
       - publish domain model
       - publish scan engine interfaces
       - publish navigation destinations
       - publish persistence contracts
-    gate: all workers consume the same contracts
+    gate: all workers consume the same contracts (single lead-owned commit; workers never recreate or modify them)
   wave_1:
     title: scanner-vertical-slice
+    branch_base: 69ee49256ca647c3a1f0ec5d8689204f07624f9a (PRODUCT-FOUNDATION; packet revision 2, 2026-09-27)
     parallel:
       - W1: CAMSCAN-PROD-001,CAMSCAN-PROD-002,CAMSCAN-PROD-003,CAMSCAN-PROD-004
       - W2: CAMSCAN-PROD-005,CAMSCAN-PROD-006,CAMSCAN-PROD-007
