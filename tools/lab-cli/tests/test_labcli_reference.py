@@ -928,6 +928,67 @@ def test_execute_launch_am_confirmed_outranks_blind_ps(monkeypatch,
     assert ps_reads == LAUNCH_PROC_POLL_CAP_CONFIRMED + PROCESS_WAIT_ROUNDS
 
 
+def test_execute_launch_foreign_activity_retries_probe32(monkeypatch,
+                                                         tmp_path):
+    """probe-32: attempt 1's am start -W verdict is 'Status: ok' with
+    a FOREIGN top-most activity (LaunchState UNKNOWN, the NexusLauncher
+    focused, WaitTime 107 s — the 2026-09-27 attempt-3 forensics
+    shape: the AMS waited, gave up, fell back to home). The ladder
+    does NOT break on the bare ok — it retries; attempt 2 lands our
+    activity and the run is ok. The ambiguous ok WITHOUT any Activity
+    line still breaks unconfirmed (the pre-probe-32 behavior)."""
+    monkeypatch.setenv("E2B_API_KEY", "placeholder-not-a-credential")
+    monkeypatch.delenv("CAMSCAN_APK_URL", raising=False)
+    xapk = _make_xapk(tmp_path / "CamScanner_7.25.5.xapk")
+    provider = ScriptedProvider()
+    provider.on("cat /root/install.out", "Success\nEXIT_0\n")
+    foreign = ("Starting: Intent...\n"
+               "Status: ok\n"
+               "LaunchState: UNKNOWN (-1)\n"
+               "Activity: com.google.android.apps.nexuslauncher/"
+               ".NexusLauncherActivity\n"
+               "WaitTime: 107151\n"
+               "ThisTime: 107149\n"
+               "EXIT_0\n")
+    landed = ("Starting: Intent...\n"
+              "Status: ok\n"
+              "Activity: com.intsig.camscanner/"
+              ".mainmenu.mainactivity.MainActivity\n"
+              "TotalTime: 1200\n"
+              "EXIT_0\n")
+    provider.on("cat /root/launch.out", foreign, foreign, landed, landed)
+    driver, clock = _make_driver(provider, apk=xapk)
+    lines: list[str] = []
+    handle = driver.provision(_provision_request(lines, apk=xapk))
+
+    scenario = resolve_scenario("S001", REPO_ROOT / "lab" / "scenarios")
+    plans = plan_steps(scenario.steps, None)
+    stage = tmp_path / "stage"
+    request = ExecutionRequest(
+        handle=handle, run_id=RUN_ID, subject="reference",
+        scenario=scenario, step_plans=plans, stage_dir=stage,
+        fixtures=[], started_at="2026-09-24T00:00:00Z",
+        finished_at="2026-09-24T00:05:00Z", emit=lines.append)
+    result = driver.execute(handle, request)
+
+    assert result.ok is True
+    exec_log = provider.exec_log
+    # exactly two bounded attempts — the foreign ok did NOT break
+    launches = [i for i, c in enumerate(exec_log)
+                if "rm -f /root/launch.out" in c]
+    assert len(launches) == 2
+    # the probe-32 retry line names the foreign top-most activity
+    assert any("launch attempt 1: am start ok but the app never resumed "
+               "(foreign activity top-most) — retrying (probe-32)"
+               in line for line in lines)
+    # attempt 2 landed our activity — the classic ok line
+    assert any("launch attempt 2: am start ok (Status: ok)"
+               in line for line in lines)
+    # the gap-cadence settle ran exactly once (between the attempts)
+    assert clock.slept.count(LAUNCH_SETTLE_S) == 1
+    assert not any("monkey" in c for c in exec_log)
+
+
 def test_execute_launch_brought_to_front_counts_as_up(monkeypatch,
                                                        tmp_path):
     """probe-27: 'Warning: Activity not started, its current task has

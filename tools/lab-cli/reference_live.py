@@ -2792,18 +2792,42 @@ echo LAUNCHED
                 if "Status: ok" in body:
                     if f"Activity: {REFERENCE_PACKAGE}" in body:
                         am_confirmed = body[-400:]
-                    emit(f"  reference: launch attempt {attempt}: am start "
-                         "ok (Status: ok)")
-                    break
-                if "brought to the front" in body:
+                        emit(f"  reference: launch attempt {attempt}: "
+                             "am start ok (Status: ok)")
+                        break
+                    if "Activity:" in body:
+                        # PROBE-32 (2026-09-27 attempt-3 forensics:
+                        # Status ok, LaunchState UNKNOWN (-1), Activity
+                        # = the FOREIGN launcher, WaitTime 107 s — the
+                        # AMS waited, gave up, fell back to home): a
+                        # foreign top-most activity is NOT a landing;
+                        # the ladder RETRIES (the second start after
+                        # the first warms the process is the classic
+                        # recovery) instead of breaking on the bare ok.
+                        _ldiag(f"[attempt {attempt}] am start Status ok "
+                               "but the top-most activity is foreign "
+                               "(LaunchState UNKNOWN class) — not a "
+                               "landing; ladder retries")
+                        emit(f"  reference: launch attempt {attempt}: am "
+                             "start ok but the app never resumed (foreign "
+                             "activity top-most) — retrying (probe-32)")
+                    else:
+                        # no Activity line at all: an ambiguous ok —
+                        # break unconfirmed (the patient ps poll below
+                        # decides; the pre-probe-32 behavior)
+                        emit(f"  reference: launch attempt {attempt}: am "
+                             "start ok (Status: ok)")
+                        break
+                elif "brought to the front" in body:
                     _ldiag(f"[attempt {attempt}] task already fronted — "
                            "treating as up")
                     emit(f"  reference: launch attempt {attempt}: task "
                          "already fronted (up)")
                     break
-                emit(f"  reference: launch attempt {attempt}: failed "
-                     f"(exit {exit_code}) — "
-                     f"{' | '.join(body.splitlines()[-2:])[-160:]}")
+                else:
+                    emit(f"  reference: launch attempt {attempt}: failed "
+                         f"(exit {exit_code}) — "
+                         f"{' | '.join(body.splitlines()[-2:])[-160:]}")
             elif poll is not None:
                 # bounded window elapsed with no EXIT marker — kill
                 # the blocked am start (a hang costs one window, not
