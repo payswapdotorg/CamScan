@@ -118,3 +118,20 @@ on CamScan, with a current reference run and Worker 3 reconciliation.
 Product work orders are implementation queue items, not parity acceptance. A
 green unit-test result does not change the parity ledger. Only the evidence/reconciliation
 loop can move a feature to accepted.
+
+
+## Status reconciliation note — 2026-09-27
+
+The legacy queue rows above are historical and are intentionally preserved. Their
+implementation truth is superseded by the CAMSCAN-010A..010L commits now on main.
+For current dispatch, use PRODUCT-WORK-BOARD.yaml and FULL-APP-PROGRAM.md.
+
+Known current state:
+- CAMSCAN-009 reference driver landed; live reference execution is lead-controlled.
+- CAMSCAN-010 is an active live-campaign hardening stream; the latest 010L fixes the
+  host-APK transfer path and provision-failure sandbox leak discovered on the first
+  implementation S001 exercise.
+- CAMSCAN-011 remains pending until an implementation evidence bundle exists and can
+  be reconciled with a current reference bundle.
+- The parity ledger intentionally remains conservative; infrastructure completion
+  does not imply product-feature PASS.
