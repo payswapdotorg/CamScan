@@ -42,8 +42,7 @@ workers:
   W3:
     name: ocr-tools-and-verification
     paths:
-      - app/src/main/java/org/payswapdotorg/camscan/ocr/**
-      - app/src/main/java/org/payswap/camscan/ocr/**
+      -       - app/src/main/java/org/payswap/camscan/ocr/**
       - app/src/main/java/org/payswap/camscan/tools/**
       - app/src/main/java/org/payswap/camscan/search/**
       - lab/reconciliation/**
