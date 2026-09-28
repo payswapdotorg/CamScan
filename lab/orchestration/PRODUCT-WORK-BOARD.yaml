@@ -72,8 +72,8 @@ waves:
       - W3: CAMSCAN-PROD-009 plus scan parity scenarios
     integration_gate: CAMSCAN-PROD-013
     in_flight:
-      CAMSCAN-PROD-009:
-        status: executed 01:44-02:0xZ in f1a04ca7 (completion report posted); inline transit order sent 02:02Z — delivery streaming
+      CAMSCAN-PROD-013:
+        status: ARMED — all three wave-1 branches pushed (PROD-002 b08ca43, PROD-005 01406f4, PROD-009 reassembly); station session eba5188d warm; packet update + dispatch next
     delivered:
       CAMSCAN-PROD-001:
         status: delivered 2026-09-27 (worker re-execution; supersedes first execution 71bc2d1)
@@ -101,6 +101,15 @@ waves:
         worker_verification: "Gradle gate green in-sandbox: testDebugUnitTest 123/123 (56 new detect tests), lintDebug, assembleDebug, assembleDebugAndroidTest, compileDebugAndroidTestKotlin; contract layer byte-identical; instrumentation skeleton deferred to lead station"
         lead_audit: "bundle base/head verified; ownership audit clean (capture/** + fragment_scan/strings_capture/colors_capture only); 18 files +3049/-5"
         record: lab/orchestration/deliveries/PROD-002/
+      CAMSCAN-PROD-009:
+        status: delivered 2026-09-28T02:5xZ (inline chat transit; worker session exposed NO shell this wave — files composed model-side, no commit/bundle producible; honesty record in manifest)
+        worker_session: f1a04ca7 (packet 22:04Z; execution directive 01:44Z; transit orders 02:02Z + nudge 02:43Z — delivery streamed twice, byte-identical)
+        branch: work/CAMSCAN-PROD-009
+        head: lead reassembly of the 12-file inline delivery on base 69ee492
+        worker_verification: "no execution surface in session — no Gradle, no git; static self-checks only; manifest fabricates nothing"
+        reassembly_verification: "brace balance OK; JVM-pure (zero android imports); ownership audit perfect (ocr/** only); 12 files +1509"
+        open_questions: [OCR engine adapter seam vs live ML engine binding (PROD-010), harness determinism proof at station]
+        record: lab/orchestration/deliveries/PROD-009/
   wave_2:
     title: daily-workflow
     work:

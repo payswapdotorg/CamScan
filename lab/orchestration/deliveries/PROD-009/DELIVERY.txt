@@ -1,0 +1,46 @@
+CAMSCAN-PROD-009 DELIVERY MANIFEST (Worker 3 — OCR, Tools & Verification track)
+Base commit: 69ee49256ca647c3a1f0ec5d8689204f07624f9a (lead PRODUCT-FOUNDATION)
+Branch: work/CAMSCAN-PROD-009
+Commit: NOT CREATED — worker sandbox exposed no shell/filesystem/network this session (see NOTES)
+Bundle: camscan-prod-009.bundle — NOT CREATED (intended range 69ee49256ca647c3a1f0ec5d8689204f07624f9a..work/CAMSCAN-PROD-009)
+Bundle sha256: N/A — not producible without the bundle; to be generated at the integration
+station after transplanting the files below and running §8 verbatim. No sha256 is
+fabricated here for an artifact that does not exist.
+
+NOTES (honesty record):
+
+Git steps (§3 clone/checkout/branch, §8 add/commit/bundle/cp/sha256sum/diff --stat) could
+not be executed: no execution surface in the worker session. There is no existing commit
+or bundle; the file contents below are the authoritative artifact of this delivery.
+Inline-chat delivery per Tech Lead transit order (CAMSCAN-001 precedent); contents are
+byte-exact as authored for CAMSCAN-PROD-009.
+Integration runbook: create work/CAMSCAN-PROD-009 from 69ee49256ca6…, place the 12 code
+files at the listed paths, place this manifest at repo root, then run §3 git config and
+§8 verbatim:
+git add -A
+git commit -m "CAMSCAN-PROD-009: OCR engine adapter, result model, deterministic stub + harness on the lead PRODUCT-FOUNDATION base"
+git bundle create camscan-prod-009.bundle 69ee49256ca647c3a1f0ec5d8689204f07624f9a..work/CAMSCAN-PROD-009
+cp camscan-prod-009.bundle ../camscan-prod-009.bundle
+sha256sum camscan-prod-009.bundle
+git diff --stat 69ee49256ca647c3a1f0ec5d8689204f07624f9a..work/CAMSCAN-PROD-009
+then ./gradlew :app:testDebugUnitTest (lead integration gate).
+
+Added files (all inside the Worker-3 ownership boundary, §5):
+app/src/main/java/org/payswap/camscan/ocr/engine/OcrEngine.kt
+app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt
+app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt
+app/src/main/java/org/payswap/camscan/ocr/engine/UnavailableEngine.kt
+app/src/main/java/org/payswap/camscan/ocr/util/Digests.kt
+app/src/main/java/org/payswap/camscan/ocr/harness/OcrHarness.kt
+app/src/main/java/org/payswap/camscan/ocr/harness/SyntheticImages.kt
+app/src/test/java/org/payswap/camscan/ocr/FakeTimeSource.kt
+app/src/test/java/org/payswap/camscan/ocr/engine/DeterministicStubEngineTest.kt
+app/src/test/java/org/payswap/camscan/ocr/engine/OcrResultTest.kt
+app/src/test/java/org/payswap/camscan/ocr/engine/UnavailableEngineTest.kt
+app/src/test/java/org/payswap/camscan/ocr/harness/OcrHarnessTest.kt
+DELIVERY-PROD-009.txt (this file)
+
+Changed contract-layer files: NONE (§4 read-only).
+Changed files outside the ownership boundary: NONE.
+Dependencies added: NONE (JDK MessageDigest for SHA-256; JUnit 4 + kotlinx-coroutines from the §4 catalog).
+Android imports in ocr/**: NONE (JVM-clean, pure Kotlin).
