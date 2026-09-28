@@ -5,19 +5,26 @@ import org.payswap.camscan.core.navigation.ScanLauncher
 
 /**
 
-Placeholder [ScanLauncher] (CAMSCAN-PROD-005): opens [PlaceholderScanFragment]
+Placeholder [ScanLauncher]: opens [PlaceholderScanFragment] into the host
 
-into the host container so the shell ⇄ scan seam is exercised end to end.
+container so the shell ⇄ scan seam is exercised end to end. Returns true
 
-Returns true on successful dispatch. The Tech Lead swaps this for Worker 1's
+on successful dispatch. The Tech Lead swaps this for Worker 1's real
 
-real launcher at integration — a one-line wiring change in MainActivity.
+launcher at integration — a one-line wiring change in MainActivity.
+
+Aligned to the FROZEN seam: the entry point is [ScanLauncher.startScan],
+
+and fragmentManager / containerViewId are ScanHost val PROPERTIES (read,
+
+never invoked as functions).
 */
 class PlaceholderScanLauncher : ScanLauncher {
 
-override fun launchScan(host: ScanHost): Boolean {
-host.fragmentManager().beginTransaction()
-.replace(host.containerViewId(), PlaceholderScanFragment())
+override fun startScan(host: ScanHost): Boolean {
+host.fragmentManager
+.beginTransaction()
+.replace(host.containerViewId, PlaceholderScanFragment())
 .addToBackStack(BACK_STACK_PLACEHOLDER_SCAN)
 .commit()
 return true

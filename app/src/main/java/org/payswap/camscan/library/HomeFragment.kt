@@ -25,6 +25,14 @@ Home surface: app-name toolbar, primary New Scan entry, recent documents
 (top 10 by updatedAtMillis descending), and the Library affordance.
 
 CAMSCAN-PROD-006: rows open the real document viewer.
+
+Fix pass for the FROZEN contracts: the launcher entry point is
+
+[ScanLauncher.startScan]; the frozen [Document] carries no pages, so row
+
+page counts are fetched via [DocumentRepository.getPages] and re-bound
+
+into the row adapter.
 */
 class HomeFragment(
 private val repository: DocumentRepository,
@@ -32,7 +40,13 @@ private val scanLauncher: ScanLauncher,
 private val contentStore: ContentStore,
 ) : Fragment(R.layout.fragment_home) {
 
-private val rowAdapter = DocumentRowAdapter(onClick = ::openDocumentViewer)
+private val pageCounts = HashMap<String, Int>()
+private var latestDocuments: List<Document> = emptyList()
+
+private val rowAdapter = DocumentRowAdapter(
+onClick = ::openDocumentViewer,
+pageCountOf = { documentId -> pageCounts[documentId] ?: -1 },
+)
 
 override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
 view.findViewById<RecyclerView>(R.id.home_recent_list).apply {
@@ -55,7 +69,10 @@ repository.observeDocuments().collect { documents -> render(view, documents) }
 }
 
 private fun render(view: View, documents: List<Document>) {
-rowAdapter.submitList(documents.take(RECENT_DOCUMENT_LIMIT))
+latestDocuments = documents
+val recents = documents.take(RECENT_DOCUMENT_LIMIT)
+pageCounts.keys.retainAll(recents.map { it.id }.toSet())
+rowAdapter.submitList(recents)
 val isEmpty = documents.isEmpty()
 view.findViewById<View>(R.id.home_empty_state).visibility =
 if (isEmpty) View.VISIBLE else View.GONE
@@ -63,11 +80,33 @@ view.findViewById<RecyclerView>(R.id.home_recent_list).visibility =
 if (isEmpty) View.GONE else View.VISIBLE
 view.findViewById<View>(R.id.home_recent_header).visibility =
 if (isEmpty) View.GONE else View.VISIBLE
+if (recents.any { it.id !in pageCounts }) {
+loadPageCounts(recents)
+}
+}
+
+/**
+
+Fetches counts for rows missing one, then forces a rebind (the list
+items are unchanged Documents, so the differ would otherwise skip
+rebinding after counts arrive).
+*/
+private fun loadPageCounts(recents: List<Document>) {
+viewLifecycleOwner.lifecycleScope.launch {
+recents.forEach { document ->
+if (!pageCounts.containsKey(document.id)) {
+pageCounts[document.id] = repository.getPages(document.id).size
+}
+}
+if (!isAdded) return@launch
+rowAdapter.submitList(null)
+rowAdapter.submitList(latestDocuments.take(RECENT_DOCUMENT_LIMIT))
+}
 }
 
 private fun launchScan() {
 val host = activity as? ScanHost ?: return
-scanLauncher.launchScan(host)
+scanLauncher.startScan(host)
 }
 
 private fun openLibrary() {

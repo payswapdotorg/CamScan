@@ -15,17 +15,24 @@ import org.payswap.camscan.core.time.TimeSource
 
 /**
 
-Shared row renderer for Home recents and the Library list (CAMSCAN-PROD-005).
+Shared row renderer for Home recents and the Library list.
 
-UI-only concern: all list computation happens in the repository flow, never
+Fix pass for the FROZEN model: [Document] carries no pages, so page counts
 
-here. Time enters only via the [TimeSource] seam — never
+arrive via the injected [pageCountOf] lookup (Home maintains a per-id map
 
-System.currentTimeMillis() directly — so rendering stays deterministic.
+refreshed from repository.getPages before each submitList; the default
+
+renders a count-less meta line for surfaces that supply no counts). Time
+
+enters only via the [TimeSource] seam — TimeSource.SYSTEM, never
+
+System.currentTimeMillis() directly.
 */
 class DocumentRowAdapter(
 private val onClick: (Document) -> Unit,
-private val nowMillis: () -> Long = { TimeSource.System.nowMillis() },
+private val nowMillis: () -> Long = { TimeSource.SYSTEM.nowMillis() },
+private val pageCountOf: (documentId: String) -> Int = { -1 },
 ) : ListAdapter<Document, DocumentRowAdapter.DocumentViewHolder>(DIFF_CALLBACK) {
 
 override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): DocumentViewHolder {
@@ -61,16 +68,18 @@ context.getString(R.string.workspace_document_row_cd, document.title)
 }
 
 private fun metaLabel(context: Context, document: Document): String {
-val pages = context.resources.getQuantityString(
-R.plurals.workspace_page_count,
-document.pages.size,
-document.pages.size,
-)
 val relative = DateUtils.getRelativeTimeSpanString(
 document.updatedAtMillis,
 nowMillis(),
 DateUtils.MINUTE_IN_MILLIS,
 ).toString()
+val pageCount = pageCountOf(document.id)
+if (pageCount < 0) return relative
+val pages = context.resources.getQuantityString(
+R.plurals.workspace_page_count,
+pageCount,
+pageCount,
+)
 return context.getString(R.string.workspace_document_row_meta_format, pages, relative)
 }
 

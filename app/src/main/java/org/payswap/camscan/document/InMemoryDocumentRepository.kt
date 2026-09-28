@@ -11,33 +11,35 @@ import org.payswap.camscan.core.time.TimeSource
 
 /**
 
-In-memory [DocumentRepository] backing the CAMSCAN-PROD-005 shell until
+In-memory [DocumentRepository] (CAMSCAN-PROD-005; retained for tests and
 
-durable persistence lands in PROD-006. Starts honestly empty — no demo or
+shell history — the live shell wires the durable implementation).
 
-seed data anywhere.
+Aligned to the FROZEN contract: [Document] carries no pages, so pages are
 
-Semantics (documented here because the contract is frozen):
+stored per document id; [upsertDocument] takes BOTH the document and its
 
-[upsertDocument] stores the caller's [Document] verbatim and atomically
+pages and returns Unit (atomic full replace of both); [deleteDocument]
 
-replaces all fields (pages included) keyed by id; the caller owns
+returns Unit and removes both. Documents are stored verbatim — a blank
 
-timestamps. A blank id is rejected (returns false).
+document id is ignored (the Unit contract cannot signal rejection; the
 
-[updateTitle] stamps [Document.updatedAtMillis] from the injected
+durable implementation mints ids via IdGenerator). [observeDocuments]
 
-[TimeSource] and preserves [Document.createdAtMillis].
+emits sorted by updatedAtMillis descending (stable); [getPages] returns
 
-[observeDocuments] emits sorted by updatedAtMillis descending (stable).
-[getPages] returns pages ordered by [Page.index] ascending.
-Unknown ids behave benignly: null / false / emptyList().
+pages ordered by index ascending.
 
-Thread-safety: one lock guards the map (no suspension inside it); observers
+[renameDocument] is an implementation-level helper OUTSIDE the frozen
 
-read an immutable snapshot published through [MutableStateFlow]. Free of
+contract (the contract defines no title mutation) providing the stamped
 
-android.* imports so the whole implementation runs on the JVM.
+rename the viewer flows need; deterministic under a fixed TimeSource.
+
+Thread-safety: one lock guards both maps (no suspension inside it); free
+
+of android.* imports.
 */
 class InMemoryDocumentRepository(
 private val timeSource: TimeSource,
@@ -45,43 +47,42 @@ private val timeSource: TimeSource,
 
 private val lock = Any()
 private val documentsById = LinkedHashMap<String, Document>()
+private val pagesById = HashMap<String, List<Page>>()
 private val documentsState = MutableStateFlow<List<Document>>(emptyList())
 
 override fun observeDocuments(): Flow<List<Document>> =
 documentsState
 .map { list -> list.sortedByDescending { it.updatedAtMillis } }
 .distinctUntilChanged()
-override fun observeDocument(documentId: String): Flow<Document?> =
-documentsState
-.map { list -> list.firstOrNull { it.id == documentId } }
-.distinctUntilChanged()
 override suspend fun getDocument(documentId: String): Document? = synchronized(lock) {
 documentsById[documentId]
 }
 
-override suspend fun upsertDocument(document: Document): Boolean {
-if (document.id.isBlank()) return false
+override suspend fun getPages(documentId: String): List<Page> = synchronized(lock) {
+pagesById[documentId].orEmpty().sortedBy { it.index }
+}
+
+override suspend fun upsertDocument(document: Document, pages: List<Page>) {
+if (document.id.isBlank()) return
 synchronized(lock) {
 documentsById[document.id] = document
+pagesById[document.id] = pages.toList()
 publishSnapshotLocked()
 }
-return true
 }
 
-override suspend fun deleteDocument(documentId: String): Boolean {
-var removed = false
+override suspend fun deleteDocument(documentId: String) {
 synchronized(lock) {
-removed = documentsById.remove(documentId) != null
-if (removed) publishSnapshotLocked()
+val removedDocument = documentsById.remove(documentId) != null
+val removedPages = pagesById.remove(documentId) != null
+if (removedDocument || removedPages) {
+publishSnapshotLocked()
 }
-return removed
 }
-
-override suspend fun getPages(documentId: String): List<Page> = synchronized(lock) {
-documentsById[documentId]?.pages.orEmpty().sortedBy { it.index }
 }
 
-override suspend fun updateTitle(documentId: String, title: String): Boolean {
+/** Non-contract helper: stamped rename; false when absent or title blank. */
+fun renameDocument(documentId: String, title: String): Boolean {
 if (title.isBlank()) return false
 synchronized(lock) {
 val current = documentsById[documentId] ?: return false

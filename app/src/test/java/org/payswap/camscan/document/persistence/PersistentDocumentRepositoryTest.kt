@@ -18,7 +18,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.payswap.camscan.core.model.Corner
-import org.payswap.camscan.core.model.CropQuad
 import org.payswap.camscan.core.model.Document
 import org.payswap.camscan.core.model.Page
 import org.payswap.camscan.core.model.PageEnhancementMode
@@ -28,11 +27,15 @@ import org.payswap.camscan.core.time.TimeSource
 
 JVM tests for the durable repository (CAMSCAN-PROD-006): temp dirs, fixed
 
-TimeSource, counting IdGenerator. Pins the save/reopen cycle, crash
+TimeSource, counting IdGenerator. Aligned to the FROZEN contract —
 
-recovery, orphan sweeping, byte-stable index rewrites, and observer
+upsertDocument(document, pages) two-arg Unit form, deleteDocument Unit, no
 
-consistency — the behaviors the lead's gate re-runs.
+updateTitle/observeDocument — with page mutations exercised through the
+
+RepositoryPageOps extensions. Pins the save/reopen cycle, crash recovery,
+
+orphan sweeping, byte-stable index rewrites, and observer consistency.
 */
 class PersistentDocumentRepositoryTest {
 
@@ -77,14 +80,12 @@ private fun document(
 id: String,
 updatedAtMillis: Long,
 title: String = "Document $id",
-pages: List<Page> = emptyList(),
 createdAtMillis: Long = updatedAtMillis - 1_000L,
 ): Document = Document(
 id = id,
 title = title,
 createdAtMillis = createdAtMillis,
 updatedAtMillis = updatedAtMillis,
-pages = pages,
 )
 
 private fun page(id: String, index: Int, ref: String? = null): Page = Page(
@@ -95,11 +96,11 @@ thumbnailRef = null,
 cropQuad = if (ref == null) {
 null
 } else {
-CropQuad(
-topLeft = Corner(0f, 0f),
-topRight = Corner(1f, 0f),
-bottomRight = Corner(1f, 1f),
-bottomLeft = Corner(0f, 1f),
+listOf(
+Corner(0f, 0f),
+Corner(1f, 0f),
+Corner(1f, 1f),
+Corner(0f, 1f),
 )
 },
 enhancement = PageEnhancementMode.NONE,
@@ -123,28 +124,27 @@ fun upsertDocument_mintsIdsForBlankDocumentAndPageIds() = runTest {
 val generator = CountingIdGenerator()
 val repo = newRepo(root, idGenerator = generator)
 
-assertTrue(repo.upsertDocument(document(" ", 100L, title = "Auto")))
+repo.upsertDocument(document(" ", 100L, title = "Auto"), emptyList())
 assertEquals(listOf("minted-1"), repo.observeDocuments().first().map { it.id })
 
-assertTrue(
 repo.upsertDocument(
-document("doc-2", 200L, pages = listOf(page(" ", 0), page("p1", 1))),
-),
+document("doc-2", 200L),
+listOf(page(" ", 0), page("p1", 1)),
 )
-val stored = repo.getDocument("doc-2")!!
-assertEquals("minted-2", stored.pages[0].id)
-assertEquals("p1", stored.pages[1].id)
-assertEquals(listOf(0, 1), stored.pages.map { it.index })
+val pages = repo.getPages("doc-2")
+assertEquals("minted-2", pages[0].id)
+assertEquals("p1", pages[1].id)
+assertEquals(listOf(0, 1), pages.map { it.index })
 }
 
 // --- contract: observe emissions ---
 
 @Test
 fun observeDocuments_emitsAddedUpdatedAndDeletedDocuments() = runTest {
-repository.upsertDocument(document("doc-1", 100L))
+repository.upsertDocument(document("doc-1", 100L), emptyList())
 assertEquals(listOf("doc-1"), repository.observeDocuments().first().map { it.id })
 
-repository.upsertDocument(document("doc-1", 200L, title = "Updated"))
+repository.upsertDocument(document("doc-1", 200L, title = "Updated"), emptyList())
 val afterUpdate = repository.observeDocuments().first()
 assertEquals(listOf("doc-1"), afterUpdate.map { it.id })
 assertEquals("Updated", afterUpdate.single().title)
@@ -153,51 +153,33 @@ repository.deleteDocument("doc-1")
 assertTrue(repository.observeDocuments().first().isEmpty())
 }
 
-// --- contract: atomic replace ---
+// --- contract: atomic replace of document AND pages ---
 
 @Test
-fun upsertDocument_replacesAllFieldsAtomically() = runTest {
+fun upsertDocument_replacesDocumentAndPagesAtomically() = runTest {
 repository.upsertDocument(
-document("doc-1", 100L, title = "Old", pages = listOf(page("p0", 0))),
+document("doc-1", 100L, title = "Old"),
+listOf(page("p0", 0)),
 )
 repository.upsertDocument(
-document(
-"doc-1", 200L, title = "New",
-pages = listOf(page("p0", 0), page("p1", 1)),
-),
+document("doc-1", 200L, title = "New"),
+listOf(page("p0", 0), page("p1", 1)),
 )
 val observed = repository.observeDocuments().first()
 assertEquals(1, observed.size)
 assertEquals("New", observed.single().title)
-assertEquals(listOf("p0", "p1"), observed.single().pages.map { it.id })
 assertEquals(200L, observed.single().updatedAtMillis)
+assertEquals(listOf("p0", "p1"), repository.getPages("doc-1").map { it.id })
 }
 
 // --- contract: ordering ---
 
 @Test
 fun observeDocuments_ordersByUpdatedAtMillis_descending() = runTest {
-repository.upsertDocument(document("a", 100L))
-repository.upsertDocument(document("b", 300L))
-repository.upsertDocument(document("c", 200L))
+repository.upsertDocument(document("a", 100L), emptyList())
+repository.upsertDocument(document("b", 300L), emptyList())
+repository.upsertDocument(document("c", 200L), emptyList())
 assertEquals(listOf("b", "c", "a"), repository.observeDocuments().first().map { it.id })
-}
-
-// --- contract: updateTitle ---
-
-@Test
-fun updateTitle_stampsTime_preservesCreatedAt_rejectsBlankTitle() = runTest {
-repository.upsertDocument(document("doc-1", 100L, createdAtMillis = 50L))
-
-assertFalse(repository.updateTitle("doc-1", " "))
-assertEquals(100L, repository.getDocument("doc-1")!!.updatedAtMillis)
-
-timeSource.now = 500L
-assertTrue(repository.updateTitle("doc-1", "Renamed"))
-val stored = repository.getDocument("doc-1")!!
-assertEquals("Renamed", stored.title)
-assertEquals(500L, stored.updatedAtMillis)
-assertEquals(50L, stored.createdAtMillis)
 }
 
 // --- contract: unknown ids ---
@@ -205,10 +187,9 @@ assertEquals(50L, stored.createdAtMillis)
 @Test
 fun unknownIds_behaveBenignly() = runTest {
 assertNull(repository.getDocument("missing"))
-assertFalse(repository.deleteDocument("missing"))
-assertFalse(repository.updateTitle("missing", "X"))
 assertTrue(repository.getPages("missing").isEmpty())
-assertNull(repository.observeDocument("missing").first())
+repository.deleteDocument("missing") // Unit contract: benign
+assertTrue(repository.observeDocuments().first().isEmpty())
 }
 
 // --- THE save/reopen test ---
@@ -218,31 +199,31 @@ fun saveReopen_newInstanceSeesIdenticalDocumentsAndBlobs() = runTest {
 val store = FileContentStore(root)
 val ref0 = store.put(byteArrayOf(1, 2, 3), "p0")
 val ref1 = store.put(byteArrayOf(4, 5, 6, 7), "p1")
-val saved = Document(
+val savedDocument = Document(
 id = "doc-1",
 title = "Quarterly scan",
 createdAtMillis = 1_000L,
 updatedAtMillis = 2_000L,
-pages = listOf(
+)
+val savedPages = listOf(
 page("p0", 0, ref0).copy(
 enhancement = PageEnhancementMode.GRAYSCALE,
 rotationDegrees = 90,
 ),
 page("p1", 1, ref1),
-),
 )
-repository.upsertDocument(saved)
+repository.upsertDocument(savedDocument, savedPages)
 
 val reopened = newRepo(root)
 
 assertEquals(PersistentDocumentRepository.IndexHealth.HEALTHY, reopened.indexHealth)
 assertEquals(listOf("doc-1"), reopened.observeDocuments().first().map { it.id })
-assertEquals(saved, reopened.getDocument("doc-1"))
+assertEquals(savedDocument, reopened.getDocument("doc-1"))
+assertEquals(savedPages, reopened.getPages("doc-1"))
 assertEquals(
 listOf(ref0, ref1),
-reopened.getDocument("doc-1")!!.pages.map { it.processedImageRef },
+reopened.getPages("doc-1").map { it.processedImageRef },
 )
-assertEquals(listOf(0, 1), reopened.getPages("doc-1").map { it.index })
 assertTrue(store.exists(ref0))
 assertTrue(store.exists(ref1))
 assertArrayEquals(byteArrayOf(1, 2, 3), store.open(ref0))
@@ -253,16 +234,19 @@ assertArrayEquals(byteArrayOf(1, 2, 3), store.open(ref0))
 @Test
 fun reorder_persistsAcrossReload() = runTest {
 repository.upsertDocument(
-document("doc-1", 100L, pages = listOf(page("p0", 0), page("p1", 1), page("p2", 2))),
+document("doc-1", 100L),
+listOf(page("p0", 0), page("p1", 1), page("p2", 2)),
 )
 timeSource.now = 900L
 val updated = repository.reorderPages("doc-1", listOf("p2", "p0", "p1"), timeSource)
 assertEquals(listOf("p2", "p0", "p1"), updated!!.pages.map { it.id })
+assertEquals(900L, updated.updatedAtMillis)
 
 val reopened = newRepo(root)
 val pages = reopened.getPages("doc-1")
 assertEquals(listOf("p2", "p0", "p1"), pages.map { it.id })
 assertEquals(listOf(0, 1, 2), pages.map { it.index })
+assertEquals(900L, reopened.getDocument("doc-1")!!.updatedAtMillis)
 }
 
 // --- orphan sweep on page delete ---
@@ -273,7 +257,8 @@ val store = FileContentStore(root)
 val ref0 = store.put(byteArrayOf(1, 1), "p0")
 val ref1 = store.put(byteArrayOf(2, 2), "p1")
 repository.upsertDocument(
-document("doc-1", 100L, pages = listOf(page("p0", 0, ref0), page("p1", 1, ref1))),
+document("doc-1", 100L),
+listOf(page("p0", 0, ref0), page("p1", 1, ref1)),
 )
 timeSource.now = 777L
 val updated = repository.removePage("doc-1", "p0", timeSource)
@@ -291,14 +276,21 @@ assertEquals(listOf("p1"), repository.getPages("doc-1").map { it.id })
 fun strayBlob_cleanedOnNextWrite_crashSimulation() = runTest {
 val store = FileContentStore(root)
 val liveRef = store.put(byteArrayOf(1, 2, 3), "p0")
-repository.upsertDocument(document("doc-1", 100L, pages = listOf(page("p0", 0, liveRef))))
+repository.upsertDocument(
+document("doc-1", 100L),
+listOf(page("p0", 0, liveRef)),
+)
 // Crash between index-write and sweep: an unreferenced blob and a
 // stale tmp are left on disk.
 File(root, "crash-orphan.bin").writeBytes(byteArrayOf(9))
 File(root, ".index.json.stale.tmp").writeText("partial")
 assertTrue(store.exists("crash-orphan.bin"))
 
-repository.updateTitle("doc-1", "Renamed") // any write runs the sweep
+// Any write runs the sweep; the frozen upsert carries doc + pages.
+repository.upsertDocument(
+document("doc-1", 100L, title = "Renamed"),
+listOf(page("p0", 0, liveRef)),
+)
 
 assertFalse(File(root, "crash-orphan.bin").exists())
 assertTrue(root.listFiles()!!.none { it.name.endsWith(".tmp") })
@@ -313,8 +305,8 @@ fun corruptIndex_recoversViaBackupOrEmptyStart_nextWriteRebuildsPrimary() = runT
 // Scenario A: corrupt primary + good backup → restore, then healthy.
 val dirA = tempDir("recovery-a")
 val repoA1 = newRepo(dirA)
-repoA1.upsertDocument(document("doc-a", 100L))
-repoA1.upsertDocument(document("doc-b", 200L)) // .bak now holds {doc-a}
+repoA1.upsertDocument(document("doc-a", 100L), emptyList())
+repoA1.upsertDocument(document("doc-b", 200L), emptyList()) // .bak now holds {doc-a}
 indexFile(dirA).writeText("{ this is not json")
 val repoA2 = newRepo(dirA)
 assertEquals(
@@ -324,9 +316,9 @@ repoA2.indexHealth,
 assertEquals(listOf("doc-a"), repoA2.observeDocuments().first().map { it.id })
 assertEquals(
 listOf("doc-a"),
-IndexJsonCodec.deserialize(indexFile(dirA).readText()).map { it.id },
+IndexJsonCodec.deserialize(indexFile(dirA).readText()).documents.map { it.id },
 )
-repoA2.upsertDocument(document("doc-c", 300L))
+repoA2.upsertDocument(document("doc-c", 300L), emptyList())
 assertEquals(PersistentDocumentRepository.IndexHealth.HEALTHY, repoA2.indexHealth)
 val repoA3 = newRepo(dirA)
 assertEquals(
@@ -342,11 +334,11 @@ indexFile(dirB).writeText("garbage{{{")
 val repoB1 = newRepo(dirB)
 assertEquals(PersistentDocumentRepository.IndexHealth.RECOVERED_EMPTY, repoB1.indexHealth)
 assertTrue(repoB1.observeDocuments().first().isEmpty())
-repoB1.upsertDocument(document("doc-d", 400L))
+repoB1.upsertDocument(document("doc-d", 400L), emptyList())
 assertEquals(PersistentDocumentRepository.IndexHealth.HEALTHY, repoB1.indexHealth)
 assertEquals(
 listOf("doc-d"),
-IndexJsonCodec.deserialize(indexFile(dirB).readText()).map { it.id },
+IndexJsonCodec.deserialize(indexFile(dirB).readText()).documents.map { it.id },
 )
 dirB.deleteRecursively()
 }
@@ -357,8 +349,8 @@ dirB.deleteRecursively()
 fun indexWrites_areByteStable_andConcurrentObserversStayConsistent() = runTest {
 val docA = document("doc-a", 100L, title = "Alpha")
 val docB = document("doc-b", 200L, title = "Beta")
-repository.upsertDocument(docA)
-repository.upsertDocument(docB)
+repository.upsertDocument(docA, emptyList())
+repository.upsertDocument(docB, emptyList())
 val primary = indexFile(root)
 val before = primary.readBytes()
 
@@ -370,12 +362,13 @@ assertArrayEquals(before, primary.readBytes())
 // → identical bytes (canonical id-sorted serialization).
 val dir2 = tempDir("persrepo-order")
 val repo2 = newRepo(dir2)
-repo2.upsertDocument(docB)
-repo2.upsertDocument(docA)
+repo2.upsertDocument(docB, emptyList())
+repo2.upsertDocument(docA, emptyList())
 assertArrayEquals(before, indexFile(dir2).readBytes())
 dir2.deleteRecursively()
 
-// (c) Two concurrent collectors see identical snapshot sequences.
+// (c) Two concurrent collectors see identical snapshot sequences:
+// [] → [doc-a] → [doc-b, doc-a] (updatedAt-desc ordering).
 val dispatcher = UnconfinedTestDispatcher(testScheduler)
 val seen1 = mutableListOf<List<Document>>()
 val seen2 = mutableListOf<List<Document>>()
@@ -386,14 +379,18 @@ val collector2 = launch(dispatcher) {
 repository.observeDocuments().take(3).toList(seen2)
 }
 runCurrent()
-repository.updateTitle("doc-a", "Renamed A")
-repository.deleteDocument("doc-b")
+repository.upsertDocument(docA.copy(title = "Renamed A"), emptyList())
+repository.upsertDocument(docB.copy(title = "Renamed B"), emptyList())
 runCurrent()
 collector1.join()
 collector2.join()
 assertEquals(
 seen1.map { snapshot -> snapshot.map { it.id } },
 seen2.map { snapshot -> snapshot.map { it.id } },
+)
+assertEquals(
+listOf(listOf<String>(), listOf("doc-a"), listOf("doc-b", "doc-a")),
+seen1.map { snapshot -> snapshot.map { it.id } },
 )
 assertEquals(3, seen1.size)
 }

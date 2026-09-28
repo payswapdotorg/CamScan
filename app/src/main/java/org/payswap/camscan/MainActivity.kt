@@ -5,7 +5,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentFactory
 import androidx.fragment.app.FragmentManager
-import androidx.fragment.app.fragmentFactory
 import java.util.UUID
 import org.payswap.camscan.core.navigation.ScanHost
 import org.payswap.camscan.core.navigation.ScanLauncher
@@ -27,24 +26,31 @@ import org.payswap.camscan.library.HomeFragment
 
 Single-activity product shell.
 
-CAMSCAN-PROD-006 change: the shell now wires the durable
+CAMSCAN-PROD-006 wiring: durable [PersistentDocumentRepository] over
 
-[PersistentDocumentRepository] over [FileContentStore] (replacing the
+[FileContentStore]. Contract fix pass: implements the FROZEN ScanHost —
 
-PROD-005 in-memory construction). No other root-file changes.
+fragmentManager / containerViewId are val properties and
+
+onScanFinished takes a nullable document id — with no fragment-ktx
+
+import (FragmentManager's member fragmentFactory setter is assigned
+
+directly).
 */
 class MainActivity : AppCompatActivity(), ScanHost {
 
 private lateinit var repository: DocumentRepository
+private lateinit var contentStore: ContentStore
 private lateinit var scanLauncher: ScanLauncher
 
 override fun onCreate(savedInstanceState: Bundle?) {
 // Dependencies must exist before fragment restoration inside
 // super.onCreate(); the factory re-attaches them on recreation.
-val contentStore = FileContentStore.fromContext(this)
+contentStore = FileContentStore.fromContext(this)
 repository = PersistentDocumentRepository(
 contentDir = contentStore.rootDir,
-timeSource = TimeSource.System,
+timeSource = TimeSource.SYSTEM,
 idGenerator = IdGenerator { UUID.randomUUID().toString() },
 )
 scanLauncher = PlaceholderScanLauncher()
@@ -59,18 +65,21 @@ showHomeRoot()
 
 private fun showHomeRoot() {
 supportFragmentManager.beginTransaction()
-.replace(R.id.app_fragment_container, HomeFragment(repository, scanLauncher, contentStoreOf()), TAG_HOME)
+.replace(
+R.id.app_fragment_container,
+HomeFragment(repository, scanLauncher, contentStore),
+TAG_HOME,
+)
 .commit()
 }
 
-private fun contentStoreOf(): ContentStore = FileContentStore.fromContext(this)
-
-override fun fragmentManager(): FragmentManager = supportFragmentManager
-
-override fun containerViewId(): Int = R.id.app_fragment_container
-
-override fun onScanFinished(documentId: String) {
-// TODO(PROD-007): when documentId is non-empty, open the viewer for the
+// ScanHost — frozen val properties, not functions.
+override val fragmentManager: FragmentManager
+get() = supportFragmentManager
+override val containerViewId: Int
+get() = R.id.app_fragment_container
+override fun onScanFinished(documentId: String?) {
+// TODO(PROD-007): when documentId is non-null, open the viewer for the
 // freshly scanned document instead of plain Home. Home refreshes itself
 // by observing the repository flow.
 supportFragmentManager.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE)

@@ -10,19 +10,23 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.snackbar.Snackbar
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.payswap.camscan.R
 import org.payswap.camscan.core.repository.DocumentRepository
 
 /**
 
-Stub detail surface (CAMSCAN-PROD-005).
+Stub detail surface (CAMSCAN-PROD-005; retained for shell history).
 
-The real document viewer arrives in PROD-006; this stub carries the entry
+Fix pass for the FROZEN repository contract: per-document observation is a
 
-point, honest placeholder copy, and delete-with-undo (offline-first,
+client-side filter over observeDocuments(), page counts come from
 
-non-destructive spirit; deletion stands if the undo is dismissed).
+getPages(), deleteDocument returns Unit (undo restores a captured
+
+snapshot), and upsert carries both the document and its pages.
 
 Per-instance state (document id) travels via [arguments]; the shell's
 
@@ -45,17 +49,21 @@ deleteButton.setOnClickListener { deleteWithUndo() }
 
 viewLifecycleOwner.lifecycleScope.launch {
 viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-repository.observeDocument(documentId).collect { document ->
+repository.observeDocuments()
+.map { documents -> documents.firstOrNull { it.id == documentId } }
+.distinctUntilChanged()
+.collect { document ->
 if (document == null) {
 titleView.text = getString(R.string.workspace_document_detail_missing)
 pageCountView.text = ""
 deleteButton.isEnabled = false
 } else {
 titleView.text = document.title
+val pageCount = repository.getPages(document.id).size
 pageCountView.text = resources.getQuantityString(
 R.plurals.workspace_page_count,
-document.pages.size,
-document.pages.size,
+pageCount,
+pageCount,
 )
 deleteButton.isEnabled = true
 }
@@ -68,7 +76,8 @@ private fun deleteWithUndo() {
 val id = documentId
 viewLifecycleOwner.lifecycleScope.launch {
 val snapshot = repository.getDocument(id) ?: return@launch
-if (!repository.deleteDocument(id)) return@launch
+val snapshotPages = repository.getPages(id)
+repository.deleteDocument(id)
 Snackbar.make(
 requireView(),
 R.string.workspace_document_deleted_snackbar,
@@ -76,7 +85,7 @@ Snackbar.LENGTH_LONG,
 )
 .setAction(R.string.workspace_document_deleted_undo) {
 viewLifecycleOwner.lifecycleScope.launch {
-repository.upsertDocument(snapshot)
+repository.upsertDocument(snapshot, snapshotPages)
 }
 }
 .show()
