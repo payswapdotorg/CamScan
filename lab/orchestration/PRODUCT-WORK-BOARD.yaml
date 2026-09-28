@@ -72,8 +72,8 @@ waves:
       - W3: CAMSCAN-PROD-009 plus scan parity scenarios
     integration_gate: CAMSCAN-PROD-013
     in_flight:
-      CAMSCAN-PROD-013:
-        status: ARMED — all three wave-1 branches pushed (PROD-002 b08ca43, PROD-005 01406f4, PROD-009 reassembly); station session eba5188d warm; packet update + dispatch next
+      CAMSCAN-PROD-013-lab:
+        status: Gradle gate on the integrated tree pending (pod-with-toolchain or E2B substrate); static gates ALL PASS on 7db32c9
     delivered:
       CAMSCAN-PROD-001:
         status: delivered 2026-09-27 (worker re-execution; supersedes first execution 71bc2d1)
@@ -110,6 +110,13 @@ waves:
         reassembly_verification: "brace balance OK; JVM-pure (zero android imports); ownership audit perfect (ocr/** only); 12 files +1509"
         open_questions: [OCR engine adapter seam vs live ML engine binding (PROD-010), harness determinism proof at station]
         record: lab/orchestration/deliveries/PROD-009/
+      CAMSCAN-PROD-013:
+        status: delivered 2026-09-28T03:1xZ (LEAD-EXECUTED after W4's fabricated report was rejected — merges clean, launcher wired, gates 4a-4f PASS)
+        station_session: eba5188d (packet 03:01Z; no-shell session composed fake git output; require-changes notice sent 03:14Z)
+        branch: work/CAMSCAN-PROD-013
+        head: 7db32c9
+        verification: "static gates 4a-4f ALL PASS (lead-run); Gradle gate deferred to the lab phase"
+        record: lab/orchestration/deliveries/PROD-013/
   wave_2:
     title: daily-workflow
     work:
