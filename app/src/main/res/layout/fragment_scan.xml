@@ -6,7 +6,8 @@
      scan_switch_camera, scan_permission_request_button,
      scan_permission_rationale, scan_unavailable_state, scan_done_button,
      plus the CAMSCAN-PROD-002 detection ids scan_framing_overlay and
-     scan_detection_guidance.
+     scan_detection_guidance, and the CAMSCAN-PROD-004 session id
+     session_page_count_badge.
 
      Framework-only style attributes on purpose: the layout must inflate under
      any host theme (FragmentScenario included). -->
@@ -33,6 +34,25 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:contentDescription="@string/scan_framing_overlay_desc" />
+
+    <!-- CAMSCAN-PROD-004 §6.6: session page-count tray (top-start badge).
+         Shows "N pages" once the session holds pages; the multi-page loop's
+         at-a-glance state. -->
+    <TextView
+        android:id="@+id/session_page_count_badge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:layout_margin="16dp"
+        android:background="@color/review_crop_scrim"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:textColor="@android:color/white"
+        android:contentDescription="@string/session_page_count_desc"
+        android:visibility="gone" />
 
     <!-- CAMSCAN-PROD-002 §6.6: guidance line mapping the stable detection's
          quality flags to short scan_guidance_* copy. -->

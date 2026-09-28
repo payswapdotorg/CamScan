@@ -5,12 +5,13 @@ import java.io.File
 
 
 /**
- * CAMSCAN-PROD-001 §6.5 — one successful still capture kept in memory by the
- * scan surface.
+ * CAMSCAN-PROD-001 §6.5 — one successful still capture.
  *
- * Persistence into the durable Document model is NOT this work order's
- * concern (the scan-session/persistence work order owns it); the shell and
- * session flow consume these values through [ScanFragment.onCaptureResult].
+ * CAMSCAN-PROD-004 note: the scan session flow supersedes the raw-shot
+ * handoff — captures now land in [org.payswap.camscan.capture.session.ScanSessionController]
+ * pages and finish through the session persistence adapter. This value type
+ * is retained for source compatibility within the capture tree (tests and
+ * diagnostics); nothing on the live path constructs it anymore.
  *
  * @param file the saved still image.
  * @param capturedAtMillis completion time in epoch millis, read through the

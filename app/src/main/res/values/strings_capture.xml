@@ -29,4 +29,37 @@
     <string name="scan_guidance_glare">Tilt slightly — glare is washing out the page</string>
     <string name="scan_guidance_low_contrast">Low contrast — try brighter, more even light</string>
     <string name="scan_guidance_unstable">Hold still — the page is moving</string>
+
+    <!-- CAMSCAN-PROD-004 §6.5/§6.6: the review surface and session loop.
+         Every name carries the review_ or session_ prefix (Worker-disjoint
+         resource discipline); all ids these strings serve are
+         contract-frozen (fragment_review.xml + the scan-surface badge). -->
+    <string name="review_page_image_desc">Scanned page preview</string>
+    <string name="review_accept">Keep</string>
+    <string name="review_retake">Retake</string>
+    <string name="review_crop">Crop</string>
+    <string name="review_rotate">Rotate</string>
+    <string name="review_crop_surface_desc">Crop adjustment area with draggable corner handles</string>
+    <string name="review_crop_apply">Apply crop</string>
+    <string name="review_crop_cancel">Cancel crop</string>
+    <string name="review_enhancement_group_desc">Enhancement mode</string>
+    <string name="review_enhancement_original">Original</string>
+    <string name="review_enhancement_grayscale">Gray</string>
+    <string name="review_enhancement_black_and_white">B&amp;W</string>
+    <string name="review_enhancement_contrast">Contrast</string>
+    <string name="review_enhancement_sharpen">Sharpen</string>
+    <string name="review_enhancement_low_light">Brighten</string>
+    <string name="review_quality_banner_desc">Page quality warnings</string>
+    <string name="review_quality_blurred">Page looks blurry — retake may help</string>
+    <string name="review_quality_glare">Glare detected on the page</string>
+    <string name="review_quality_dark">Page looks too dark</string>
+    <string name="review_quality_low_contrast">Low contrast — try more even light</string>
+    <string name="review_reprocess_failed">Could not apply the change — the page kept its previous state</string>
+
+    <!-- Session tray on the scan surface (session_page_count_badge). -->
+    <string name="session_page_count_desc">Pages captured in this scan session</string>
+    <plurals name="session_page_count">
+        <item quantity="one">%1$d page</item>
+        <item quantity="other">%1$d pages</item>
+    </plurals>
 </resources>

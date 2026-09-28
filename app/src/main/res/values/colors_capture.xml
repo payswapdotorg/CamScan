@@ -11,4 +11,17 @@
     <color name="scan_framing_searching">#FF9E9E9E</color>
     <!-- Warning: stable quad carrying quality flags (blur/glare/contrast/...). -->
     <color name="scan_framing_warning">#FFE65100</color>
+
+    <!-- CAMSCAN-PROD-004 §6.5: review surface + crop sheet colors.
+         Worker-disjoint by design — review_ prefix. Same palette family as
+         the detection states (green accent on dark); no indigo/blue hues. -->
+    <!-- Quality banner: warning amber background for advisory flags. -->
+    <color name="review_quality_banner_background">#FFE65100</color>
+    <!-- Crop quad outline on the adjustment sheet. -->
+    <color name="review_crop_line">#FF2E7D32</color>
+    <!-- Crop corner handles: white fill, green stroke. -->
+    <color name="review_crop_handle_fill">#FFFFFFFF</color>
+    <color name="review_crop_handle_stroke">#FF2E7D32</color>
+    <!-- Crop sheet scrim over the review content. -->
+    <color name="review_crop_scrim">#B3000000</color>
 </resources>

@@ -1,10 +1,10 @@
 package org.payswap.camscan.capture.camera
 
-
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
@@ -12,6 +12,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.payswap.camscan.R
 import org.payswap.camscan.capture.detect.DetectionAnalyzer
 import org.payswap.camscan.capture.detect.DetectionQualityFlag
@@ -19,55 +23,82 @@ import org.payswap.camscan.capture.detect.DetectionStabilizer
 import org.payswap.camscan.capture.detect.EdgeQuadDetector
 import org.payswap.camscan.capture.detect.FramingOverlayView
 import org.payswap.camscan.capture.detect.StableDetection
+import org.payswap.camscan.capture.session.CaptureImageDecoder
+import org.payswap.camscan.capture.session.ReviewFragment
+import org.payswap.camscan.capture.session.ScanSessionController
+import org.payswap.camscan.capture.session.ScanSessionRegistry
+import org.payswap.camscan.capture.session.SessionPersistAdapter
+import org.payswap.camscan.capture.session.SessionPersistence
 import org.payswap.camscan.core.time.TimeSource
 import java.io.File
-
+import java.util.UUID
 
 /**
- * CAMSCAN-PROD-001 §6.5 — the live scan surface.
+ * CAMSCAN-PROD-001 §6.5 / CAMSCAN-PROD-004 §6.6 — the live scan surface and
+ * the multi-page session loop.
  *
  * Contract-frozen semantic ids (fragment_scan.xml) — ADB parity tests depend
  * on them; do not rename:
  *  scan_camera_preview, scan_capture_button, scan_flash_toggle,
  *  scan_switch_camera, scan_permission_request_button,
  *  scan_permission_rationale, scan_unavailable_state, scan_done_button,
- *  plus the CAMSCAN-PROD-002 detection ids scan_framing_overlay and
- *  scan_detection_guidance.
+ *  scan_framing_overlay, scan_detection_guidance, plus the PROD-004
+ *  session_page_count_badge.
  *
  * Behavior:
  *  - hosts a [CameraController]; the [CameraStateMachine] is driven through
  *    the controller (its events originate from this surface's affordances);
- *  - permission overlay whenever the [CameraPermissionGate] is not GRANTED
- *    (rationale text + request button via RequestPermission);
- *  - capture button enabled only while the machine is READY; on success the
- *    shot is kept in memory as a [CapturedShot] and the surface re-arms;
- *    document persistence is NOT this work order's concern;
+ *  - permission overlay whenever the [CameraPermissionGate] is not GRANTED;
  *  - CAMSCAN-PROD-002: live document detection feeds the framing overlay
- *    (scan_framing_overlay) and the guidance line (scan_detection_guidance)
- *    through a [DetectionAnalyzer] bound into the controller's camera bind.
- *    Detection is *advisory only* — it never gates capture (the capture
- *    button's enabled state remains exactly the PROD-001 rule);
- *  - [onCaptureResult] is invoked with all shots when the user finishes via
- *    scan_done_button; [onScanAbandoned] fires when the surface is left any
- *    other way (back navigation);
- *  - graceful no-camera / permanent-error state (scan_unavailable_state).
+ *    and the guidance line; advisory only — capture is never gated;
+ *  - CAMSCAN-PROD-004: every successful capture is decoded upright
+ *    (EXIF-aware), mapped onto the latest stable detection quad, and
+ *    appended into (or retaken over) the in-memory [ScanSessionController];
+ *    the user is routed into [ReviewFragment] in the SAME container (a
+ *    back-stack entry) to inspect / crop / rotate / enhance / accept or
+ *    retake the page;
+ *  - the session tray badge (session_page_count_badge) shows "N pages";
+ *  - scan_done_button finishes the SESSION: ScanSession.finish() ->
+ *    [SessionPersistAdapter] when [sessionPersistence] is wired (document id
+ *    flows to [onSessionFinished]) or a null id otherwise — the shell's
+ *    placeholder behavior, honestly preserved;
+ *  - leaving the surface any other way (back navigation below the scan
+ *    surface) reports abandonment via [onScanAbandoned].
  *
- * Known foundation limitation (deliberate, later work orders own the fix): the
- * in-memory shot list is lost on process death/config change; the
- * scan-session work order (PROD-004) introduces durable sessions.
+ * Persistence wiring (integration-station note): [CameraScanLauncher] passes
+ * its optional sessionPersistence here before the transaction commits. A
+ * null persistence keeps today's behavior (ids from UUID, finish reports
+ * null); the shell swaps in the real wiring with a one-line construction
+ * change on ITS side.
+ *
+ * Known honest limitations: the in-memory session is lost on process death
+ * (documented PROD-001 carry-over); backing out DURING the done-button
+ * persistence cancels it and reports abandonment; the scan -> review ->
+ * scan loop survives view destruction by design (the controller lives in
+ * the fragment instance + [ScanSessionRegistry]).
  */
 class ScanFragment : Fragment(R.layout.fragment_scan) {
 
     /**
-     * Invoked with the in-memory shots when the user finishes the scan via
-     * scan_done_button. Consumed by the shell/session flow in later work
-     * orders; [CameraScanLauncher] wires the default completion path.
+     * Persistence wiring for the session — set by [CameraScanLauncher] (or
+     * a host) before the fragment transaction commits. Null keeps the
+     * placeholder finish behavior (onScanFinished(null)); the typed
+     * null-object is [SessionPersistence.UNAVAILABLE].
      */
-    var onCaptureResult: ((List<CapturedShot>) -> Unit)? = null
+    var sessionPersistence: SessionPersistence? = null
+
+    /**
+     * Invoked with the durable document id when the user finishes the
+     * session via scan_done_button (null when persistence is unwired/failed
+     * or the session was empty). Wired by [CameraScanLauncher] to
+     * ScanHost.onScanFinished.
+     */
+    var onSessionFinished: ((String?) -> Unit)? = null
 
     /**
      * Invoked when the scan surface is left without finishing (back
-     * navigation). Wired by [CameraScanLauncher] to ScanHost.onScanFinished(null).
+     * navigation below the scan surface). Wired by [CameraScanLauncher] to
+     * ScanHost.onScanFinished(null).
      */
     var onScanAbandoned: (() -> Unit)? = null
 
@@ -86,11 +117,20 @@ class ScanFragment : Fragment(R.layout.fragment_scan) {
     private var unavailableState: TextView? = null
     private var framingOverlay: FramingOverlayView? = null
     private var guidanceText: TextView? = null
+    private var pageBadge: TextView? = null
 
-    private val capturedShots = mutableListOf<CapturedShot>()
+    /** The PROD-004 session state — created once per fragment instance. */
+    private var sessionController: ScanSessionController? = null
+    private var sessionToken: String? = null
+
+    /** Latest detection result snapshot (the capture-time quad source). */
+    private var lastDetection: DetectionAnalyzer.DetectionResult? = null
 
     /** True once the done path (or abandonment) has fired its callback. */
     private var finished = false
+
+    /** True while a session finish is in flight (re-entry guard). */
+    private var finishing = false
 
     /** Determinism seam: product time is read through TimeSource, never System directly. */
     private val timeSource: TimeSource = TimeSource.SYSTEM
@@ -124,6 +164,7 @@ class ScanFragment : Fragment(R.layout.fragment_scan) {
         unavailableState = view.findViewById(R.id.scan_unavailable_state)
         framingOverlay = view.findViewById(R.id.scan_framing_overlay)
         guidanceText = view.findViewById(R.id.scan_detection_guidance)
+        pageBadge = view.findViewById(R.id.session_page_count_badge)
 
         permissionGate = CameraPermissionGate(
             RationaleChecker { shouldShowRequestPermissionRationale(Manifest.permission.CAMERA) },
@@ -150,6 +191,31 @@ class ScanFragment : Fragment(R.layout.fragment_scan) {
         switchButton?.setOnClickListener { cameraController?.switchLens() }
         doneButton?.setOnClickListener { finishScan() }
 
+        // The session (and its registry entry) survives the scan -> review ->
+        // scan loop: the view is destroyed/recreated, the fragment instance
+        // and the controller are not.
+        if (sessionController == null) {
+            val persistence = sessionPersistence
+            val controller = ScanSessionController(
+                idGenerator = if (persistence != null) {
+                    persistence.idGenerator
+                } else {
+                    { UUID.randomUUID().toString() }
+                },
+                decodeCapture = CaptureImageDecoder::decode,
+                persistResult = if (persistence != null) {
+                    SessionPersistAdapter(persistence)::persist
+                } else {
+                    { null }
+                },
+            )
+            val token = UUID.randomUUID().toString()
+            ScanSessionRegistry.put(token, controller)
+            sessionController = controller
+            sessionToken = token
+        }
+
+        updatePageBadge()
         onPermissionStateChanged()
     }
 
@@ -172,10 +238,6 @@ class ScanFragment : Fragment(R.layout.fragment_scan) {
         cameraController = null
         detectionAnalyzer?.shutdown()
         detectionAnalyzer = null
-        if (!finished) {
-            finished = true
-            onScanAbandoned?.invoke()
-        }
         cameraPreview = null
         captureButton = null
         flashButton = null
@@ -187,6 +249,23 @@ class ScanFragment : Fragment(R.layout.fragment_scan) {
         unavailableState = null
         framingOverlay = null
         guidanceText = null
+        pageBadge = null
+        lastDetection = null
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Abandonment fires only when the fragment INSTANCE goes away without
+        // a finish — replacing this surface with ReviewFragment merely
+        // destroys the view (onDestroyView above), so the session loop does
+        // not count as abandonment.
+        if (!finished) {
+            finished = true
+            onScanAbandoned?.invoke()
+        }
+        ScanSessionRegistry.remove(sessionToken)
+        sessionController = null
+        sessionToken = null
     }
 
     private fun isOsPermissionGranted(): Boolean =
@@ -253,9 +332,11 @@ class ScanFragment : Fragment(R.layout.fragment_scan) {
     /**
      * Renders one stabilizer result onto the overlay + guidance line. Runs on
      * the main executor; view refs are null-safe because a final in-flight
-     * callback may land after the view is torn down.
+     * callback may land after the view is torn down. The latest result is
+     * also snapshotted as the capture-time quad source.
      */
     private fun renderDetection(result: DetectionAnalyzer.DetectionResult) {
+        lastDetection = result
         framingOverlay?.show(result.detection, result.frameWidth, result.frameHeight)
         guidanceText?.setText(guidanceFor(result.detection))
     }
@@ -299,20 +380,10 @@ class ScanFragment : Fragment(R.layout.fragment_scan) {
     private fun captureStill() {
         val controller = cameraController ?: return
         val captureDir = File(requireContext().cacheDir, CAPTURE_DIR_NAME).apply { mkdirs() }
-        val target = File(captureDir, "shot-${capturedShots.size + 1}-${timeSource.nowMillis()}.jpg")
+        val target = File(captureDir, "shot-${timeSource.nowMillis()}-${UUID.randomUUID()}.jpg")
         controller.takeStill(target) { outcome ->
             when (outcome) {
-                is CaptureOutcome.Saved -> {
-                    capturedShots.add(
-                        CapturedShot(
-                            file = outcome.file,
-                            capturedAtMillis = timeSource.nowMillis(),
-                            lensFacing = controller.cameraSettings.lensFacing,
-                            flash = controller.cameraSettings.flash,
-                        ),
-                    )
-                    doneButton?.visibility = View.VISIBLE
-                }
+                is CaptureOutcome.Saved -> handleCaptureSaved(outcome.file)
 
                 is CaptureOutcome.Failed -> {
                     val appContext = context
@@ -324,19 +395,97 @@ class ScanFragment : Fragment(R.layout.fragment_scan) {
         }
     }
 
+    /**
+     * CAMSCAN-PROD-004: one still landed — decode it upright (EXIF-aware,
+     * off the main thread), fold it into the session (append, or the armed
+     * retake's atomic replace), then route into review.
+     */
+    private fun handleCaptureSaved(file: File) {
+        val controller = sessionController ?: return
+        val detection = lastDetection
+        viewLifecycleOwner.lifecycleScope.launch {
+            val index = withContext(Dispatchers.Default) {
+                controller.submitCapture(
+                    file = file,
+                    detectedCorners = detection?.detection?.corners,
+                    frameWidth = detection?.frameWidth ?: 0,
+                    frameHeight = detection?.frameHeight ?: 0,
+                )
+            }
+            if (index == null) {
+                val appContext = context
+                if (appContext != null) {
+                    Toast.makeText(appContext, R.string.scan_capture_failed, Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                updatePageBadge()
+                openReview(index)
+            }
+        }
+    }
+
+    /** Routes into [ReviewFragment] in the SAME container, back-stack entry. */
+    private fun openReview(pageIndex: Int) {
+        val token = sessionToken ?: return
+        val review = ReviewFragment.newInstance(token, pageIndex)
+        parentFragmentManager.beginTransaction()
+            .replace(containerViewId(), review, REVIEW_FRAGMENT_TAG)
+            .addToBackStack(REVIEW_BACK_STACK_NAME)
+            .commit()
+    }
+
+    /**
+     * The container this surface lives in: derived from the view's parent
+     * (the host's ScanHost.containerViewId without needing the host);
+     * android.R.id.content is the honest fallback (e.g. FragmentScenario).
+     */
+    private fun containerViewId(): Int {
+        val parent = view?.parent as? ViewGroup
+        val id = parent?.id ?: View.NO_ID
+        return if (id != View.NO_ID) id else android.R.id.content
+    }
+
+    /** The session tray: "N pages" once the session holds pages. */
+    private fun updatePageBadge() {
+        val badge = pageBadge
+        if (badge == null) return
+        val count = sessionController?.pageCount ?: 0
+        if (count > 0) {
+            badge.text = resources.getQuantityString(R.plurals.session_page_count, count, count)
+            badge.visibility = View.VISIBLE
+        } else {
+            badge.visibility = View.GONE
+        }
+        doneButton?.visibility = if (count > 0) View.VISIBLE else View.GONE
+    }
+
+    /**
+     * scan_done_button: finishes the SESSION — freeze the pages, persist
+     * through the adapter when wired (suspend; runs before the surface
+     * pops so the callback is not racing the coroutine scope), then report
+     * the document id (or null: empty session / unwired persistence).
+     */
     private fun finishScan() {
-        if (finished) {
+        if (finished || finishing) {
             return
         }
-        finished = true
-        val shots = capturedShots.toList()
-        if (shots.isNotEmpty()) {
-            onCaptureResult?.invoke(shots)
+        finishing = true
+        doneButton?.isEnabled = false
+        val controller = sessionController
+        viewLifecycleOwner.lifecycleScope.launch {
+            // Await persistence BEFORE popping: the scope dies with the view.
+            // (Backing out mid-persist cancels it; onDestroy then reports
+            // abandonment — the documented degradation.)
+            val documentId = controller?.finish()
+            finished = true
+            onSessionFinished?.invoke(documentId)
+            parentFragmentManager.popBackStack()
         }
-        parentFragmentManager.popBackStack()
     }
 
     private companion object {
         const val CAPTURE_DIR_NAME = "scan-captures"
+        const val REVIEW_FRAGMENT_TAG = "review"
+        const val REVIEW_BACK_STACK_NAME = "review"
     }
 }

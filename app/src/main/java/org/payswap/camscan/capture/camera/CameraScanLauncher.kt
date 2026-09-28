@@ -1,31 +1,45 @@
 package org.payswap.camscan.capture.camera
 
-
+import org.payswap.camscan.capture.session.SessionPersistence
 import org.payswap.camscan.core.navigation.ScanHost
 import org.payswap.camscan.core.navigation.ScanLauncher
 
-
 /**
- * CAMSCAN-PROD-001 §6.6 — the capture engine's [ScanLauncher] implementation.
+ * CAMSCAN-PROD-001 §6.6 / CAMSCAN-PROD-004 §6.6 — the capture engine's
+ * [ScanLauncher] implementation.
  *
  * Opens the real scan surface ([ScanFragment]) into the host shell's content
  * container via the host's FragmentManager (addToBackStack "scan") and returns
  * true when the transaction was committed.
  *
- * Completion wiring for the foundation slice: real document ids arrive with
- * the scan-session/persistence work order (PROD-004); until then a finished
- * scan reports no document id yet, and leaving the surface without captures
- * (back navigation) reports the same. Both paths call
- * [ScanHost.onScanFinished] with null.
+ * CAMSCAN-PROD-004 adds the OPTIONAL [sessionPersistence] constructor
+ * parameter — default null keeps today's behavior exactly (no-arg
+ * construction compiles and behaves identically: ids are UUIDs and a
+ * finished scan reports no document id). The integration station swaps in
+ * the wired construction (repository + content store + TimeSource +
+ * idGenerator) with a ONE-LINE change in the SHELL's file — the scan
+ * session, review surface, and persistence adapter all live in Worker-1's
+ * trees behind this seam.
+ *
+ * Completion wiring:
+ *  - scan_done_button => ScanSession.finish() => adapter persist (when
+ *    wired) => [ScanHost.onScanFinished] with the durable document id, or
+ *    null for an empty session / unwired-or-failed persistence;
+ *  - leaving the surface without finishing (back navigation below the scan
+ *    surface) => [ScanHost.onScanFinished] with null.
  */
-class CameraScanLauncher : ScanLauncher {
+class CameraScanLauncher(
+    private val sessionPersistence: SessionPersistence? = null,
+) : ScanLauncher {
 
     override fun startScan(host: ScanHost): Boolean {
         val scanFragment = ScanFragment()
-        scanFragment.onCaptureResult = { _ ->
-            // The shots are handed to the session/persistence flow in PROD-004;
-            // until then a finished scan has no document id to report.
-            host.onScanFinished(null)
+        scanFragment.sessionPersistence = sessionPersistence
+        scanFragment.onSessionFinished = { documentId ->
+            // A durable document id when persistence is wired; null when the
+            // session was empty or persistence was unwired/failed — the same
+            // observable outcome the shell saw before PROD-004.
+            host.onScanFinished(documentId)
         }
         scanFragment.onScanAbandoned = {
             // User left the scan surface without finishing.

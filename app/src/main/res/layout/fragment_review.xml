@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CAMSCAN-PROD-004 §6.5: the post-capture review surface.
+
+     Contract-frozen semantic ids (ADB parity tests depend on them; do not
+     rename): review_page_image, review_accept_button, review_retake_button,
+     review_crop_button, review_crop_sheet, review_rotate_button,
+     review_enhancement_group (+ review_enhancement_original / _grayscale /
+     _black_and_white / _contrast / _sharpen / _low_light), and
+     review_quality_banner. (session_page_count_badge lives on the scan
+     surface, fragment_scan.xml.)
+
+     Framework-only style attributes on purpose: the layout must inflate
+     under any host theme (FragmentScenario included). -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?android:attr/colorBackground">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- Advisory quality banner (PROD-003 QualityGates flags); gone when
+             the page carries no warnings. Text + contentDescription are set
+             in code so screen readers see the same combined copy. -->
+        <TextView
+            android:id="@+id/review_quality_banner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/review_quality_banner_background"
+            android:gravity="center"
+            android:padding="12dp"
+            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:textColor="@android:color/white"
+            android:visibility="gone"
+            android:contentDescription="@string/review_quality_banner_desc" />
+
+        <!-- The current page's processed image, rotation applied at render
+             time (the processed bytes stay un-rotated). -->
+        <ImageView
+            android:id="@+id/review_page_image"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:contentDescription="@string/review_page_image_desc"
+            android:importantForAccessibility="yes"
+            android:scaleType="fitCenter" />
+
+        <!-- Enhancement mode selector: a radio-like row of the 6 frozen
+             modes. Horizontal scroll keeps all six reachable on narrow
+             screens; every button is a >= 48dp touch target. -->
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none">
+
+            <RadioGroup
+                android:id="@+id/review_enhancement_group"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:contentDescription="@string/review_enhancement_group_desc">
+
+                <RadioButton
+                    android:id="@+id/review_enhancement_original"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:text="@string/review_enhancement_original"
+                    android:contentDescription="@string/review_enhancement_original" />
+
+                <RadioButton
+                    android:id="@+id/review_enhancement_grayscale"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:text="@string/review_enhancement_grayscale"
+                    android:contentDescription="@string/review_enhancement_grayscale" />
+
+                <RadioButton
+                    android:id="@+id/review_enhancement_black_and_white"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:text="@string/review_enhancement_black_and_white"
+                    android:contentDescription="@string/review_enhancement_black_and_white" />
+
+                <RadioButton
+                    android:id="@+id/review_enhancement_contrast"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:text="@string/review_enhancement_contrast"
+                    android:contentDescription="@string/review_enhancement_contrast" />
+
+                <RadioButton
+                    android:id="@+id/review_enhancement_sharpen"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:text="@string/review_enhancement_sharpen"
+                    android:contentDescription="@string/review_enhancement_sharpen" />
+
+                <RadioButton
+                    android:id="@+id/review_enhancement_low_light"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:text="@string/review_enhancement_low_light"
+                    android:contentDescription="@string/review_enhancement_low_light" />
+            </RadioGroup>
+        </HorizontalScrollView>
+
+        <!-- Review actions: crop, rotate, retake on the left; accept (keep)
+             emphasized on the right. -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="8dp">
+
+            <Button
+                android:id="@+id/review_crop_button"
+                style="?android:attr/borderlessButtonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/review_crop"
+                android:contentDescription="@string/review_crop" />
+
+            <Button
+                android:id="@+id/review_rotate_button"
+                style="?android:attr/borderlessButtonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/review_rotate"
+                android:contentDescription="@string/review_rotate" />
+
+            <Button
+                android:id="@+id/review_retake_button"
+                style="?android:attr/borderlessButtonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/review_retake"
+                android:contentDescription="@string/review_retake" />
+
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <Button
+                android:id="@+id/review_accept_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="96dp"
+                android:minHeight="48dp"
+                android:text="@string/review_accept"
+                android:contentDescription="@string/review_accept" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Crop-adjust sheet: covers the screen while active. The
+         CropAdjustView draws the processed page + draggable corner handles;
+         apply maps the adjusted quad back into source space and re-runs the
+         pipeline from the source capture. -->
+    <FrameLayout
+        android:id="@+id/review_crop_sheet"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/review_crop_scrim"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical">
+
+            <org.payswap.camscan.capture.session.CropAdjustView
+                android:id="@+id/review_crop_surface"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:contentDescription="@string/review_crop_surface_desc" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="end|center_vertical"
+                android:padding="8dp">
+
+                <Button
+                    android:id="@+id/review_crop_cancel_button"
+                    style="?android:attr/borderlessButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:text="@string/review_crop_cancel"
+                    android:contentDescription="@string/review_crop_cancel" />
+
+                <Button
+                    android:id="@+id/review_crop_apply_button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="96dp"
+                    android:minHeight="48dp"
+                    android:text="@string/review_crop_apply"
+                    android:contentDescription="@string/review_crop_apply" />
+            </LinearLayout>
+        </LinearLayout>
+    </FrameLayout>
+</FrameLayout>
