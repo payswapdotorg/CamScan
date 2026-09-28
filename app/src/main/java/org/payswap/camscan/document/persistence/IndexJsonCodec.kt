@@ -11,13 +11,13 @@ Dependency-free, byte-stable JSON codec for the persistence index
 
 (CAMSCAN-PROD-006). Schema version 1.
 
-Aligned to the FROZEN model: [Document] carries no pages — pages live in
+Aligned to the FROZEN model: [Document] carries no pages — pages travel as
 
-the repository and travel as an explicit map keyed by document id — and
+an explicit map keyed by document id — and Page.cropQuad is
 
-Page.cropQuad is List<Corner>?, serialized as a flat number array
+List<Corner>?, serialized as a flat number array [x0, y0, x1, y1, ...]
 
-[x0, y0, x1, y1, ...] in corner list order (null when absent/empty).
+in corner list order (null when absent or empty).
 
 Write path is canonical: fixed field order, documents sorted by id, pages
 
@@ -147,7 +147,7 @@ when (ch) {
 '\r' -> builder.append("\r")
 '\t' -> builder.append("\t")
 '\b' -> builder.append("\b")
-'' -> builder.append("\f")
+'' -> builder.append("\f")
 else ->
 if (ch < ' ') {
 builder.append("\u")
@@ -180,9 +180,14 @@ val pagesByDocumentId = LinkedHashMap<String, List<Page>>()
 rawDocuments.forEach { raw ->
 val document = mapDocument(raw)
 documents.add(document)
-@Suppress("UNCHECKED_CAST")
-pagesByDocumentId[document.id] =
-(raw["pages"] as? List<Map<String, Any?>>)?.map { mapPage(it) } ?: emptyList()
+val pages = ArrayList<Page>()
+val rawPages = raw["pages"] as? List<Map<String, Any?>>
+if (rawPages != null) {
+rawPages.forEach { pageMap ->
+pages.add(mapPage(pageMap))
+}
+}
+pagesByDocumentId[document.id] = pages
 }
 return IndexSnapshot(documents, pagesByDocumentId)
 }
@@ -242,6 +247,7 @@ Minimal recursive-descent JSON reader producing Map/List/String/
 Long-Double/Boolean/null values.
 */
 private class Parser(private val text: String) {
+
 private var pos = 0
 
 fun skipWhitespace() {
@@ -265,7 +271,7 @@ else throw IndexParseException("unexpected character '$ch' at $pos")
 }
 
 private fun parseObject(): Map<String, Any?> {
-pos++ // '{'
+pos++
 val result = LinkedHashMap<String, Any?>()
 skipWhitespace()
 if (pos < text.length && text[pos] == '}') {
@@ -297,7 +303,7 @@ else -> throw IndexParseException("expected ',' or '}' at $pos")
 }
 
 private fun parseArray(): List<Any?> {
-pos++ // '['
+pos++
 val result = ArrayList<Any?>()
 skipWhitespace()
 if (pos < text.length && text[pos] == ']') {
@@ -319,7 +325,7 @@ else -> throw IndexParseException("expected ',' or ']' at $pos")
 }
 
 private fun parseString(): String {
-pos++ // '"'
+pos++
 val builder = StringBuilder()
 while (true) {
 if (pos >= text.length) throw IndexParseException("unterminated string")
@@ -338,7 +344,7 @@ when (val esc = text.getOrNull(pos)) {
 'r' -> builder.append('\r')
 't' -> builder.append('\t')
 'b' -> builder.append('\b')
-'f' -> builder.append('')
+'f' -> builder.append('')
 'u' -> {
 val hex = text.substring(pos + 1, pos + 5)
 builder.append(hex.toInt(16).toChar())
@@ -376,8 +382,6 @@ throw IndexParseException("bad literal at $pos")
 }
 pos += literal.length
 return value
-}
-
 }
 
 }

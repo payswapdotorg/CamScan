@@ -84,7 +84,9 @@ assertTrue(fromCAB.contentEquals(fromBCA))
 // Pages are canonicalized to index order on write: the same logical
 // page set serializes to identical bytes in either insertion order.
 val pages = mapOf("a" to listOf(Page(id = "p1", index = 1), Page(id = "p0", index = 0)))
-val pagesReversed = mapOf("a" to listOf(Page(id = "p0", index = 0), Page(id = "p1", index = 1)))
+val pagesReversed = mapOf(
+"a" to listOf(Page(id = "p0", index = 0), Page(id = "p1", index = 1)),
+)
 assertTrue(
 IndexJsonCodec.serialize(listOf(a), pages).toByteArray()
 .contentEquals(IndexJsonCodec.serialize(listOf(a), pagesReversed).toByteArray()),

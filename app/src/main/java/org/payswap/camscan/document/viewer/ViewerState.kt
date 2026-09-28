@@ -82,4 +82,3 @@ mutable.add(to, moved)
 return mutable.mapIndexed { index, item -> item.copy(index = index) }
 }
 
-}
