@@ -1,0 +1,191 @@
+CAMSCAN-PROD-004 DELIVERY
+=========================
+
+base sha:     200f01e69694337c1b3c21a3256a80ed81ceab51 (work/CAMSCAN-PROD-003)
+branch:       work/CAMSCAN-PROD-004
+head sha:     a112bfb8259d1367d895f13d56caf3d6cc5966a2
+bundle:       camscan-prod-004.bundle (200f01e..work/CAMSCAN-PROD-004)
+bundle copies: /home/z/camscan-prod-004.bundle + /home/z/my-project/camscan-prod-004.bundle
+delivery copies: /home/z/DELIVERY-PROD-004.txt + /home/z/my-project/DELIVERY-PROD-004.txt
+bundle sha256: 9c8548eade22e6699773e9348bca8d134a02ef86283ff2f164a6b4ab8fd514d4
+
+diff stat:    22 files changed, 2904 insertions(+), 69 deletions(-)
+              16 NEW files + 6 modified, all inside Worker-1 ownership:
+              capture/session/** (new tree, main/test/androidTest),
+              own capture/camera/{ScanFragment,CameraScanLauncher,CapturedShot}.kt,
+              own res/layout/fragment_scan.xml + fragment_review.xml,
+              own res/values/strings_capture.xml + colors_capture.xml.
+contract layer (gradle/, app/build.gradle.kts, AndroidManifest.xml, core/,
+              MainActivity.kt, activity_main.xml, strings.xml, themes.xml,
+              every non-Worker-1 tree): byte-identical to base (verified:
+              empty git diff). No new dependencies. No Compose.
+
+NEW FILES (16)
+  app/src/main/java/org/payswap/camscan/capture/session/ (10)
+    SessionPersistence.kt (§6.1) — Worker-1 persistence seam consuming the
+      lead's core contracts read-only: repository + contentStore +
+      timeSource + idGenerator + isAvailable; SessionPersistence.UNAVAILABLE
+      null-object (loud error() member guards; correct flows check
+      isAvailable first) used while the shell has not wired persistence —
+      sessions then finish with onScanFinished(null), honestly preserved.
+    SessionPage.kt (§6.2) — in-memory page under review: source ImageBuffer,
+      original still file (nullable), source quad (nullable = full frame),
+      processed ProcessedImage, enhancement mode, rotation metadata,
+      supersedes lineage; fromCapture factory + reprocessed() from SOURCE.
+    ScanSession.kt (§6.3, the contract seam) — addPage/retake/remove/
+      reorder(list-move, documented)/setEnhancement(eager re-process,
+      documented)/setRotation(metadata-only, documented)/adjustCrop(eager
+      from source)/finish (zero pages => null; idempotent snapshot —
+      stable final ids; mutations rejected after finish; NEVER throws).
+    SessionResult.kt (§6.3) — frozen payload: page id, supersedes, source
+      buffer+file, processed image, cropQuad NORMALIZED onto the lead's
+      Corner (QuadF.toNormalizedCorners, /(w-1) convention), rotation,
+      enhancement. Pure metadata — no encoding here.
+    SessionDocumentBuilder.kt (§6.4 pure half) — title "Scan yyyy-MM-dd
+      HH:mm" via java.time with INJECTED zone (never device default), key
+      conventions pages/<id>.png + sources/<id>.jpg|.png, (Document,
+      Pages) assembly with index-aligned refs; size mismatch => null.
+    ScanSessionController.kt (§6.6 logic half, pure) — capture -> page
+      flow: decode injected, PROD-002 stable-detection corners mapped onto
+      the capture (QuadF.fromFrameQuad), retake hand-off (armed retake
+      index; atomic replace on next capture; old page survives if no new
+      capture lands), delegating edits, finish() persisting EXACTLY ONCE
+      with cached doc id; + ScanSessionRegistry (token -> controller,
+      synchronized; fragments exchange only token + index).
+    SessionPersistAdapter.kt (§6.4 android half) — PNG per processed page
+      (Bitmap.compress PNG, fixed quality-100, lossless), original capture
+      bytes verbatim when the still file exists else source PNG,
+      contentStore.put -> refs, builder assembly, repository.
+      upsertDocument -> document id; failures sweep written refs
+      best-effort and return null (never crashes the session flow);
+      runs on the injected dispatcher (default IO), suspend all the way.
+    CaptureImageDecoder.kt (§6.6 android half) — BitmapFactory decode +
+      framework android.media.ExifInterface orientation (upright captures;
+      CameraX writes sensor-orientation JPEGs), 16 MP power-of-two sample
+      guard; every failure => null (flag discipline).
+    CropAdjustView.kt (§6.5) — own touch logic (no new dependencies):
+      fit-center letterboxed bitmap, quad outline, 4 draggable handles
+      (>= 44dp touch radius), emits the adjusted quad in processed-pixel
+      space; performClick honored.
+    ReviewFragment.kt (§6.5) — the review surface: processed image with
+      rotation applied, quality banner from PROD-003 QualityGates flags,
+      enhancement RadioGroup (6 modes), accept/retake/crop/rotate actions,
+      crop sheet mapping the adjusted quad back into SOURCE space through
+      the retained output->source homography (Homography.solve over
+      ProcessedGeometry) then re-running the pipeline from the source
+      capture; lost-token/process-death degradation pops back honestly.
+  app/src/main/res/layout/fragment_review.xml — contract-frozen ids:
+      review_page_image, review_accept_button, review_retake_button,
+      review_crop_button, review_crop_sheet (+ review_crop_surface /
+      apply / cancel), review_rotate_button, review_enhancement_group
+      (+ the 6 review_enhancement_* radio ids), review_quality_banner.
+  app/src/test/java/org/payswap/camscan/capture/session/ (4, §6.7)
+    ScanSessionTest.kt (14), ScanSessionControllerTest.kt (12),
+      SessionDocumentBuilderTest.kt (7), SyntheticPages.kt (fixtures).
+  app/src/androidTest/java/org/payswap/camscan/capture/session/ (1, §6.8)
+    ReviewFlowTest.kt — simulated capture (controller seam, no camera) ->
+      review visible with all contract-frozen ids + scan-surface badge;
+      lead-station only (no emulator in this sandbox).
+
+MODIFIED FILES (6, all Worker-1 owned)
+  capture/camera/ScanFragment.kt — capture -> session -> review routing
+    (same-container replace + back stack "review"), session tray badge
+    (session_page_count_badge, plurals "N pages"), scan_done_button now
+    finishes the SESSION (freeze -> persist -> onSessionFinished(docId|/
+    null) BEFORE popping), abandonment moved to onDestroy (so the review
+    loop does not count as abandonment), session survives view
+    destruction (controller in the fragment instance + registry).
+  capture/camera/CameraScanLauncher.kt — OPTIONAL ctor param
+    sessionPersistence: SessionPersistence? = null (no-arg construction
+    unchanged — compiles + behaves identically); wires
+    onSessionFinished/onScanAbandoned to ScanHost.onScanFinished.
+  capture/camera/CapturedShot.kt — KDoc note: superseded by the session
+    flow, retained for source compatibility (nothing constructs it).
+  res/layout/fragment_scan.xml — added session_page_count_badge (top-
+    start tray; contract id list comment updated).
+  res/values/strings_capture.xml — review_*/session_* strings + plurals
+    (every interactive view carries a contentDescription).
+  res/values/colors_capture.xml — review banner/crop-sheet colors (same
+    green/amber palette family; no indigo/blue).
+
+SEMANTIC IDS (exact, contract)
+  review_page_image, review_accept_button, review_retake_button,
+  review_crop_button, review_crop_sheet, review_rotate_button,
+  review_enhancement_group, review_enhancement_original,
+  review_enhancement_grayscale, review_enhancement_black_and_white,
+  review_enhancement_contrast, review_enhancement_sharpen,
+  review_enhancement_low_light, review_quality_banner,
+  session_page_count_badge. All PROD-001/002 ids unchanged.
+
+VERIFICATION (this sandbox — real Gradle gate, offline against the
+PROD-001/002/003-warmed cache: Temurin JDK 17.0.20.1+1, Android SDK
+platforms;android-35 + build-tools 35.0.0, local.properties sdk.dir,
+per-gate invocations after the PROD-003 lesson about combined-graph
+daemon kills):
+  :app:testDebugUnitTest  BUILD SUCCESSFUL — 226/226 tests green
+    (193 PROD-001/002/003-era + 33 new: ScanSession 14,
+    ScanSessionController 12, SessionDocumentBuilder 7; JUnit XML:
+    0 failures, 0 errors, 0 skipped)
+  :app:lintDebug           BUILD SUCCESSFUL (abortOnError=true honored)
+  :app:assembleDebug       BUILD SUCCESSFUL (app-debug.apk, 8,179,182
+                           bytes = 7.8 MiB decimal)
+  :app:compileDebugAndroidTestKotlin + :app:assembleDebugAndroidTest
+                           BUILD SUCCESSFUL (test APK 655,831 bytes)
+  connectedAndroidTest NOT run (no emulator in sandbox) — the §6.8
+    skeleton runs at the lead integration station.
+  Kotlin compile warnings: 0 (main + unit test sources, --rerun-tasks).
+  Static self-checks: contract layer byte-identical (empty git diff);
+    android.* imports confined to the 4 designated session files
+    (ReviewFragment, CropAdjustView, CaptureImageDecoder,
+    SessionPersistAdapter) — ScanSession/SessionPage/SessionResult/
+    SessionPersistence/SessionDocumentBuilder/ScanSessionController +
+    the whole test tree are android-free; all changed paths inside
+    Worker-1 ownership; working tree clean apart from the intended
+    delivery artifacts.
+  Failed attempts found and fixed during the gate (verbatim):
+    (1) unit-test compile: missing QuadF import in
+        ScanSessionControllerTest.kt;
+    (2) two TEST-SIDE fixture bugs (engine correct):
+        (a) adjustCrop expectation ignored the PROD-003 corrector's
+            documented MIN_OUTPUT_DIM=16 clamp (8px quad edges -> 16px
+            output; expectation corrected to 16x16);
+        (b) reorder(1, 99) clamps `to` to the post-removal END ->
+            [a, c, b], not a no-op (expectation corrected);
+    (3) androidTest compile: SyntheticPages lives in the unit-test source
+        set (invisible to androidTest) -> inline fixture; Int? smart-cast
+        via checkNotNull.
+
+STATUS VOCABULARY
+  implemented + unit-test-verified (226/226 JVM) + lint-verified +
+  compile-verified (main + androidTest) + assemble-verified; NOT
+  reconciled, NOT accepted (Worker 3 / lead authority); instrumented
+  review-flow skeleton NOT executed here (no emulator — runs at the lead
+  station).
+
+HANDOFFS / OPEN QUESTIONS (for the integration station)
+  - SessionPersistence wiring (the one-line shell change): construct
+    CameraScanLauncher(sessionPersistence = wiredBundle) instead of
+    CameraScanLauncher() in the SHELL's launcher site. Everything else
+    (session, review UI, adapter) already lives behind this seam. Until
+    then finishes report onScanFinished(null) — the preserved placeholder.
+  - The real bundle needs: a DocumentRepository implementation (PROD-006
+    persistence worker), a ContentStore implementation (files-backed),
+    TimeSource.SYSTEM, and an idGenerator (UUID is fine).
+  - Zone injection: SessionPersistAdapter defaults to UTC; the shell
+    should inject the user's zone (java.time) when it constructs the
+    persistence bundle.
+  - In-memory session is lost on process death (PROD-001 carry-over,
+    documented in ScanFragment KDoc); backing out DURING the done-button
+    persistence cancels it and reports abandonment.
+  - Rotation is METADATA (core Page KDoc: "applied on top of the
+    processed image") — the PNG stores the un-rotated processed image and
+    renderers (shell document view) must apply rotationDegrees. If the
+    shell prefers baked rotation, that is a one-line adapter change at
+    integration.
+  - cropQuad is null for full-frame captures (no perspective metadata),
+    per the core Page contract wording; warped pages carry the quad.
+  - The crop sheet shows the UN-rotated processed image (the crop quad is
+    defined in processed space; mapping stays exact). Rotation reapplies
+    on the review image afterwards.
+  - GLARE/TOO_DARK QualityGates defaults remain advisory (PROD-003 note)
+    — real-frame tuning at the lead station.

@@ -126,6 +126,15 @@ waves:
         worker_verification: "Gradle gate green in-sandbox: testDebugUnitTest 193/193 (70 new processing tests), lintDebug, assembleDebug; base sha correct; honest handoffs (ProcessedImage->Page conversion is PROD-004's seam)"
         lead_audit: "bundle base/head verified; ownership audit clean (processing/ + capture/ only); 18 files +2493"
         record: lab/orchestration/deliveries/PROD-003/
+      CAMSCAN-PROD-004:
+        status: delivered 2026-09-28T05:1xZ (bundle transit via pod files-API; sha256 byte-verified)
+        worker_session: d4dc4ebc (packet 04:04Z; executed in one turn on the warm toolchain)
+        branch: work/CAMSCAN-PROD-004
+        head: a112bfb8259d1367d895f13d56caf3d6cc5966a2
+        bundle_sha256: 9c8548eade22e6699773e9348bca8d134a02ef86283ff2f164a6b4ab8fd514d4
+        worker_verification: "Gradle gate green in-sandbox: testDebugUnitTest 226/226 (33 new session tests), lintDebug, assembleDebug, androidTest compile; SessionPersistence wiring handoff recorded"
+        lead_audit: "bundle base/head verified; ownership audit clean (session/ new tree + own camera/res files only); 22 files +2904/-69"
+        record: lab/orchestration/deliveries/PROD-004/
   wave_2:
     title: daily-workflow
     work:
