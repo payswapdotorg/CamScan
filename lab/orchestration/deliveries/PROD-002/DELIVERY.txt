@@ -1,0 +1,114 @@
+CAMSCAN-PROD-002 DELIVERY
+=========================
+
+base sha:     f1356c986b09ea435baa30328db8e822464a327d (work/CAMSCAN-PROD-001)
+branch:       work/CAMSCAN-PROD-002
+head sha:     b08ca438fe408c051f7e72158cbfed6bab3349c1
+bundle:       camscan-prod-002.bundle (f1356c9..work/CAMSCAN-PROD-002)
+bundle copies: /home/z/camscan-prod-002.bundle + /home/z/my-project/camscan-prod-002.bundle
+delivery copy: /home/z/my-project/DELIVERY-PROD-002.txt (next to the PROD-001 artifacts)
+bundle sha256: ddb1a9b2eaa831043b7216a975c123c8715179f9e30d5be71bc2bcea3947d61c
+
+diff stat:    18 files changed, 3049 insertions(+), 5 deletions(-)
+contract layer (gradle/, app/build.gradle.kts, AndroidManifest.xml, core/):
+              byte-identical to base (verified: empty git diff)
+
+NEW FILES (14)
+  app/src/main/java/org/payswap/camscan/capture/detect/DetectorFrame.kt
+    §6.1 packed 8-bit grayscale frame (row stride == width), isWellFormed guard.
+  app/src/main/java/org/payswap/camscan/capture/detect/DocumentDetection.kt
+    §6.1 Corner (frame coords), DetectionQualityFlag (6 values), DocumentDetection,
+    StableDetection.
+  app/src/main/java/org/payswap/camscan/capture/detect/DocumentDetector.kt
+    §6.2 detector seam: detect(frame, timestampMs) -> DocumentDetection?.
+  app/src/main/java/org/payswap/camscan/capture/detect/EdgeQuadDetector.kt
+    §6.2 pure-Kotlin detector: downsample -> Otsu -> largest bright component ->
+    convex hull + max-area inscribed quad -> full-res corner refinement ->
+    perimeter edge support -> ordering/flags/confidence. Deterministic.
+  app/src/main/java/org/payswap/camscan/capture/detect/QuadGeometry.kt
+    §6.4 shared geometry: centroid-angle canonical ordering, strict convexity,
+    shoelace area, exact Sutherland-Hodgman quad IoU, aspect ratio,
+    per-corner distances.
+  app/src/main/java/org/payswap/camscan/capture/detect/DetectionStabilizer.kt
+    §6.3 temporal stabilization: consecutive-agreement gate (per-corner distance
+    + IoU), loss hysteresis (holdout), resume, MOTION_UNSTABLE breach counter,
+    ctor-param clamping, never throws.
+  app/src/main/java/org/payswap/camscan/capture/detect/DetectionAnalyzer.kt
+    §6.5 CameraX glue: YUV_420_888 luminance extraction (rowStride/pixelStride),
+    upright rotation, 250ms frame throttle, exactly-once ImageProxy close,
+    single serial background executor, main-thread callback.
+  app/src/main/java/org/payswap/camscan/capture/detect/FramingOverlayView.kt
+    §6.6 overlay: stable quad polygon + corner markers, three-state coloring
+    (stable/searching/warning), FILL_CENTER analysis->view mapping, alpha
+    composition keeps preview visible.
+  app/src/main/res/values/colors_capture.xml
+    scan_framing_stable / scan_framing_searching / scan_framing_warning.
+  app/src/test/java/org/payswap/camscan/capture/detect/SyntheticFrames.kt
+    §6.7 deterministic synthetic fixtures (configurable quads, luminance,
+    noise; no RNG, no I/O).
+  app/src/test/java/org/payswap/camscan/capture/detect/QuadGeometryTest.kt
+    26 tests: 24-permutation canonicalization (rect + perspective), convexity
+    (bowtie/collinear/size), area, IoU (identical/disjoint/half-overlap/
+    translated/symmetric), cornerDistances, aspectRatio, distance.
+  app/src/test/java/org/payswap/camscan/capture/detect/EdgeQuadDetectorTest.kt
+    12 tests: clean-page corner accuracy (<= 2.5% frame width) + confidence
+    range + no flags, determinism (same frame twice, with noise), tilted
+    perspective page, receipt aspect, blank/uniform -> null, malformed ->
+    null, tiny frame -> null, border-flush PARTIAL_PAGE, low-contrast
+    LOW_CONTRAST (still returned), sub-minimum quad NO_PAGE, ctor threshold
+    overrides.
+  app/src/test/java/org/payswap/camscan/capture/detect/DetectionStabilizerTest.kt
+    18 tests: agreement ladder (2 != stable, 3 = stable), run increments,
+    disagreement reset, SEARCHING miss reset, holdout countdown (5 held
+    emissions, 6th null), holdout resume, holdout=0, disagreeing frames as
+    misses, re-earn after expiry, MOTION_UNSTABLE after >1 breach, malformed
+    detection ignored, ctor overrides (required/tolerance/IoU/holdout),
+    clamped ctor values, flag passthrough.
+  app/src/androidTest/java/org/payswap/camscan/capture/detect/ScanFragmentOverlayTest.kt
+    §6.8 instrumentation skeleton: FragmentScenario launch, asserts
+    scan_framing_overlay + scan_detection_guidance resolve (runs at the lead
+    integration station — no emulator in this sandbox).
+
+MODIFIED FILES (4 — all inside Worker 1's PROD-001 ownership; capture path behavior unchanged)
+  app/src/main/java/org/payswap/camscan/capture/camera/CameraController.kt
+    §6.6 additive: setAnalyzer(executor, analyzer) hook; ImageAnalysis
+    (KEEP_ONLY_LATEST, ~640x480 ResolutionSelector) bound alongside Preview +
+    ImageCapture in every bind (initial, lens switch, recoverable rebind);
+    stop() detaches. takeStill/machine/gate logic untouched.
+  app/src/main/java/org/payswap/camscan/capture/camera/ScanFragment.kt
+    §6.6 wiring: DetectionAnalyzer created with TimeSource + main executor,
+    attached before start(); renderDetection -> overlay + guidance mapping;
+    analyzer shutdown in onDestroyView. Capture button rule unchanged
+    (detection never gates capture).
+  app/src/main/res/layout/fragment_scan.xml
+    FramingOverlayView (id scan_framing_overlay + contentDescription) above
+    scan_camera_preview; guidance TextView (id scan_detection_guidance) above
+    the capture button. All 8 PROD-001 ids unchanged.
+  app/src/main/res/values/strings_capture.xml
+    scan_framing_overlay_desc + 8 scan_guidance_* strings.
+
+NEW SEMANTIC IDS (contract-frozen)
+  scan_framing_overlay, scan_detection_guidance
+  (all PROD-001 ids unchanged)
+
+VERIFICATION (in this sandbox)
+  :app:testDebugUnitTest  BUILD SUCCESSFUL — 123/123 tests green
+    (67 PROD-001-era untouched + 56 new: 26 QuadGeometry, 12 EdgeQuadDetector,
+    18 DetectionStabilizer; JUnit XML: 0 failures, 0 errors, 0 skipped)
+  :app:lintDebug           BUILD SUCCESSFUL (abortOnError=true honored)
+  :app:compileDebugAndroidTestKotlin BUILD SUCCESSFUL
+  :app:assembleDebug       BUILD SUCCESSFUL (app-debug.apk)
+  :app:assembleDebugAndroidTest     BUILD SUCCESSFUL (androidTest apk)
+  Standalone JVM phase (kotlinc 2.0.21 + JUnit 4.13.2): all three pure suites
+  green before the Gradle gate.
+  connectedAndroidTest NOT run (no emulator in sandbox) — skeleton runs at the
+  lead station.
+  Fixed during verification: QuadGeometry.iou polygonArea type mismatch;
+  DetectionStabilizer property/ctor-param name collision + nullable promote
+  return; QuadGeometry.aspectRatio zero-area degenerate case; test-side
+  off-by-one in the disagreement ladder + low-contrast dual-threshold fixture.
+
+STATUS VOCABULARY
+  implemented + unit-test-verified + lint-verified + compile-verified +
+  assemble-verified locally; NOT reconciled, NOT accepted (Worker 3 / lead
+  authority); instrumentation skeleton NOT executed here.

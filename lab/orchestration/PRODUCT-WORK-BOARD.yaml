@@ -72,13 +72,8 @@ waves:
       - W3: CAMSCAN-PROD-009 plus scan parity scenarios
     integration_gate: CAMSCAN-PROD-013
     in_flight:
-      CAMSCAN-PROD-002:
-        status: dispatched 2026-09-28T00:21Z (Worker 1 session d4dc4ebc; first turn reaped mid-work ~01:0x after §6.5-6.6; continuation order sent 01:30Z — queued)
-        packet: lab/orchestration/packets/CAMSCAN-PROD-002.md
-        base: f1356c986b09ea435baa30328db8e822464a327d (PROD-001 head — W1's own capture foundation)
-        scope: quad detector + quality flags, DetectionStabilizer, framing overlay, ImageAnalysis wiring
       CAMSCAN-PROD-009:
-        status: execution directive delivered 01:44Z to f1a04ca7 (packet in-session since 22:04; inline-transit harvest expected — W2 precedent)
+        status: executed 01:44-02:0xZ in f1a04ca7 (completion report posted); inline transit order sent 02:02Z — delivery streaming
     delivered:
       CAMSCAN-PROD-001:
         status: delivered 2026-09-27 (worker re-execution; supersedes first execution 71bc2d1)
@@ -97,6 +92,15 @@ waves:
         reassembly_verification: "brace balance OK; all stable ids present; zero contract-layer touches; 18 files +1270/-24"
         open_questions: [upsert timestamp semantics, PlaceholderScanLauncher swap point, instrumentation deferral]
         record: lab/orchestration/deliveries/PROD-005/
+      CAMSCAN-PROD-002:
+        status: delivered 2026-09-28T02:0xZ (bundle transit via pod files-API; sha256 byte-verified)
+        worker_session: d4dc4ebc (packet 00:21Z; first turn reaped mid-work; continuation order 01:30Z completed the execution)
+        branch: work/CAMSCAN-PROD-002
+        head: b08ca438fe408c051f7e72158cbfed6bab3349c1
+        bundle_sha256: ddb1a9b2eaa831043b7216a975c123c8715179f9e30d5be71bc2bcea3947d61c
+        worker_verification: "Gradle gate green in-sandbox: testDebugUnitTest 123/123 (56 new detect tests), lintDebug, assembleDebug, assembleDebugAndroidTest, compileDebugAndroidTestKotlin; contract layer byte-identical; instrumentation skeleton deferred to lead station"
+        lead_audit: "bundle base/head verified; ownership audit clean (capture/** + fragment_scan/strings_capture/colors_capture only); 18 files +3049/-5"
+        record: lab/orchestration/deliveries/PROD-002/
   wave_2:
     title: daily-workflow
     work:
