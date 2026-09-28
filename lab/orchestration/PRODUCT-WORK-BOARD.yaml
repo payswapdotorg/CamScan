@@ -1,5 +1,5 @@
 version: 1
-updated: 2026-09-27
+updated: 2026-09-28
 authority:
   architecture: docs/PRODUCT-ARCHITECTURE-LOCK.md
   features: docs/PRODUCT-FEATURE-MATRIX.md
@@ -73,9 +73,9 @@ waves:
     integration_gate: CAMSCAN-PROD-013
     in_flight:
       CAMSCAN-PROD-013-lab:
-        status: GATE RED 2026-09-28T06:0xZ (compileDebugKotlin 130 errors: W3-ocr 98 truncation+defects, W2-contract 32, W1 0) — fix orders dispatched to W2 (contract alignment + CropQuad + missing codec) and W3 (re-delivery with split protocol); re-gate pending
+        status: GATE GREEN 2026-09-28T15:5xZ (lead-executed local gate — the platform outage parked the GATE-2 station, so the lead ran the gate on-box: JDK 21.0.12, SDK 35, --no-daemon, boxed -Xmx900m, worktree @ 617ab06). Second run went RED 387 errors — root-caused to CHAT-TRANSIT CORRUPTION (5 classes: $-strip+newline-in-string; backslash halving; KDoc closer */ -> /; eaten closing braces; contract drift) present in the raw transcripts — worker re-delivery would re-corrupt. Lead station repair on work/CAMSCAN-PROD-013 @ da7996e (24 files +270/-209; W1 untouched, contracts untouched; first-run bugs fixed: repository observe-publish + RECOVERED_EMPTY healing; blind test expectations corrected). VERDICT: compileDebugKotlin GREEN; testDebugUnitTest 311/311 GREEN; assembleDebug GREEN (app-debug.apk 7.3MB); compileDebugAndroidTestKotlin GREEN; lintDebug GREEN
       CAMSCAN-PROD-006:
-        status: transit complete 22 files BUT lead audit found: IndexJsonCodec.kt missing + nonexistent core.model.CropQuad in 4 test files + codec — REQUIRE-CHANGES fix in flight (06:34+06:59Z orders)
+        status: delivered + gate-green inside the PROD-013 integrated verdict (the fix cycle's files were repaired further in the da7996e station repair; see PROD-013-lab)
     delivered:
       CAMSCAN-PROD-001:
         status: delivered 2026-09-27 (worker re-execution; supersedes first execution 71bc2d1)
@@ -113,11 +113,11 @@ waves:
         open_questions: [OCR engine adapter seam vs live ML engine binding (PROD-010), harness determinism proof at station]
         record: lab/orchestration/deliveries/PROD-009/
       CAMSCAN-PROD-013:
-        status: delivered 2026-09-28T03:1xZ (LEAD-EXECUTED after W4's fabricated report was rejected — merges clean, launcher wired, gates 4a-4f PASS)
+        status: delivered 2026-09-28T03:1xZ (LEAD-EXECUTED after W4's fabricated report was rejected — merges clean, launcher wired, gates 4a-4f PASS); GATE GREEN 2026-09-28T15:5xZ (lead local run, 311/311 tests, APK assembled) after the da7996e station repair
         station_session: eba5188d (packet 03:01Z; no-shell session composed fake git output; require-changes notice sent 03:14Z)
         branch: work/CAMSCAN-PROD-013
-        head: 7db32c9
-        verification: "static gates 4a-4f ALL PASS (lead-run); Gradle gate deferred to the lab phase"
+        head: da7996e
+        verification: "GATE GREEN (lead local): compileDebugKotlin, testDebugUnitTest 311/311, assembleDebug, compileDebugAndroidTestKotlin, lintDebug — on 617ab06 + station repair"
         record: lab/orchestration/deliveries/PROD-013/
       CAMSCAN-PROD-003:
         status: delivered 2026-09-28T03:2xZ (bundle transit via pod files-API; sha256 byte-verified)
@@ -163,6 +163,7 @@ dispatch_rules:
   - Every accepted feature requires current evidence and a ledger PASS.
   - Android Studio is never a worker dependency.
   - E2B is the current substrate; camera_fixture=false remains honest until a deterministic camera fixture is empirically proven.
+  - TRANSIT-CORRUPTION PROTOCOL (2026-09-28, gate-2 evidence): the chat renderer eats '$' in string templates (math delimiters), halves double backslashes, mangles multi-line KDoc closers (*/ -> /), and can eat closing braces. Workers delivering code in chat MUST: (a) write every '$' in a string template as ${'$'} (Kotlin-valid, transit-safe), (b) prefer single-line KDoc or // comments over multi-line /** */ blocks, (c) avoid '\\' where string concatenation or unicode escapes work. The lead station-repairs any residual damage; the gate re-verifies.
 
 scanner_p0_user_journey:
   - home
