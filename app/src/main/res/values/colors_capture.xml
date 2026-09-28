@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- CAMSCAN-PROD-002 §6.6: detection overlay three-state colors.
+         Worker-disjoint by design — every name carries the scan_ prefix.
+         Chosen for legibility on top of a live preview; applied with alpha
+         composition in FramingOverlayView so the page under the overlay
+         stays visible. No indigo/blue hues (architecture palette rule). -->
+    <!-- Stable detection: page found, no quality warnings. -->
+    <color name="scan_framing_stable">#FF2E7D32</color>
+    <!-- Searching: no stable quad yet (dashed placement guide). -->
+    <color name="scan_framing_searching">#FF9E9E9E</color>
+    <!-- Warning: stable quad carrying quality flags (blur/glare/contrast/...). -->
+    <color name="scan_framing_warning">#FFE65100</color>
+
+    <!-- CAMSCAN-PROD-004 §6.5: review surface + crop sheet colors.
+         Worker-disjoint by design — review_ prefix. Same palette family as
+         the detection states (green accent on dark); no indigo/blue hues. -->
+    <!-- Quality banner: warning amber background for advisory flags. -->
+    <color name="review_quality_banner_background">#FFE65100</color>
+    <!-- Crop quad outline on the adjustment sheet. -->
+    <color name="review_crop_line">#FF2E7D32</color>
+    <!-- Crop corner handles: white fill, green stroke. -->
+    <color name="review_crop_handle_fill">#FFFFFFFF</color>
+    <color name="review_crop_handle_stroke">#FF2E7D32</color>
+    <!-- Crop sheet scrim over the review content. -->
+    <color name="review_crop_scrim">#B3000000</color>
+</resources>
