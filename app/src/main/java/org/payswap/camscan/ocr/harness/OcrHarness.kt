@@ -62,7 +62,7 @@ lines += "result.end"
 }
 return lines.joinToString("\n")
 }
-}
+
 
 /**
 
@@ -91,7 +91,7 @@ lines += "determinismVerified=$determinismVerified"
 records.forEach { record -> lines += record.toStableString().lines() }
 return lines.joinToString("\n")
 }
-}
+
 
 /**
 

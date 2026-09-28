@@ -120,7 +120,7 @@ private fun ByteArray.startsWith(prefix: ByteArray): Boolean =
 size >= prefix.size && prefix.indices.all { this[it] == prefix[it] }
 }
 
-}
+
 
 /**
 
@@ -167,7 +167,7 @@ data class ENGINE_ERROR(val message: String) : OcrFailure
 /** Engine was closed before this call. */
 data object CLOSED : OcrFailure
 
-}
+
 
 /** Exactly-one outcome of a recognition attempt. */
 sealed interface OcrOutcome {
@@ -194,4 +194,4 @@ suspend fun recognize(image: OcrImage, settings: OcrSettings): OcrOutcome
 /** Release engine resources. Idempotent; after close, recognize → Failure(CLOSED). */
 fun close()
 
-}
+
