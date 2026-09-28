@@ -78,6 +78,13 @@ waves:
       CAMSCAN-PROD-006:
         status: delivered + gate-green inside the PROD-013 integrated verdict (the fix cycle's files were repaired further in the da7996e station repair; see PROD-013-lab)
     delivered:
+      CAMSCAN-PROD-007:
+        status: "delivered 2026-09-28T23:2xZ (LEAD-EXECUTED during the platform outage; see wave_2.packets note and lab/orchestration/deliveries/PROD-007/)"
+        branch: work/CAMSCAN-PROD-007
+        head: 9b7b75a3b59ddf2079e80061087d4151e1daf5d5
+        base: dce4e58 (wave-1 integration head)
+        verification: "GATE GREEN (lead local, independently re-verified): testDebugUnitTest 367/367 (56 new), lintDebug, assembleDebug, compileDebugAndroidTestKotlin"
+        record: lab/orchestration/deliveries/PROD-007/
       CAMSCAN-PROD-001:
         status: delivered 2026-09-27 (worker re-execution; supersedes first execution 71bc2d1)
         branch: work/CAMSCAN-PROD-001
@@ -146,7 +153,7 @@ waves:
     integration_gate: CAMSCAN-PROD-014
     packets:
       CAMSCAN-PROD-007:
-        status: "packet staged on main (amended 5ee360b with the transit-corruption protocol; base 3e448ce); dispatch-ready to W2 — held by the platform-queue outage (sends land but process only on recovery)"
+        status: "DELIVERED + GATE GREEN 2026-09-28T23:2xZ (lead-executed during the platform-queue outage — the PROD-013-lab precedent; branch work/CAMSCAN-PROD-007 @ 9b7b75a, base dce4e58 the integration head; 367/367 tests, 56 new export tests, APK assembled; manifest provider amendment landed; delivery record lab/orchestration/deliveries/PROD-007/). The queued W2 dispatch is SUPERSEDED by this delivery — on queue recovery send W2 the supersede + PROD-008 re-pinned onto 9b7b75a"
       CAMSCAN-PROD-008:
         status: "packet staged on main (import/merge/split/PDF-compression; W2; base 3e448ce with the PROD-007-rebase note inside; transit-corruption protocol baked in; W2 board-path amendment for imports/** recorded with this commit)"
       CAMSCAN-PROD-010:
