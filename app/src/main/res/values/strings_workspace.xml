@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+<string name="workspace_app_title">CamScan</string>
+
+<string name="workspace_home_new_scan">New Scan</string>
+<string name="workspace_home_new_scan_cd">Start a new document scan</string>
+<string name="workspace_home_open_library">Library</string>
+<string name="workspace_home_open_library_cd">Open the full document library</string>
+<string name="workspace_home_recent_header">Recent documents</string>
+<string name="workspace_home_empty_message">No documents yet — scan your first document</string>
+
+<string name="workspace_library_title">Library</string>
+<string name="workspace_library_empty_message">No documents yet</string>
+<string name="workspace_library_up_cd">Navigate up to Home</string>
+
+<string name="workspace_document_row_meta_format">%1$s · %2$s</string>
+<string name="workspace_document_row_cd">Open document %1$s</string>
+
+<string name="workspace_document_detail_title">Document</string>
+<string name="workspace_document_detail_stub_notice">The document viewer arrives in the next work order. Delete is available below and can be undone from the confirmation bar.</string>
+<string name="workspace_document_detail_delete">Delete</string>
+<string name="workspace_document_detail_delete_cd">Delete this document</string>
+<string name="workspace_document_detail_missing">This document is no longer available.</string>
+<string name="workspace_document_deleted_snackbar">Document deleted</string>
+<string name="workspace_document_deleted_undo">Undo</string>
+
+<string name="workspace_placeholder_scan_title">New Scan</string>
+<string name="workspace_placeholder_scan_notice">Scan engine integrating — Worker 1\'s capture surface attaches here.</string>
+<string name="workspace_placeholder_scan_close">Close</string>
+<string name="workspace_placeholder_scan_close_cd">Return to Home</string>
+
+<plurals name="workspace_page_count">
+<item quantity="one">%d page</item>
+<item quantity="other">%d pages</item>
+</plurals></resources>

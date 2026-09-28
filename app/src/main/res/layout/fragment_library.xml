@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+xmlns:app="http://schemas.android.com/apk/res-auto"
+android:layout_width="match_parent"
+android:layout_height="match_parent"
+android:orientation="vertical">
+
+<androidx.appcompat.widget.Toolbar
+android:id="@+id/library_toolbar"
+android:layout_width="match_parent"
+android:layout_height="?attr/actionBarSize"
+android:background="?attr/colorPrimary"
+app:navigationIcon="?attr/homeAsUpIndicator"
+app:title="@string/workspace_library_title"
+app:titleTextColor="?attr/colorOnPrimary" />
+
+<FrameLayout
+android:layout_width="match_parent"
+android:layout_height="0dp"
+android:layout_weight="1">
+
+<androidx.recyclerview.widget.RecyclerView
+android:id="@+id/library_documents_list"
+android:layout_width="match_parent"
+android:layout_height="match_parent"
+android:clipToPadding="false"
+android:paddingBottom="8dp"
+android:visibility="gone" />
+
+<LinearLayout
+android:id="@+id/library_empty_state"
+android:layout_width="match_parent"
+android:layout_height="match_parent"
+android:gravity="center"
+android:orientation="vertical"
+android:padding="32dp">
+
+<TextView
+android:layout_width="wrap_content"
+android:layout_height="wrap_content"
+android:gravity="center"
+android:text="@string/workspace_library_empty_message"
+android:textAppearance="?attr/textAppearanceBody1" />
+</LinearLayout>
+</FrameLayout></LinearLayout>
