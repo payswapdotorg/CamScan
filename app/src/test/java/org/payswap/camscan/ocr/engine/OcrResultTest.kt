@@ -152,7 +152,7 @@ val r = result(
 blocks = listOf(block("x", 0.5f, OcrBox(0.25f, 0f, 1f, 0.75f), 0)),
 )
 val s = r.toStableString()
-assertTrue(s.contains("meanConfidence=0.750000"))
+assertTrue(s.contains("meanConfidence=0.500000"))
 assertTrue(s.contains("block[0].confidence=0.500000"))
 assertTrue(s.contains("block[0].box=0.250000,0.000000,1.000000,0.750000"))
 }

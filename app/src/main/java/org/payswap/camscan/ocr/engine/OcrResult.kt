@@ -144,4 +144,4 @@ and carriage return become two-character escape sequences, backslash first
 so the mapping is unambiguous.
 */
 internal fun escapeStableText(value: String): String =
-value.replace("\", "\\").replace("\n", "\n").replace("\r", "\r")
+value.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r")

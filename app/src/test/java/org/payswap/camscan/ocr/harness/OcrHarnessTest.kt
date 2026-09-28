@@ -11,6 +11,7 @@ import org.payswap.camscan.ocr.FakeTimeSource
 import org.payswap.camscan.ocr.engine.DeterministicStubEngine
 import org.payswap.camscan.ocr.engine.OcrEngine
 import org.payswap.camscan.ocr.engine.OcrImage
+import org.payswap.camscan.ocr.engine.OcrImageFormat
 import org.payswap.camscan.ocr.engine.OcrOutcome
 import org.payswap.camscan.ocr.engine.OcrSettings
 
