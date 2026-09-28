@@ -1,0 +1,12 @@
+# CAMSCAN-PROD-007 delivery record
+
+- status: DELIVERED + GATE GREEN (lead-executed during the 2026-09-28 platform-queue outage; the PROD-013-lab precedent — worker chats frozen ~14h, dispatches queued unprocessable)
+- branch: work/CAMSCAN-PROD-007
+- head: 9b7b75a3b59ddf2079e80061087d4151e1daf5d5
+- base: dce4e58 (the wave-1 integration head — NOT the worker-packet 3e448ce: lead execution builds on the integrated line directly; the queued W2 dispatch is superseded by this delivery)
+- implementation: export/pdf/PdfWriter.kt (pure deterministic PDF 1.4, DCTDecode, exact xref, /Rotate, no /ID), export/pdf/JpegDimensionParser.kt (pure SOF scan), export/pdf/PageImageEncoder.kt (pure seam + quality clamp), export/pdf/PageJpegEncoder.kt (android adapter, JPEG passthrough fast path), export/ExportArtifact.kt, export/ExportEngine.kt (ContentStore-through artifacts, key vocabulary exports/<docId>-<ts>-<n>p.pdf / exports/<docId>-p<idx>.jpg, injected TimeSource/dispatcher), export/share/ShareIntents.kt (pure ShareSpec seam + android shareArtifact), export/share/ExportFileProvider.kt, manifest provider amendment + res/xml/export_file_paths.xml (the lead-owned amendment the packet reserved), viewer export row (document_export_pdf_button / document_export_jpg_button / document_share_button), 15 strings_workspace additions
+- verification (lead local run, independently re-verified): testDebugUnitTest 367/367 (56 new export tests: PdfWriter 21, ExportEngine 14, JpegDimensionParser 11, ExportArtifact 5, ShareIntents 5); lintDebug; assembleDebug (app-debug.apk 7.4MB); compileDebugAndroidTestKotlin
+- ownership audit: zero diff on core/**, capture/**, processing/**, ocr/**, gradle/**, MainActivity, activity_main.xml
+- deviations (documented): content stream uses the canonical full-box placement q W 0 0 H 0 0 cm (the packet's sketch was a singular matrix); scale 1px = 0.75pt in exact quarter-point arithmetic; PageJpegEncoder lives in export/pdf/; exportJpg stores encoder output (session adapter stores PNG); share fallback is the generic honest unavailable path (manifest landed)
+- open questions: ExportFlowTest needs a lead-station device run; export artifact retention policy deferred to PROD-008; android JPEG encoder is platform-version-dependent (writer/engine determinism satisfied at the contract level)
+- next: when the platform queue recovers, W2's queued PROD-007 dispatch is SUPERSEDED by this delivery — send W2 the supersede + PROD-008 re-pinned onto the new integration base (work/CAMSCAN-PROD-007 head)
