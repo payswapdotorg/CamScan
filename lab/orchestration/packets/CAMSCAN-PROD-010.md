@@ -27,8 +27,12 @@ them.
     `docs/PRODUCT-ARCHITECTURE-LOCK.md` (§11 OCR — adapter behind a stable interface; on-device preferred; OCR
     never blocks the scan path), `docs/SCAN-ENGINE-CONTRACT.md`, `lab/orchestration/PRODUCT-WORK-BOARD.yaml`.
 - **CAMSCAN-PROD-009 is DELIVERED, integrated, gate-green** (inside PROD-013's verdict, after your re-delivery and
-    the lead's station repair); its fix-pass head on work/CAMSCAN-PROD-009 is your base. Wave 2 = the daily
-    workflow; its integration gate is CAMSCAN-PROD-014; this order is the wave-2 W3 slice: the live engine.
+    the lead's station repair). Your base is the REPAIRED head of work/CAMSCAN-PROD-009 (bcbc8db): the fix-pass
+    d936650 PLUS the lead's station-repair sync of your 5 transit-corrupted files (OcrEngine.kt, OcrResult.kt,
+    OcrHarness.kt + OcrResultTest.kt, OcrHarnessTest.kt) PLUS the ML Kit catalog amendment below — the ocr/ tree at
+    your base is byte-identical to the integrated PROD-013 line, and the branch gate is GREEN (assembleDebug +
+    testDebugUnitTest 28/28, lead local run). Wave 2 = the daily workflow; its integration gate is CAMSCAN-PROD-014;
+    this order is the wave-2 W3 slice: the live engine.
 - **Engine selection (LEAD-DECIDED):** PROD-009's engine-selection analysis was lost in transit, so the lead
     re-ran it and decided: **Google ML Kit on-device text recognition, bundled variant**
     (`com.google.mlkit:text-recognition:16.0.1`). On-device/offline ✓ (bundled model: no network, no play-services
@@ -37,11 +41,11 @@ them.
     guaranteed and never claimed); clean Task-based async API that bridges to the seam's suspend recognize.
     Runner-up: Tesseract4Android — non-Latin script coverage, larger footprint, weaker determinism ergonomics; a
     later wave if non-Latin becomes a requirement. This is DECIDED — implement ML Kit; do not re-litigate.
-- **The catalog amendment is LEAD-OWNED and lands BEFORE dispatch:** `gradle/libs.versions.toml` gains
-    `mlkitTextRecognition = "16.0.1"` under [versions] and the `text-recognition` entry (group `com.google.mlkit`)
-    under [libraries]; `app/build.gradle.kts` gains the corresponding implementation line. You consume read-only
-    and report needs. If the amendment is NOT at your base, STOP and report the blocker honestly — the engine
-    cannot compile without it; do not edit the catalog yourself.
+- **The catalog amendment is LEAD-OWNED and LANDED at your base** (commit 45b938b on work/CAMSCAN-PROD-009):
+    `gradle/libs.versions.toml` has `mlkitTextRecognition = "16.0.1"` under [versions] and the `mlkit-text-recognition`
+    entry (group `com.google.mlkit`) under [libraries]; `app/build.gradle.kts` has `implementation(libs.mlkit.text.recognition)`.
+    The §3 setup greps verify all three. You consume read-only and report needs; do not edit the catalog yourself —
+    if a grep MISSES, STOP and report the blocker honestly (the engine cannot compile without it).
 - Offline-first: no network at recognition time. No account. No cloud.
 
 # 3. ENVIRONMENT SETUP (run exactly, in order)
@@ -50,17 +54,17 @@ them.
 git clone https://github.com/payswapdotorg/CamScan.git CamScan
 cd CamScan
 git fetch origin work/CAMSCAN-PROD-009
-git checkout -b work/CAMSCAN-PROD-010 d936650
+git checkout -b work/CAMSCAN-PROD-010 bcbc8dba4dd54660c027b26f3194d4792f6f3610
 git config user.name "CamScan Worker 3"
 git config user.email "worker3@camscan.invalid"
-git rev-parse HEAD   # MUST print the full 40-hex sha starting d936650
+git rev-parse HEAD   # MUST print the full 40-hex sha starting bcbc8db
 ls app/src/main/java/org/payswap/camscan/ocr/engine/   # your PROD-009 files
 grep -n "mlkitTextRecognition" gradle/libs.versions.toml   # MUST hit (lead pre-landed)
-grep -n "text-recognition" app/build.gradle.kts           # MUST hit (lead pre-landed)
+grep -n "mlkit.text.recognition" app/build.gradle.kts      # MUST hit (lead pre-landed)
 ```
 
-(d936650 is the PROD-009 fix-pass head on work/CAMSCAN-PROD-009 — pinned in the dispatch message header; the
-lead confirms it here: BASE_SHA: d936650)
+(bcbc8db is the PROD-009 repaired head — fix-pass + station-repair sync + the ML Kit catalog amendment — pinned in
+the dispatch message header; the lead confirms it here: BASE_SHA: bcbc8dba4dd54660c027b26f3194d4792f6f3610)
 
 # 4. SHARED CONTRACT LAYER + YOUR FROZEN PRIOR DELIVERY (consume read-only)
 
@@ -195,11 +199,11 @@ contains zero real ML Kit references; NEVER fabricate output. Toolchain repair b
 ```bash
 cd CamScan
 git add -A
-git commit -m "CAMSCAN-PROD-010: live OCR engine binding — MlKitOcrEngine on the frozen PROD-009 seam, pure DTO mapper with documented box/confidence policies, failure taxonomy, engine catalog + fallback on the PROD-009 fix-pass base"
-git bundle create camscan-prod-010.bundle d936650..work/CAMSCAN-PROD-010
+git commit -m "CAMSCAN-PROD-010: live OCR engine binding — MlKitOcrEngine on the frozen PROD-009 seam, pure DTO mapper with documented box/confidence policies, failure taxonomy, engine catalog + fallback on the repaired PROD-009 base (bcbc8db)"
+git bundle create camscan-prod-010.bundle bcbc8dba4dd54660c027b26f3194d4792f6f3610..work/CAMSCAN-PROD-010
 cp camscan-prod-010.bundle ../camscan-prod-010.bundle
 sha256sum camscan-prod-010.bundle
-git diff --stat d936650..work/CAMSCAN-PROD-010
+git diff --stat bcbc8dba4dd54660c027b26f3194d4792f6f3610..work/CAMSCAN-PROD-010
 ```
 
 Also write `CamScan/DELIVERY-PROD-010.txt`: every added/changed file path, the bundle sha256, AND the full
