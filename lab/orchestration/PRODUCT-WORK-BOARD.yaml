@@ -150,7 +150,7 @@ waves:
       CAMSCAN-PROD-008:
         status: "packet staged on main (import/merge/split/PDF-compression; W2; base 3e448ce with the PROD-007-rebase note inside; transit-corruption protocol baked in; W2 board-path amendment for imports/** recorded with this commit)"
       CAMSCAN-PROD-010:
-        status: "packet staged on main (live ML Kit OCR binding; W3; base d936650) — PRE-DISPATCH BLOCKER: the lead-owned ML Kit catalog amendment must land on work/CAMSCAN-PROD-009 first, then the packet base re-pins to the amended head"
+        status: "packet staged on main (live ML Kit OCR binding; W3; base re-pinned to bcbc8db — the repaired PROD-009 head: d936650 alone did NOT compile, station repair synced back from the PROD-013 line + ML Kit catalog amendment 45b938b landed with resolution verified; branch gate GREEN assembleDebug + 28/28 tests); dispatch-ready to W3"
   wave_3:
     title: advanced-tools
     work:
