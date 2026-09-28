@@ -1,0 +1,205 @@
+CAMSCAN-PROD-003 DELIVERY
+=========================
+
+base sha:     b08ca438fe408c051f7e72158cbfed6bab3349c1 (work/CAMSCAN-PROD-002)
+branch:       work/CAMSCAN-PROD-003
+head sha:     200f01e69694337c1b3c21a3256a80ed81ceab51
+bundle:       camscan-prod-003.bundle (b08ca43..work/CAMSCAN-PROD-003)
+bundle copies: /home/z/camscan-prod-003.bundle + /home/z/my-project/camscan-prod-003.bundle
+delivery copies: /home/z/DELIVERY-PROD-003.txt + /home/z/my-project/DELIVERY-PROD-003.txt
+bundle sha256: 63d0a0a1f12cb50d5be98ac82936276c0f2f53257d6f40c26669d88c765ccf6e
+
+diff stat:    18 files changed, 2493 insertions(+), 0 deletions — ALL NEW FILES,
+              every path under app/src/**/java/org/payswap/camscan/processing/
+contract layer (gradle/, app/build.gradle.kts, AndroidManifest.xml, core/,
+              MainActivity.kt, activity_main.xml, strings.xml): byte-identical
+              to base (verified: empty git diff). NO existing file modified —
+              this work order did not even need the allowed §6.6 resource or
+              capture-tree edits (the ScanFragment hook is optional and the
+              review UI is PROD-004 scope).
+
+NEW FILES (18)
+  app/src/main/java/org/payswap/camscan/processing/ (11 — §6.1-§6.6)
+    ImageBuffer.kt (43 lines) — §6.1 packed 0xAARRGGBB row-major ARGB image,
+      stride == width; isWellFormed flag-not-exception guard; structural
+      equality (contentEquals) + hashCode.
+    QuadF.kt (189) — §6.1 CornerF/QuadF (float, pixel-space, TL/TR/BR/BL) +
+      the PROD-002-noted frame-space->image-space scale helper
+      fromFrameQuad(8 Int coords + frame/image dims, per-axis proportional,
+      null on invalid dims); canonical() = float mirror of
+      QuadGeometry.orderCorners (centroid-atan2, (y,x) tie-break); isConvex()
+      strict (float mirror); fullFrame(); toNormalizedCorners() converts onto
+      the lead-owned core.model.Corner (0..1, /(w-1) convention) for the
+      PROD-004 session seam.
+    Homography.kt (149) — §6.2 4-point DLT: 8x8 linear system solved by
+      Gaussian elimination with deterministic partial pivoting; 3x3
+      row-major normalized h33=1; map() forward transform (vanishing-
+      denominator guarded); invert() adjugate/determinant re-normalized;
+      collinear/coincident/wrong-size -> null, never throws.
+    ProcessedGeometry.kt (26) — §6.1 retained source-to-page geometry:
+      canonical sourceQuad, outputWidth/Height, pageAspect (pre-rounding
+      opposite-edge means).
+    ProcessedImage.kt (94) — §6.2 the engine output page (the contract's
+      "ProcessedPage" seam type; exact class names may vary per
+      docs/SCAN-ENGINE-CONTRACT.md): ImageBuffer + ProcessedGeometry +
+      PageEnhancementMode (ORIGINAL at correction) + stable id; manual
+      structural equals/hashCode; + ContentId (64-bit FNV-1a over dims +
+      pixels, deterministic content-addressed, preserved verbatim by
+      enhancement).
+    LumaOps.kt (99) — shared deterministic luma statistics: BT.601 luma
+      (299R+587G+114B+500)/1000 integer round-half-up; 256-bin histogram;
+      rank quantile (ceil(fraction*N), smallest cumulative >= k); Otsu
+      threshold (smallest-maximizing-t tie-break, flat histogram -> 0 =
+      paper-positive prior, documented).
+    PerspectiveCorrector.kt (154) — §6.2 seam correct(image, quad):
+      interface PerspectiveCorrector + BilinearPerspectiveCorrector
+      (canonical ordering -> opposite-edge dimension estimation
+      (rounded, clamped [16,4096]) -> target-rect->quad homography ->
+      inverse-mapped BILINEAR warp (all 4 ARGB channels, round-half-up,
+      edge-CLAMP policy for out-of-bounds samples, documented) -> retained
+      ProcessedGeometry, ORIGINAL, ContentId). Degenerate/malformed ->
+      null, never throws.
+    EnhancementEngine.kt (238) — §6.3 seam process(page, mode):
+      interface EnhancementEngine + DefaultEnhancementEngine. Deterministic,
+      non-destructive (fresh buffer), id+geometry preserved. ORIGINAL
+      identity copy; GRAYSCALE BT.601; BLACK_AND_WHITE global Otsu
+      (luma > t -> 255 paper; paper-positive flat tie-break documented);
+      CONTRAST 0.5/99.5 luma percentiles -> per-channel
+      ((c-lo)*255+span/2)/span stretch (flat -> identity, documented);
+      SHARPEN single-pass 3x3 center-5/cross-(-1) convolution, edge-clamp
+      borders, clamped arithmetic (NOT separable — direct 2D documented);
+      LOW_LIGHT gamma 1/1.6 (documented constant) + CONTRAST stretch on
+      gamma'd luma + proportional chroma ((c*lumaOut+lumaIn/2)/lumaIn),
+      black stays black. Malformed buffer -> zero-filled declared-dims
+      page, never throws.
+    PageQuality.kt (140) — §6.4 QualityFlag enum (SHARP/BLURRED,
+      GOOD_CONTRAST/LOW_CONTRAST, GLARE, TOO_DARK); PageQuality metrics +
+      flags; QualityGates(sharpness/contrast/glare/dark thresholds,
+      defaults 0.02/0.15/0.10/0.25): normalized Laplacian RMS on luma
+      (4-neighbor, edge-clamp), percentile contrast spread, blown fraction
+      (luma >= 250), dark fraction (luma <= 5). Deterministic; malformed
+      -> worst-case {BLURRED, LOW_CONTRAST}, never throws.
+    BitmapImageAdapter.kt (42) — §6.5 the ONLY android.*-importing file
+      (android.graphics.Bitmap): Bitmap <-> ImageBuffer ARGB_8888 copies;
+      synchronous, caller-owned executor; requires well-formed buffer
+      (IllegalArgumentException precondition, documented glue discipline).
+    ProcessingPipeline.kt (55) — §6.6 processCapture(source, quad?, mode):
+      null quad -> non-destructive full-frame copy (+ enhance — documented
+      interpretation: the mode applies on BOTH paths); else correct() then
+      enhance(); null propagates only from corrector degeneracy.
+
+  app/src/test/java/org/payswap/camscan/processing/ (6 — §6.7, pure JUnit 4)
+    HomographyTest.kt (168, 10 tests) — identity quad -> identity matrix
+      (1e-9); axis-aligned scale+translate -> exact expected matrix;
+      perspective quad maps 4 corners within 1e-3; identity map fixes
+      interior points; invert round-trips points (1e-6); double invert
+      restores matrix; collinear src AND collinear dst -> null;
+      coincident points -> null; wrong point count -> null.
+    PerspectiveCorrectorTest.kt (241, 11 tests) — hand-computed fixtures:
+      a 24x24 planar image p(x,y)=3+4x+6y (bilinear-exact: sampling any
+      position = round(3+4sx+6sy)) for full-frame resample values, exact
+      axis-aligned sub-quad corner sampling, sub-pixel quarter-mix values,
+      edge-statistics dims (20x18) + shuffled-corner canonicalization +
+      retained geometry/aspect; edge-clamped out-of-bounds quad; MIN_DIM
+      clamp upscales with exact corners; degenerate (collinear, reflex) ->
+      null; determinism (byte-identical, same id); non-destructiveness;
+      malformed -> null.
+    EnhancementEngineTest.kt (317, 17 tests) — ORIGINAL identity copy in a
+      fresh buffer; GRAYSCALE identity on gray + exact BT.601 values
+      (76/150/29/18) + alpha preservation; BLACK_AND_WHITE two-cluster
+      split + flat tie-break (paper-positive) + alpha preservation;
+      CONTRAST exact stretch values (0/64/128/191/255) + flat identity +
+      out-of-range channel clamping; SHARPEN exact center/corner/edge
+      values (250/0/30/130) + flat identity; LOW_LIGHT exact endpoints +
+      mid-tone brightening with hue-proportion preservation; byte-stability
+      for ALL modes (run twice); non-destructiveness for ALL modes; mode
+      chain after correction retains geometry+id; malformed never throws.
+    QualityGatesTest.kt (152, 9 tests) — mid-tone checkerboard ->
+      {SHARP, GOOD_CONTRAST} + hand-computed normalized Laplacian RMS
+      0.83604 + exact spread/fractions; flat -> {BLURRED, LOW_CONTRAST};
+      blown -> GLARE (exact 0.125); dark -> TOO_DARK (exact 0.3125); mild
+      defects below defaults; default constants; ctor overrides flip all
+      four flags; determinism; malformed worst-case without throwing.
+    ImageDomainTest.kt (237, 18 tests) — ImageBuffer well-formed/malformed/
+      structural equality; QuadF.fromFrameQuad uniform (x5) + per-axis
+      non-uniform scaling + invalid-dims rejection; canonical ordering of
+      shuffled square + rotated diamond + bowtie untangle (documented
+      behavior) + coincident/non-finite rejection; isConvex accepts square,
+      rejects reflex + collinear; fullFrame pixel extremes;
+      toNormalizedCorners unit-square mapping + degenerate rejection;
+      ContentId deterministic + content/dimension sensitive.
+    ProcessingPipelineTest.kt (96, 5 tests) — null-quad full-frame copy +
+      mode applies (documented interpretation); quad path correct+enhance;
+      degenerate quad -> null; malformed source -> null; byte-identical
+      repeat.
+
+  app/src/androidTest/java/org/payswap/camscan/processing/ (1 — §6.8)
+    BitmapAdapterRoundTripTest.kt (53) — instrumentation skeleton:
+      Bitmap -> ImageBuffer -> Bitmap preserves dimensions + full pixel
+      array (opaque fixture on purpose: premultiplied storage round-trips
+      exactly for alpha 255); documented to run at the lead integration
+      station (no emulator in this sandbox).
+
+VERIFICATION (in this sandbox — real Gradle gate, offline against the
+PROD-001/002-warmed cache: Temurin JDK 17.0.20.1+1, Android SDK
+platforms;android-35 + build-tools 35.0.0, local.properties sdk.dir):
+  :app:testDebugUnitTest  BUILD SUCCESSFUL — 193/193 tests green
+    (123 PROD-001/002-era untouched + 70 new: EnhancementEngine 17,
+    Homography 10, ImageDomain 18, PerspectiveCorrector 11,
+    ProcessingPipeline 5, QualityGates 9; JUnit XML: 0 failures, 0 errors,
+    0 skipped)
+  :app:lintDebug           BUILD SUCCESSFUL (abortOnError=true honored)
+  :app:assembleDebug       BUILD SUCCESSFUL (app-debug.apk, 8.1 MB)
+  :app:compileDebugAndroidTestKotlin BUILD SUCCESSFUL
+  :app:assembleDebugAndroidTest     BUILD SUCCESSFUL (651 KB test APK)
+  connectedAndroidTest NOT run (no emulator in sandbox) — skeleton runs at
+    the lead station.
+  Static self-checks: working tree clean apart from the intended delivery
+    artifacts; android.* import audit = BitmapImageAdapter.kt ONLY (the
+    §6.5 adapter); contract layer + MainActivity/activity_main/strings.xml
+    byte-identical to base; zero files modified outside processing/**.
+  Failed attempts found and fixed during the gate (verbatim):
+    (1) compile: QualityFlag.TOOL_DARK typo (enum constant is TOO_DARK) in
+        PageQuality.kt + QualityGatesTest.kt — fixed by rename;
+    (2) compile: missing PageEnhancementMode import in
+        PerspectiveCorrectorTest.kt — import added;
+    (3) TEST-SIDE fixture bugs (engine correct, expectations wrong):
+        (a) five PerspectiveCorrectorTest fixtures used quads with edges
+            2-13 px, colliding with the documented MIN_OUTPUT_DIM=16
+            clamp — redesigned onto a 24x24 planar image with edges >= 16;
+        (b) checkerboard Laplacian hand-math: non-corner edge pixels have
+            ONE edge-clamped neighbor (response +-180), not two (+-120) —
+            corrected RMS sqrt(45450)/255 = 0.83604;
+        (c) sub-pixel quad scale mis-derived as 1 (correct: 16/15) —
+            expected values recomputed from round(8+64x/15+96y/15), each
+            cross-checked by direct quarter-mix.
+
+STATUS VOCABULARY
+  implemented + unit-test-verified + lint-verified + compile-verified +
+  assemble-verified locally; NOT reconciled, NOT accepted (Worker 3 / lead
+  authority); instrumentation skeleton NOT executed here.
+
+RE-VERIFICATION (resumed turn, 2026-09-28T02:52Z, same sandbox + JDK 17.0.20.1)
+  The completion turn was interrupted before the final report posted; this
+  resumed turn independently re-verified every persisted claim and re-ran
+  the full gate from a cold daemon:
+  - git/contract audit: branch work/CAMSCAN-PROD-003 @ 200f01e on b08ca43;
+    git diff b08ca43..200f01e -- gradle/ app/build.gradle.kts
+    app/src/main/AndroidManifest.xml core/ app/src/main/res/ MainActivity.kt
+    = EMPTY (byte-identical); android.* import audit = BitmapImageAdapter.kt
+    only; working tree clean apart from these two intended artifacts.
+  - Fresh forced gate (--offline --no-parallel --rerun-tasks, cold daemon):
+    one combined-graph attempt crashed the daemon (sandbox memory kill at
+    :app:compileDebugKotlin — no compile errors); split into per-gate
+    invocations, all green:
+      :app:testDebugUnitTest  BUILD SUCCESSFUL (37s) — 193/193, 0 fail/
+      err/skip re-aggregated from regenerated JUnit XML
+      :app:lintDebug           BUILD SUCCESSFUL (49s)
+      :app:assembleDebug       BUILD SUCCESSFUL (app-debug.apk, 7.1 MB
+                               decimal on this rebuild; size varies a
+                               little per build, earlier run logged 8.1 MB)
+      :app:compileDebugAndroidTestKotlin + :app:assembleDebugAndroidTest
+                               BUILD SUCCESSFUL (27s; test APK 651 KB)
+  - Bundle integrity: all three copies (repo, /home/z, /home/z/my-project)
+    sha256 63d0a0a1f12cb50d5be98ac82936276c0f2f53257d6f40c26669d88c765ccf6e;
+    git bundle verify OK (requires b08ca43).

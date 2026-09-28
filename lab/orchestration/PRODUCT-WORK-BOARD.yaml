@@ -117,6 +117,15 @@ waves:
         head: 7db32c9
         verification: "static gates 4a-4f ALL PASS (lead-run); Gradle gate deferred to the lab phase"
         record: lab/orchestration/deliveries/PROD-013/
+      CAMSCAN-PROD-003:
+        status: delivered 2026-09-28T03:2xZ (bundle transit via pod files-API; sha256 byte-verified)
+        worker_session: d4dc4ebc (packet 02:05Z; executed in one turn on the PROD-002-warmed toolchain)
+        branch: work/CAMSCAN-PROD-003
+        head: 200f01e69694337c1b3c21a3256a80ed81ceab51
+        bundle_sha256: 63d0a0a1f12cb50d5be98ac82936276c0f2f53257d6f40c26669d88c765ccf6e
+        worker_verification: "Gradle gate green in-sandbox: testDebugUnitTest 193/193 (70 new processing tests), lintDebug, assembleDebug; base sha correct; honest handoffs (ProcessedImage->Page conversion is PROD-004's seam)"
+        lead_audit: "bundle base/head verified; ownership audit clean (processing/ + capture/ only); 18 files +2493"
+        record: lab/orchestration/deliveries/PROD-003/
   wave_2:
     title: daily-workflow
     work:
