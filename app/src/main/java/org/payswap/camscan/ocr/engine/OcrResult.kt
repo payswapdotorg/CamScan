@@ -122,8 +122,11 @@ lines += "fullText=${escapeStableText(fullText)}"
 for (block in blocks) {
 val label = "block[${block.blockIndex}]"
 lines += "$label.confidence=${stableFloat(block.confidence)}"
-lines += "$label.box=${stableFloat(block.box.left)},${stableFloat(block.box.top)}," +
-"${stableFloat(block.box.right)},${stableFloat(block.box.bottom)}"
+val boxText = stableFloat(block.box.left) + "," +
+stableFloat(block.box.top) + "," +
+stableFloat(block.box.right) + "," +
+stableFloat(block.box.bottom)
+lines += "$label.box=$boxText"
 lines += "$label.text=${escapeStableText(block.text)}"
 }
 return lines.joinToString("\n")

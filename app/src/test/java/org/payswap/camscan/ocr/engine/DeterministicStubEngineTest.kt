@@ -23,7 +23,7 @@ settings: OcrSettings = OcrSettings.DEFAULT,
 ): OcrOutcome = runBlocking { engine.recognize(image, settings) }
 
 private fun successOf(outcome: OcrOutcome): OcrResult {
-assertTrue("expected Success, got $outcome", outcome is OcrOutcome.Success)
+assertTrue("expected Success, got " + outcome, outcome is OcrOutcome.Success)
 return (outcome as OcrOutcome.Success).result
 }
 
@@ -119,7 +119,7 @@ value = 0x00,
 )
 cases.forEach { (image, expectedReason) ->
 val outcome = recognize(newEngine(), image)
-assertTrue("expected Failure for $image, got $outcome", outcome is OcrOutcome.Failure)
+assertTrue("expected Failure for " + image + ", got " + outcome, outcome is OcrOutcome.Failure)
 assertEquals(expectedReason, (outcome as OcrOutcome.Failure).reason)
 }
 }

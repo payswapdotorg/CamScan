@@ -32,12 +32,12 @@ sizeBytes: Int = DEFAULT_SIZE_BYTES,
 patternPeriod: Int = DEFAULT_PATTERN_PERIOD,
 patternSeed: Int = 0,
 ): OcrImage {
-require(sizeBytes >= 0) { "sizeBytes must be >= 0 (got $sizeBytes)" }
-require(patternPeriod > 0) { "patternPeriod must be > 0 (got $patternPeriod)" }
+require(sizeBytes >= 0) { "sizeBytes must be >= 0 (got " + sizeBytes + ")" }
+require(patternPeriod > 0) { "patternPeriod must be > 0 (got " + patternPeriod + ")" }
 val payload = ByteArray(sizeBytes) { i -> ((i % patternPeriod) + patternSeed).toByte() }
-val bytes = when (format) {
-OcrImageFormat.PNG -> OcrImage.PNG_SIGNATURE + payload
-OcrImageFormat.JPEG -> OcrImage.JPEG_SIGNATURE + payload
+val bytes: ByteArray = when (format) {
+OcrImageFormat.PNG -> concat(OcrImage.PNG_SIGNATURE, payload)
+OcrImageFormat.JPEG -> concat(OcrImage.JPEG_SIGNATURE, payload)
 OcrImageFormat.UNKNOWN -> payload
 }
 return OcrImage(
@@ -65,7 +65,7 @@ rotationDegrees = rotationDegrees,
 
 /** A copy of [image] with the byte at [index] replaced by [value] (pure). */
 fun withMutatedByte(image: OcrImage, index: Int, value: Byte): OcrImage {
-require(index in image.bytes.indices) { "byte index $index out of bounds" }
+require(index in image.bytes.indices) { "byte index " + index + " out of bounds" }
 val mutated = image.bytes.copyOf()
 mutated[index] = value
 return image.copy(bytes = mutated)
@@ -82,34 +82,55 @@ with the harness tests:
 6 -> zero width -> CORRUPT_IMAGE
 7 -> corrupt PNG signature -> CORRUPT_IMAGE
 */
-fun defaultHarnessSet(): List<OcrImage> = listOf(
-repeating(width = 512, height = 512, format = OcrImageFormat.PNG, patternSeed = 1),
-repeating(
+fun defaultHarnessSet(): List<OcrImage> {
+val input0: OcrImage =
+repeating(width = 512, height = 512, format = OcrImageFormat.PNG, patternSeed = 1)
+val input1: OcrImage = repeating(
 width = 640,
 height = 480,
 format = OcrImageFormat.PNG,
 rotationDegrees = 90,
 patternSeed = 2,
-),
-repeating(width = 800, height = 600, format = OcrImageFormat.JPEG, patternSeed = 3),
-repeating(
+)
+val input2: OcrImage =
+repeating(width = 800, height = 600, format = OcrImageFormat.JPEG, patternSeed = 3)
+val input3: OcrImage = repeating(
 width = 300,
 height = 400,
 format = OcrImageFormat.PNG,
 sizeBytes = 2048,
 patternPeriod = 32,
 patternSeed = 4,
+)
+val input4: OcrImage =
+repeating(width = 256, height = 256, format = OcrImageFormat.UNKNOWN, patternSeed = 5)
+val input5: OcrImage = empty(width = 512, height = 512, format = OcrImageFormat.PNG)
+val input6: OcrImage = repeating(
+width = 512,
+height = 512,
+format = OcrImageFormat.PNG,
+patternSeed = 6,
+).copy(width = 0)
+val input7: OcrImage = withMutatedByte(
+image = repeating(
+width = 512,
+height = 512,
+format = OcrImageFormat.PNG,
+patternSeed = 7,
 ),
-repeating(width = 256, height = 256, format = OcrImageFormat.UNKNOWN, patternSeed = 5),
-empty(width = 512, height = 512, format = OcrImageFormat.PNG),
-repeating(width = 512, height = 512, format = OcrImageFormat.PNG, patternSeed = 6)
-.copy(width = 0),
-withMutatedByte(
-repeating(width = 512, height = 512, format = OcrImageFormat.PNG, patternSeed = 7),
 index = 0,
 value = 0x00,
-),
 )
+return listOf(input0, input1, input2, input3, input4, input5, input6, input7)
+}
+
+/** Explicit, unambiguous concatenation of two byte arrays (in order). */
+private fun concat(first: ByteArray, second: ByteArray): ByteArray {
+val out = ByteArray(first.size + second.size)
+first.copyInto(out, destinationOffset = 0)
+second.copyInto(out, destinationOffset = first.size)
+return out
+}
 
 private const val DEFAULT_SIZE_BYTES = 1024
 private const val DEFAULT_PATTERN_PERIOD = 64

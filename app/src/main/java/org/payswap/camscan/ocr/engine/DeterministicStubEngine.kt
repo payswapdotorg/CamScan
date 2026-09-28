@@ -52,8 +52,8 @@ if (!OcrImage.matchesDeclaredFormat(input.format, input.bytes)) {
 return OcrOutcome.Failure(OcrFailure.CORRUPT_IMAGE)
 }
 
-// Time enters only here, through the injected seam.
-val recognisedAtMillis = timeSource.currentTimeMillis()
+// Time enters only here, through the injected seam (never System).
+val recognisedAtMillis = timeSource.nowMillis()
 
 val digest = inputDigest(input, settings)
 val blocks = (0 until BLOCK_COUNT).map { index ->

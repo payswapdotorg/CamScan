@@ -10,7 +10,7 @@ class UnavailableEngineTest {
 
 private suspend fun reasonFor(engine: UnavailableEngine, image: OcrImage): OcrFailure {
 val outcome = engine.recognize(image, OcrSettings.DEFAULT)
-assertTrue("expected Failure, got $outcome", outcome is OcrOutcome.Failure)
+assertTrue("expected Failure, got " + outcome, outcome is OcrOutcome.Failure)
 return (outcome as OcrOutcome.Failure).reason
 }
 

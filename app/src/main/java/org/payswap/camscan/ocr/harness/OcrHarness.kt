@@ -15,11 +15,11 @@ import org.payswap.camscan.ocr.util.Digests
 
 One harness record per input image: what went in, what came out, and the
 canonical evidence string. Plain data — no behavior beyond [toStableString].
-Measured wall-ish time ([measuredDurationMillis], taken as deltas of the
-INJECTED TimeSource — never the raw clock) is deliberately kept OUT of the
-stable string. Engine-reported values ([recognisedAtMillis],
-[processingDurationMillis]) are included and are expected to be
-content-deterministic for harness-relevant engines.
+Measured duration ([measuredDurationMillis], taken as deltas of the INJECTED
+TimeSource via [TimeSource.nowMillis] — never the raw clock) is deliberately
+kept OUT of the stable string. Engine-reported values
+([recognisedAtMillis], [processingDurationMillis]) are included and are
+expected to be content-deterministic for harness-relevant engines.
 /
 data class OcrHarnessRecord(
 val inputIndex: Int,
@@ -42,21 +42,17 @@ val resultStableString: String?,
 /* Canonical per-input evidence block (no trailing newline). */
 fun toStableString(): String {
 val lines = ArrayList<String>()
-lines += "input=
-inputIndex"
+lines += "input=$inputIndex"
 lines += "image.sha256=$imageSha256"
 lines += "image.bytes=$imageBytes"
-lines += "image.size=
-{imageWidth}x${imageHeight}"
+lines += "image.size=" + imageWidth + "x" + imageHeight
 lines += "image.format=$imageFormat"
-lines += "image.rotation=
-imageRotationDegrees"
+lines += "image.rotation=$imageRotationDegrees"
 lines += "outcome=$outcome"
 failureReason?.let { lines += "reason=$it" }
 resultId?.let { lines += "resultId=$it" }
 blockCount?.let { lines += "blockCount=$it" }
-meanConfidence?.let { lines += "meanConfidence=
-{stableFloat(it)}" }
+meanConfidence?.let { lines += "meanConfidence=" + stableFloat(it) }
 recognisedAtMillis?.let { lines += "recognisedAtMillis=$it" }
 processingDurationMillis?.let { lines += "processingDurationMillis=$it" }
 resultStableString?.let { result ->
@@ -86,10 +82,10 @@ val records: List<OcrHarnessRecord>,
 fun toStableString(): String {
 val lines = ArrayList<String>()
 lines += "ocrHarnessFormat=1"
-lines += "engineId=
-engineId"lines+="settings.mode=
-{settingsEcho.mode.name}"
-lines += "settings.languageHints=${escapeStableText(settingsEcho.languageHints.joinToString(","))}"
+lines += "engineId=$engineId"
+lines += "settings.mode=" + settingsEcho.mode.name
+lines += "settings.languageHints=" +
+escapeStableText(settingsEcho.languageHints.joinToString(","))
 lines += "inputCount=$inputCount"
 lines += "determinismVerified=$determinismVerified"
 records.forEach { record -> lines += record.toStableString().lines() }
@@ -107,7 +103,7 @@ a list of [OcrImage]s TWICE and asserts that the two full runs produce
 
 byte-identical evidence. The comparison masks the two time-flavored lines
 
-(recognisedAtMillis=, processingDurationMillis=) so the assertion holds
+("recognisedAtMillis=", "processingDurationMillis=") so the assertion holds
 
 under a real-time clock too; under a fixed/controlled TimeSource the FULL
 
@@ -120,6 +116,12 @@ stub today, a real on-device engine tomorrow, and reference-evidence
 comparison data later. Synthetic inputs come from [SyntheticImages] —
 
 repeating byte patterns generated in code, no binary fixtures in git.
+
+Time is read ONLY through the injected [TimeSource] (frozen contract:
+
+[TimeSource.nowMillis]); the harness never touches System or the platform
+
+clock.
 
 Exceptions from a misbehaving engine are converted to
 
@@ -148,14 +150,14 @@ val secondEvidence = maskTimeLines(secondReport.toStableString())
 check(firstEvidence == secondEvidence) {
 "OCR harness determinism failure: identical runs produced different " +
 "evidence (first differing line index: " +
-"${firstDiffLineIndex(firstEvidence, secondEvidence)})"
+firstDiffLineIndex(firstEvidence, secondEvidence) + ")"
 }
 return firstReport
 }
 
 private suspend fun recognizeAll(images: List<OcrImage>): List<OcrHarnessRecord> =
 images.mapIndexed { index, image ->
-val startedAt = timeSource.currentTimeMillis()
+val startedAt = timeSource.nowMillis()
 val outcome = try {
 engine.recognize(image, settings)
 } catch (cancellation: CancellationException) {
@@ -163,13 +165,12 @@ throw cancellation
 } catch (failure: Exception) {
 OcrOutcome.Failure(
 OcrFailure.ENGINE_ERROR(
-"engine threw 
-failure::class.java.name:
-{failure.message ?: "<no message>"}",
+"engine threw " + failure::class.java.name + ": " +
+(failure.message ?: "<no message>"),
 ),
 )
 }
-val endedAt = timeSource.currentTimeMillis()
+val endedAt = timeSource.nowMillis()
 buildRecord(index, image, outcome, measuredDurationMillis = endedAt - startedAt)
 }
 
@@ -235,7 +236,7 @@ fun failureCode(reason: OcrFailure): String = when (reason) {
 is OcrFailure.UNSUPPORTED_FORMAT -> "UNSUPPORTED_FORMAT"
 is OcrFailure.EMPTY_IMAGE -> "EMPTY_IMAGE"
 is OcrFailure.CORRUPT_IMAGE -> "CORRUPT_IMAGE"
-is OcrFailure.ENGINE_ERROR -> "ENGINE_ERROR(${escapeStableText(reason.message)})"
+is OcrFailure.ENGINE_ERROR -> "ENGINE_ERROR(" + escapeStableText(reason.message) + ")"
 is OcrFailure.CLOSED -> "CLOSED"
 }
 
@@ -259,5 +260,5 @@ private val MASKED_TIME_KEYS = listOf("recognisedAtMillis", "processingDurationM
 internal fun maskTimeLines(evidence: String): String =
 evidence.lineSequence().joinToString("\n") { line ->
 val key = line.substringBefore('=')
-if (line.contains('=') && key in MASKED_TIME_KEYS) "$key=<time>" else line
+if (line.contains('=') && key in MASKED_TIME_KEYS) key + "=<time>" else line
 }

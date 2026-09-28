@@ -6,7 +6,9 @@ import org.payswap.camscan.core.time.TimeSource
 
 Deterministic TimeSource fake for JVM tests: fixed (step 0) or stepping.
 
-Never touches the real clock.
+Implements the frozen contract surface [TimeSource.nowMillis]; never touches
+
+the real clock or System time.
 */
 class FakeTimeSource(
 startMillis: Long = DEFAULT_START_MILLIS,
@@ -15,7 +17,7 @@ private val stepMillis: Long = 0L,
 
 private var currentMillis: Long = startMillis
 
-override fun currentTimeMillis(): Long {
+override fun nowMillis(): Long {
 val now = currentMillis
 currentMillis += stepMillis
 return now
