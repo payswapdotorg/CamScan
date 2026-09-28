@@ -1,0 +1,130 @@
+e: app/src/main/java/org/payswap/camscan/MainActivity.kt:8:30 Unresolved reference 'fragmentFactory'.
+e: app/src/main/java/org/payswap/camscan/MainActivity.kt:33:1 Class 'MainActivity' is not abstract and does not implement abstract member 'fragmentManager'.
+e: app/src/main/java/org/payswap/camscan/MainActivity.kt:41:52 Unresolved reference 'System'.
+e: app/src/main/java/org/payswap/camscan/MainActivity.kt:57:1 'fragmentManager' overrides nothing.
+e: app/src/main/java/org/payswap/camscan/MainActivity.kt:59:1 'containerViewId' overrides nothing.
+e: app/src/main/java/org/payswap/camscan/MainActivity.kt:61:1 'onScanFinished' overrides nothing.
+e: app/src/main/java/org/payswap/camscan/document/DocumentDetailStubFragment.kt:48:12 Unresolved reference 'observeDocument'.
+e: app/src/main/java/org/payswap/camscan/document/DocumentDetailStubFragment.kt:48:50 Cannot infer type for this parameter. Please specify it explicitly.
+e: app/src/main/java/org/payswap/camscan/document/DocumentDetailStubFragment.kt:54:27 Unresolved reference 'title'.
+e: app/src/main/java/org/payswap/camscan/document/DocumentDetailStubFragment.kt:57:10 Unresolved reference 'pages'.
+e: app/src/main/java/org/payswap/camscan/document/DocumentDetailStubFragment.kt:58:10 Unresolved reference 'pages'.
+e: app/src/main/java/org/payswap/camscan/document/DocumentDetailStubFragment.kt:71:5 Unresolved reference 'not' for operator '!'.
+e: app/src/main/java/org/payswap/camscan/document/DocumentDetailStubFragment.kt:79:27 No value passed for parameter 'pages'.
+e: app/src/main/java/org/payswap/camscan/document/DocumentRowAdapter.kt:28:50 Unresolved reference 'System'.
+e: app/src/main/java/org/payswap/camscan/document/DocumentRowAdapter.kt:66:10 Unresolved reference 'pages'.
+e: app/src/main/java/org/payswap/camscan/document/DocumentRowAdapter.kt:67:10 Unresolved reference 'pages'.
+e: app/src/main/java/org/payswap/camscan/document/InMemoryDocumentRepository.kt:42:1 Class 'InMemoryDocumentRepository' is not abstract and does not implement abstract member 'upsertDocument'.
+e: app/src/main/java/org/payswap/camscan/document/InMemoryDocumentRepository.kt:54:1 'observeDocument' overrides nothing.
+e: app/src/main/java/org/payswap/camscan/document/InMemoryDocumentRepository.kt:62:1 'upsertDocument' overrides nothing.
+e: app/src/main/java/org/payswap/camscan/document/InMemoryDocumentRepository.kt:71:58 Return type of 'deleteDocument' is not a subtype of the return type of the overridden member 'suspend fun deleteDocument(id: String): Unit' defined in 'org/payswap/camscan/core/repository/DocumentRepository'.
+e: app/src/main/java/org/payswap/camscan/document/InMemoryDocumentRepository.kt:81:28 Unresolved reference 'pages'.
+e: app/src/main/java/org/payswap/camscan/document/InMemoryDocumentRepository.kt:81:44 Unresolved reference 'sortedBy'.
+e: app/src/main/java/org/payswap/camscan/document/InMemoryDocumentRepository.kt:81:53 Unresolved reference 'index'.
+e: app/src/main/java/org/payswap/camscan/document/InMemoryDocumentRepository.kt:81:55 Unresolved reference 'it'.
+e: app/src/main/java/org/payswap/camscan/document/InMemoryDocumentRepository.kt:84:1 'updateTitle' overrides nothing.
+e: app/src/main/java/org/payswap/camscan/document/PlaceholderScanLauncher.kt:16:1 Class 'PlaceholderScanLauncher' is not abstract and does not implement abstract member 'startScan'.
+e: app/src/main/java/org/payswap/camscan/document/PlaceholderScanLauncher.kt:18:1 'launchScan' overrides nothing.
+e: app/src/main/java/org/payswap/camscan/document/PlaceholderScanLauncher.kt:19:6 Expression 'fragmentManager' of type 'androidx.fragment.app.FragmentManager' cannot be invoked as a function. Function 'invoke()' is not found.
+e: app/src/main/java/org/payswap/camscan/document/PlaceholderScanLauncher.kt:19:24 Unresolved reference 'beginTransaction'.
+e: app/src/main/java/org/payswap/camscan/document/PlaceholderScanLauncher.kt:20:15 Expression 'containerViewId' of type 'kotlin.Int' cannot be invoked as a function. Function 'invoke()' is not found.
+e: app/src/main/java/org/payswap/camscan/document/PlaceholderScanLauncher.kt:21:2 Unresolved reference 'addToBackStack'.
+e: app/src/main/java/org/payswap/camscan/library/HomeFragment.kt:70:14 Unresolved reference 'launchScan'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:36:5 Unresolved reference 'OcrEngine'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:40:1 'engineId' overrides nothing.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:42:1 'recognize' overrides nothing.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:42:39 Unresolved reference 'OcrImage'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:42:59 Unresolved reference 'OcrSettings'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:42:73 Unresolved reference 'OcrOutcome'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:43:20 Unresolved reference 'OcrOutcome'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:43:39 Unresolved reference 'OcrFailure'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:45:19 Unresolved reference 'normalized'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:48:35 Unresolved reference 'OcrOutcome'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:48:54 Unresolved reference 'OcrFailure'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:49:51 Unresolved reference 'OcrOutcome'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:49:70 Unresolved reference 'OcrFailure'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:50:5 Operator '==' cannot be applied to 'kotlin.String' and 'org.payswap.camscan.ocr.engine.OcrImageFormat'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:50:52 Unresolved reference 'OcrOutcome'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:50:71 Unresolved reference 'OcrFailure'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:51:6 Unresolved reference 'OcrImage'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:52:8 Unresolved reference 'OcrOutcome'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:52:27 Unresolved reference 'OcrFailure'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:56:37 Unresolved reference 'currentTimeMillis'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:78:8 Unresolved reference 'OcrOutcome'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:82:1 'close' overrides nothing.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:94:32 Unresolved reference 'OcrImage'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:94:52 Unresolved reference 'OcrSettings'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:96:1 The spread operator (*foo) cannot be applied to an argument of nullable type.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:97:24 Unresolved reference 'width'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:98:24 Unresolved reference 'height'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:99:20 Function invocation 'format(...)' expected.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:99:27 Unresolved reference 'name'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:100:24 Unresolved reference 'rotationDegrees'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:101:23 Unresolved reference 'mode'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:102:27 Unresolved reference 'languageHints'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:103:11 Unresolved reference 'languageHints'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:103:44 Unresolved reference 'it'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:103:50 Overload resolution ambiguity between candidates:
+e: app/src/main/java/org/payswap/camscan/ocr/engine/DeterministicStubEngine.kt:104:7 Unresolved reference 'bytes'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrEngine.kt:198:1 Syntax error: Unclosed comment.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:79:19 Unresolved reference 'OcrSettings'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:117:40 Unresolved reference 'mode'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:118:66 Unresolved reference 'languageHints'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:7 None of the following candidates is applicable:
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:21 Syntax error: Expecting ')'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:22 Syntax error: Expecting a top level declaration.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:23 Syntax error: Expecting a top level declaration.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:24 Syntax error: Expecting a top level declaration.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:34 Syntax error: Expecting a top level declaration.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:35 Syntax error: Expecting a top level declaration.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:36 Syntax error: Expecting a top level declaration.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:37 Syntax error: Expecting a top level declaration.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:38 Syntax error: Expecting a top level declaration.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:40 Syntax error: Expecting a top level declaration.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:41 Syntax error: Expecting a top level declaration.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:42 Syntax error: Expecting a top level declaration.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:43 Syntax error: Expecting a top level declaration.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:44 Syntax error: Expecting a top level declaration.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:54 Syntax error: Expecting a top level declaration.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:55 Syntax error: Expecting a top level declaration.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:56 Syntax error: Expecting a top level declaration.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:57 Syntax error: Expecting a top level declaration.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:58 Syntax error: Expecting a top level declaration.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:60 Syntax error: Expecting a top level declaration.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:61 Syntax error: Expecting a top level declaration.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:62 Syntax error: Expecting a top level declaration.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:63 Syntax error: Expecting a top level declaration.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:64 Syntax error: Expecting a top level declaration.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/OcrResult.kt:144:65 Syntax error: Expecting a top level declaration.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/UnavailableEngine.kt:17:27 Unresolved reference 'OcrEngine'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/UnavailableEngine.kt:19:1 'engineId' overrides nothing.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/UnavailableEngine.kt:21:1 'recognize' overrides nothing.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/UnavailableEngine.kt:21:39 Unresolved reference 'OcrImage'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/UnavailableEngine.kt:21:59 Unresolved reference 'OcrSettings'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/UnavailableEngine.kt:21:73 Unresolved reference 'OcrOutcome'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/UnavailableEngine.kt:22:1 Unresolved reference 'OcrOutcome'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/UnavailableEngine.kt:22:20 Unresolved reference 'OcrFailure'.
+e: app/src/main/java/org/payswap/camscan/ocr/engine/UnavailableEngine.kt:23:1 'close' overrides nothing.
+e: app/src/main/java/org/payswap/camscan/ocr/harness/OcrHarness.kt:5:39 Unresolved reference 'OcrEngine'.
+e: app/src/main/java/org/payswap/camscan/ocr/harness/OcrHarness.kt:6:39 Unresolved reference 'OcrFailure'.
+e: app/src/main/java/org/payswap/camscan/ocr/harness/OcrHarness.kt:7:39 Unresolved reference 'OcrImage'.
+e: app/src/main/java/org/payswap/camscan/ocr/harness/OcrHarness.kt:8:39 Unresolved reference 'OcrOutcome'.
+e: app/src/main/java/org/payswap/camscan/ocr/harness/OcrHarness.kt:9:39 Unresolved reference 'OcrSettings'.
+e: app/src/main/java/org/payswap/camscan/ocr/harness/OcrHarness.kt:264:1 Syntax error: Unclosed comment.
+e: app/src/main/java/org/payswap/camscan/ocr/harness/SyntheticImages.kt:3:39 Unresolved reference 'OcrImage'.
+e: app/src/main/java/org/payswap/camscan/ocr/harness/SyntheticImages.kt:34:4 Unresolved reference 'OcrImage'.
+e: app/src/main/java/org/payswap/camscan/ocr/harness/SyntheticImages.kt:39:23 Unresolved reference 'OcrImage'.
+e: app/src/main/java/org/payswap/camscan/ocr/harness/SyntheticImages.kt:40:24 Unresolved reference 'OcrImage'.
+e: app/src/main/java/org/payswap/camscan/ocr/harness/SyntheticImages.kt:43:8 Unresolved reference 'OcrImage'.
+e: app/src/main/java/org/payswap/camscan/ocr/harness/SyntheticImages.kt:58:4 Unresolved reference 'OcrImage'.
+e: app/src/main/java/org/payswap/camscan/ocr/harness/SyntheticImages.kt:58:15 Unresolved reference 'OcrImage'.
+e: app/src/main/java/org/payswap/camscan/ocr/harness/SyntheticImages.kt:67:28 Unresolved reference 'OcrImage'.
+e: app/src/main/java/org/payswap/camscan/ocr/harness/SyntheticImages.kt:67:64 Unresolved reference 'OcrImage'.
+e: app/src/main/java/org/payswap/camscan/ocr/harness/SyntheticImages.kt:68:15 Overload resolution ambiguity between candidates:
+e: app/src/main/java/org/payswap/camscan/ocr/harness/SyntheticImages.kt:68:24 Unresolved reference 'bytes'.
+e: app/src/main/java/org/payswap/camscan/ocr/harness/SyntheticImages.kt:69:21 Unresolved reference 'bytes'.
+e: app/src/main/java/org/payswap/camscan/ocr/harness/SyntheticImages.kt:71:14 Unresolved reference 'copy'.
+e: app/src/main/java/org/payswap/camscan/ocr/harness/SyntheticImages.kt:85:31 Unresolved reference 'OcrImage'.
+e: app/src/main/java/org/payswap/camscan/ocr/harness/SyntheticImages.kt:85:43 Cannot infer type for this parameter. Please specify it explicitly.
+e: app/src/main/java/org/payswap/camscan/ocr/harness/SyntheticImages.kt:86:1 Cannot infer type for this parameter. Please specify it explicitly.
+e: app/src/main/java/org/payswap/camscan/ocr/harness/SyntheticImages.kt:106:2 Unresolved reference 'copy'.

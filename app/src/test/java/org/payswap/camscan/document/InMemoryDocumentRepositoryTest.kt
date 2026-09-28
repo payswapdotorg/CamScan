@@ -21,6 +21,10 @@ Pure-JVM behavior tests for the in-memory repository backing the shell.
 JUnit 4 + kotlinx-coroutines-test only — no Android imports — so these run
 
 under :app:testDebugUnitTest at the lead's integration station.
+
+CAMSCAN-PROD-006: the page() fixture was aligned to the frozen model field
+
+name (processedImageRef; the wave-0 contract is authoritative).
 */
 class InMemoryDocumentRepositoryTest {
 
@@ -55,7 +59,7 @@ pages = pages,
 private fun page(index: Int, ref: String = "ref-$index"): Page = Page(
 id = "page-$index",
 index = index,
-imageRef = ref,
+processedImageRef = ref,
 thumbnailRef = null,
 cropQuad = CropQuad(
 topLeft = Corner(0f, 0f),
@@ -145,7 +149,7 @@ repository.upsertDocument(
 document("doc-1", updatedAtMillis = 200L, pages = listOf(page(7), page(8), page(9))),
 )
 
-val refs = repository.getPages("doc-1").map { it.imageRef }
+val refs = repository.getPages("doc-1").map { it.processedImageRef }
 
 assertEquals(listOf("ref-7", "ref-8", "ref-9"), refs)
 }

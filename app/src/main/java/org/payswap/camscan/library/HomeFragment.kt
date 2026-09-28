@@ -15,24 +15,24 @@ import org.payswap.camscan.core.model.Document
 import org.payswap.camscan.core.navigation.ScanHost
 import org.payswap.camscan.core.navigation.ScanLauncher
 import org.payswap.camscan.core.repository.DocumentRepository
-import org.payswap.camscan.document.DocumentDetailStubFragment
-import org.payswap.camscan.document.DocumentRowAdapter
-import org.payswap.camscan.document.LibraryFragment
+import org.payswap.camscan.core.storage.ContentStore
+import org.payswap.camscan.document.viewer.DocumentViewerFragment
 
 /**
 
-Home surface (CAMSCAN-PROD-005): app-name toolbar, primary New Scan entry
+Home surface: app-name toolbar, primary New Scan entry, recent documents
 
-via the ScanLauncher seam, recent documents (top 10 by updatedAtMillis
+(top 10 by updatedAtMillis descending), and the Library affordance.
 
-descending), and the Library affordance.
+CAMSCAN-PROD-006: rows open the real document viewer.
 */
 class HomeFragment(
 private val repository: DocumentRepository,
 private val scanLauncher: ScanLauncher,
+private val contentStore: ContentStore,
 ) : Fragment(R.layout.fragment_home) {
 
-private val rowAdapter = DocumentRowAdapter(onClick = ::openDocumentDetail)
+private val rowAdapter = DocumentRowAdapter(onClick = ::openDocumentViewer)
 
 override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
 view.findViewById<RecyclerView>(R.id.home_recent_list).apply {
@@ -72,25 +72,25 @@ scanLauncher.launchScan(host)
 
 private fun openLibrary() {
 parentFragmentManager.beginTransaction()
-.replace(R.id.app_fragment_container, LibraryFragment(repository))
+.replace(R.id.app_fragment_container, LibraryFragment(repository, contentStore))
 .addToBackStack(BACK_STACK_LIBRARY)
 .commit()
 }
 
-private fun openDocumentDetail(document: Document) {
+private fun openDocumentViewer(document: Document) {
 parentFragmentManager.beginTransaction()
 .replace(
 R.id.app_fragment_container,
-DocumentDetailStubFragment.forDocument(repository, document.id),
+DocumentViewerFragment.forDocument(repository, contentStore, document.id),
 )
-.addToBackStack(BACK_STACK_DETAIL)
+.addToBackStack(BACK_STACK_VIEWER)
 .commit()
 }
 
 companion object {
 private const val RECENT_DOCUMENT_LIMIT = 10
 private const val BACK_STACK_LIBRARY = "workspace_library"
-private const val BACK_STACK_DETAIL = "workspace_document_detail"
+private const val BACK_STACK_VIEWER = "workspace_document_viewer"
 }
 
 }

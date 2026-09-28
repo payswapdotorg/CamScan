@@ -18,7 +18,7 @@
 
 <string name="workspace_document_detail_title">Document</string>
 <string name="workspace_document_detail_stub_notice">The document viewer arrives in the next work order. Delete is available below and can be undone from the confirmation bar.</string>
-<string name="workspace_document_detail_delete">Delete</string>
+<string name="workspace_document_detail_delete">Delete document</string>
 <string name="workspace_document_detail_delete_cd">Delete this document</string>
 <string name="workspace_document_detail_missing">This document is no longer available.</string>
 <string name="workspace_document_deleted_snackbar">Document deleted</string>
@@ -28,6 +28,39 @@
 <string name="workspace_placeholder_scan_notice">Scan engine integrating — Worker 1\'s capture surface attaches here.</string>
 <string name="workspace_placeholder_scan_close">Close</string>
 <string name="workspace_placeholder_scan_close_cd">Return to Home</string>
+
+<string name="workspace_viewer_back_cd">Back</string>
+<string name="workspace_edit_title">Edit</string>
+<string name="workspace_edit_title_cd">Edit document title</string>
+<string name="workspace_edit_title_hint">Document title</string>
+<string name="workspace_edit_title_dialog_title">Rename document</string>
+<string name="workspace_dialog_save">Save</string>
+<string name="workspace_dialog_cancel">Cancel</string>
+<string name="workspace_dialog_confirm_delete">Delete</string>
+<string name="workspace_viewer_empty_message">This document has no pages.</string>
+<string name="workspace_document_now_empty">Document is now empty. Delete it or keep it for new pages.</string>
+<string name="workspace_page_unavailable">Page image unavailable</string>
+<string name="workspace_viewer_page_cd">Page %1$d of %2$d</string>
+
+<string name="workspace_page_delete">Delete page</string>
+<string name="workspace_page_delete_cd">Delete the current page</string>
+<string name="workspace_delete_page_dialog_title">Delete page?</string>
+<string name="workspace_delete_page_dialog_message">Delete page %1$d from this document? This cannot be undone.</string>
+<string name="workspace_delete_document_dialog_title">Delete document?</string>
+<string name="workspace_delete_document_dialog_message">Delete this document and all of its pages? This cannot be undone.</string>
+
+<string name="workspace_reorder_title">Reorder pages</string>
+<string name="workspace_reorder_pages">Reorder</string>
+<string name="workspace_reorder_pages_cd">Reorder document pages</string>
+<string name="workspace_reorder_done">Done</string>
+<string name="workspace_reorder_done_cd">Apply the new page order</string>
+<string name="workspace_reorder_cancel">Cancel</string>
+<string name="workspace_reorder_cancel_cd">Cancel reordering</string>
+<string name="workspace_reorder_row_label">Page %1$d of %2$d</string>
+<string name="workspace_reorder_move_up">Up</string>
+<string name="workspace_reorder_move_up_cd">Move page up</string>
+<string name="workspace_reorder_move_down">Down</string>
+<string name="workspace_reorder_move_down_cd">Move page down</string>
 
 <plurals name="workspace_page_count">
 <item quantity="one">%d page</item>
