@@ -1,4 +1,4 @@
-package org.payswap.camscan.document
+package org.payswap.camscan.document.viewer
 
 import android.os.Bundle
 import android.view.View

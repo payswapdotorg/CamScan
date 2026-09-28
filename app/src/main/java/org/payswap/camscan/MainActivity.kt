@@ -14,6 +14,7 @@ import org.payswap.camscan.core.time.TimeSource
 import org.payswap.camscan.document.DocumentDetailStubFragment
 import org.payswap.camscan.document.LibraryFragment
 import org.payswap.camscan.document.PlaceholderScanFragment
+import org.payswap.camscan.capture.camera.CameraScanLauncher
 import org.payswap.camscan.document.PlaceholderScanLauncher
 import org.payswap.camscan.document.persistence.FileContentStore
 import org.payswap.camscan.document.persistence.IdGenerator
@@ -53,7 +54,7 @@ contentDir = contentStore.rootDir,
 timeSource = TimeSource.SYSTEM,
 idGenerator = IdGenerator { UUID.randomUUID().toString() },
 )
-scanLauncher = PlaceholderScanLauncher()
+scanLauncher = CameraScanLauncher() // PROD-013 integration: W1's real capture launcher (PROD-004 session-capable) replaces the placeholder
 supportFragmentManager.fragmentFactory =
 WorkspaceFragmentFactory(repository, contentStore, scanLauncher)
 super.onCreate(savedInstanceState)
