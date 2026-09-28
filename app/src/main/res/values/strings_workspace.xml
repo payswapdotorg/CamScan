@@ -62,6 +62,21 @@
 <string name="workspace_reorder_move_down">Down</string>
 <string name="workspace_reorder_move_down_cd">Move page down</string>
 
+<string name="workspace_export_pdf">Export PDF</string>
+<string name="workspace_export_pdf_cd">Export this document as a PDF</string>
+<string name="workspace_export_jpg">Export JPG</string>
+<string name="workspace_export_jpg_cd">Export the current page as a JPG image</string>
+<string name="workspace_share">Share</string>
+<string name="workspace_share_cd">Share this document as a PDF</string>
+<string name="workspace_share_chooser_title">Share via</string>
+<string name="workspace_export_success">Exported %1$s (%2$s)</string>
+<string name="workspace_export_empty">This document has no pages to export.</string>
+<string name="workspace_export_failed">Export failed — %1$s</string>
+<string name="workspace_export_failed_reason_page">a page image is missing or unreadable</string>
+<string name="workspace_share_empty">This document has no pages to share.</string>
+<string name="workspace_share_failed">Share failed — %1$s</string>
+<string name="workspace_share_unavailable">Sharing is not available right now.</string>
+
 <plurals name="workspace_page_count">
 <item quantity="one">%d page</item>
 <item quantity="other">%d pages</item>

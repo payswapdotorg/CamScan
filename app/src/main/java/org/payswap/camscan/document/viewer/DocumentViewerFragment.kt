@@ -16,6 +16,8 @@ import androidx.recyclerview.widget.PagerSnapHelper
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -28,6 +30,11 @@ import org.payswap.camscan.document.persistence.updateTitle
 import org.payswap.camscan.document.viewer.PagePagerAdapter
 import org.payswap.camscan.document.viewer.ViewerOps
 import org.payswap.camscan.document.viewer.ViewerUiState
+import org.payswap.camscan.export.ExportArtifact
+import org.payswap.camscan.export.ExportEngine
+import org.payswap.camscan.export.formatSizeBytes
+import org.payswap.camscan.export.pdf.PageJpegEncoder
+import org.payswap.camscan.export.share.ShareIntents
 
 /**
 
@@ -52,6 +59,16 @@ private var state: ViewerUiState? = null
 private var poppedForMissingDocument = false
 
 private val pageAdapter by lazy { PagePagerAdapter(contentStore) }
+
+/** CAMSCAN-PROD-007: export/share engine over the same store + repository. */
+private val exportEngine by lazy {
+    ExportEngine(
+        contentStore = contentStore,
+        encoder = PageJpegEncoder(),
+        timeSource = TimeSource.SYSTEM,
+        dispatcher = Dispatchers.IO,
+    )
+}
 
 override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
 val toolbar = view.findViewById<Toolbar>(R.id.viewer_toolbar)
@@ -96,6 +113,18 @@ view.findViewById<MaterialButton>(R.id.document_detail_delete).apply {
 contentDescription = context.getString(R.string.workspace_document_detail_delete_cd)
 setOnClickListener { showDeleteDocumentDialog() }
 }
+view.findViewById<MaterialButton>(R.id.document_export_pdf_button).apply {
+contentDescription = context.getString(R.string.workspace_export_pdf_cd)
+setOnClickListener { exportPdfForCurrentDocument() }
+}
+view.findViewById<MaterialButton>(R.id.document_export_jpg_button).apply {
+contentDescription = context.getString(R.string.workspace_export_jpg_cd)
+setOnClickListener { exportJpgForCurrentPage() }
+}
+view.findViewById<MaterialButton>(R.id.document_share_button).apply {
+contentDescription = context.getString(R.string.workspace_share_cd)
+setOnClickListener { shareCurrentDocument() }
+}
 
 viewLifecycleOwner.lifecycleScope.launch {
 viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -127,6 +156,9 @@ emptyState.visibility = if (next.isEmpty) View.VISIBLE else View.GONE
 pager.visibility = if (next.isEmpty) View.GONE else View.VISIBLE
 view.findViewById<View>(R.id.document_page_delete).isEnabled = !next.isEmpty
 view.findViewById<View>(R.id.document_reorder_pages).isEnabled = !next.isEmpty
+view.findViewById<View>(R.id.document_export_pdf_button).isEnabled = !next.isEmpty
+view.findViewById<View>(R.id.document_export_jpg_button).isEnabled = !next.isEmpty
+view.findViewById<View>(R.id.document_share_button).isEnabled = !next.isEmpty
 
 pageAdapter.submitList(next.pages)
 }
@@ -211,6 +243,92 @@ DocumentReorderFragment.forDocument(repository, documentId),
 )
 .addToBackStack(BACK_STACK_REORDER)
 .commit()
+}
+
+/** CAMSCAN-PROD-007: export the whole document as one PDF artifact. */
+private fun exportPdfForCurrentDocument() {
+val host = view ?: return
+if (!hasPagesForExport(host, R.string.workspace_export_empty)) return
+viewLifecycleOwner.lifecycleScope.launch {
+val artifact = exportEngine.exportPdf(repository, documentId)
+showExportResult(host, artifact)
+}
+}
+
+/** CAMSCAN-PROD-007: export the page the pager is showing as a JPG artifact. */
+private fun exportJpgForCurrentPage() {
+val host = view ?: return
+if (!hasPagesForExport(host, R.string.workspace_export_empty)) return
+val pageIndex = state?.currentPosition ?: 0
+viewLifecycleOwner.lifecycleScope.launch {
+val artifact = exportEngine.exportJpg(repository, documentId, pageIndex)
+showExportResult(host, artifact)
+}
+}
+
+/**
+CAMSCAN-PROD-007: share the document — export a fresh PDF artifact, resolve
+it through ShareIntents, then hand the chooser to the platform. Every
+failure state gets an honest snackbar.
+*/
+private fun shareCurrentDocument() {
+val host = view ?: return
+if (!hasPagesForExport(host, R.string.workspace_share_empty)) return
+viewLifecycleOwner.lifecycleScope.launch {
+val artifact = exportEngine.exportPdf(repository, documentId)
+if (artifact == null) {
+showSnackbar(
+host,
+getString(
+R.string.workspace_share_failed,
+getString(R.string.workspace_export_failed_reason_page),
+),
+)
+return@launch
+}
+val chooser = ShareIntents.shareArtifact(requireContext(), artifact, contentStore)
+if (chooser == null) {
+showSnackbar(host, getString(R.string.workspace_share_unavailable))
+} else {
+startActivity(chooser)
+}
+}
+}
+
+/** True when a document with pages is loaded; otherwise shows the honest
+empty-state snackbar and returns false. */
+private fun hasPagesForExport(host: View, emptyMessageRes: Int): Boolean {
+val current = state
+if (current == null || current.isEmpty) {
+showSnackbar(host, getString(emptyMessageRes))
+return false
+}
+return true
+}
+
+private fun showExportResult(host: View, artifact: ExportArtifact?) {
+if (artifact == null) {
+showSnackbar(
+host,
+getString(
+R.string.workspace_export_failed,
+getString(R.string.workspace_export_failed_reason_page),
+),
+)
+} else {
+showSnackbar(
+host,
+getString(
+R.string.workspace_export_success,
+artifact.displayName,
+formatSizeBytes(artifact.sizeBytes.toLong()),
+),
+)
+}
+}
+
+private fun showSnackbar(host: View, message: String) {
+Snackbar.make(host, message, Snackbar.LENGTH_LONG).show()
 }
 
 private fun popOnceForMissingDocument() {

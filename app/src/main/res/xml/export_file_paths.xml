@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CAMSCAN-PROD-007: share-cache roots for the export FileProvider.
+     ShareIntents copies resolved export artifacts into cacheDir/exports/
+     (matching the cache-path below) and serves them read-only to share
+     targets through the provider declared in AndroidManifest.xml. -->
+<paths>
+    <cache-path
+        name="exports"
+        path="exports/" />
+</paths>

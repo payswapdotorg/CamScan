@@ -25,6 +25,23 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- CAMSCAN-PROD-007: export share provider. Serves resolved export
+             artifacts from the internal cache (res/xml/export_file_paths.xml)
+             read-only to share targets. Authority is the application id +
+             ".export.provider", referenced by the constant
+             ShareIntents.EXPORT_PROVIDER_AUTHORITY. Lead-execution manifest
+             amendment per the PROD-007 work order (the worker's packet left
+             this declaration to the lead). -->
+        <provider
+            android:name="org.payswap.camscan.export.share.ExportFileProvider"
+            android:authorities="org.payswap.camscan.export.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/export_file_paths" />
+        </provider>
     </application>
 
 

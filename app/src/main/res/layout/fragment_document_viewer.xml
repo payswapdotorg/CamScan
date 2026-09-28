@@ -85,7 +85,10 @@ android:textAppearance="?attr/textAppearanceBody1" />
 android:layout_width="match_parent"
 android:layout_height="wrap_content"
 android:orientation="horizontal"
-android:padding="16dp">
+android:paddingStart="16dp"
+android:paddingEnd="16dp"
+android:paddingTop="16dp"
+android:paddingBottom="8dp">
 
 <com.google.android.material.button.MaterialButton
 android:id="@+id/document_reorder_pages"
@@ -113,4 +116,43 @@ android:layout_height="wrap_content"
 android:layout_marginStart="4dp"
 android:layout_weight="1"
 android:text="@string/workspace_document_detail_delete" />
+</LinearLayout>
+
+<!-- CAMSCAN-PROD-007: export affordance row (same button pattern as the row
+     above; stable semantic ids document_export_pdf_button,
+     document_export_jpg_button, document_share_button). -->
+<LinearLayout
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:orientation="horizontal"
+android:paddingStart="16dp"
+android:paddingEnd="16dp"
+android:paddingBottom="16dp">
+
+<com.google.android.material.button.MaterialButton
+android:id="@+id/document_export_pdf_button"
+android:layout_width="0dp"
+android:layout_height="wrap_content"
+android:layout_marginEnd="4dp"
+android:layout_weight="1"
+android:text="@string/workspace_export_pdf" />
+
+<com.google.android.material.button.MaterialButton
+android:id="@+id/document_export_jpg_button"
+style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+android:layout_width="0dp"
+android:layout_height="wrap_content"
+android:layout_marginStart="4dp"
+android:layout_marginEnd="4dp"
+android:layout_weight="1"
+android:text="@string/workspace_export_jpg" />
+
+<com.google.android.material.button.MaterialButton
+android:id="@+id/document_share_button"
+style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+android:layout_width="0dp"
+android:layout_height="wrap_content"
+android:layout_marginStart="4dp"
+android:layout_weight="1"
+android:text="@string/workspace_share" />
 </LinearLayout></LinearLayout>
