@@ -16,6 +16,8 @@ import org.payswap.camscan.core.navigation.ScanHost
 import org.payswap.camscan.core.navigation.ScanLauncher
 import org.payswap.camscan.core.repository.DocumentRepository
 import org.payswap.camscan.core.storage.ContentStore
+import org.payswap.camscan.document.DocumentRowAdapter
+import org.payswap.camscan.document.LibraryFragment
 import org.payswap.camscan.document.viewer.DocumentViewerFragment
 
 /**

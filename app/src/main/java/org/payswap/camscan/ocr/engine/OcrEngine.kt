@@ -42,7 +42,7 @@ engines to sniff or reject (the stub rejects un-sniffable UNKNOWN with
 [OcrFailure.UNSUPPORTED_FORMAT]).
 @property rotationDegrees clockwise display rotation; any integer accepted,
 [normalized] folds it into 0..359.
-/
+*/
 data class OcrImage(
 val bytes: ByteArray,
 val width: Int,
@@ -120,7 +120,7 @@ private fun ByteArray.startsWith(prefix: ByteArray): Boolean =
 size >= prefix.size && prefix.indices.all { this[it] == prefix[it] }
 }
 
-
+}
 
 /**
 
@@ -150,7 +150,7 @@ val DEFAULT: OcrSettings = OcrSettings()
 Sealed failure taxonomy for the OCR seam. Instances are values: engines
 
 return them, they are never thrown across the seam.
-/
+*/
 sealed interface OcrFailure {
 /* Declared format is not usable (e.g. UNKNOWN and not sniffable). */
 data object UNSUPPORTED_FORMAT : OcrFailure
@@ -167,7 +167,7 @@ data class ENGINE_ERROR(val message: String) : OcrFailure
 /** Engine was closed before this call. */
 data object CLOSED : OcrFailure
 
-
+}
 
 /** Exactly-one outcome of a recognition attempt. */
 sealed interface OcrOutcome {
@@ -178,7 +178,7 @@ data class Failure(val reason: OcrFailure) : OcrOutcome
 /**
 
 The OCR engine seam (see file KDoc for the binding contract).
-/
+*/
 interface OcrEngine {
 /* Stable engine identity; appears on results and in harness reports. */
 val engineId: String
@@ -194,4 +194,4 @@ suspend fun recognize(image: OcrImage, settings: OcrSettings): OcrOutcome
 /** Release engine resources. Idempotent; after close, recognize → Failure(CLOSED). */
 fun close()
 
-
+}

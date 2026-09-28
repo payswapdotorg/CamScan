@@ -40,13 +40,14 @@ repository.upsertDocument(
 Document(
 id = "doc-1",
 title = "Doc",
+pageIds = listOf("p0", "p1", "p2"),
 createdAtMillis = 0L,
 updatedAtMillis = 100L,
-pages = listOf(
-Page(id = "p0", index = 0),
-Page(id = "p1", index = 1),
-Page(id = "p2", index = 2),
 ),
+listOf(
+Page(id = "p0", documentId = "doc-1", index = 0, createdAtMillis = 0L, updatedAtMillis = 0L),
+Page(id = "p1", documentId = "doc-1", index = 1, createdAtMillis = 0L, updatedAtMillis = 0L),
+Page(id = "p2", documentId = "doc-1", index = 2, createdAtMillis = 0L, updatedAtMillis = 0L),
 ),
 )
 }
@@ -56,8 +57,8 @@ fun removePage_reIndexesRemainingPages_andStampsUpdatedAt() = runTest {
 seed()
 timeSource.now = 777L
 val updated = repository.removePage("doc-1", "p0", timeSource)
-assertEquals(listOf("p1", "p2"), updated!!.pages.map { it.id })
-assertEquals(listOf(0, 1), updated.pages.map { it.index })
+assertEquals(listOf("p1", "p2"), updated!!.pageIds)
+assertEquals(listOf(0, 1), repository.getPages("doc-1").map { it.index })
 assertEquals(777L, updated.updatedAtMillis)
 assertEquals(listOf("p1", "p2"), repository.getPages("doc-1").map { it.id })
 }
@@ -74,8 +75,8 @@ fun reorderPages_appliesNewOrder_withFreshIndices() = runTest {
 seed()
 timeSource.now = 500L
 val updated = repository.reorderPages("doc-1", listOf("p2", "p0", "p1"), timeSource)
-assertEquals(listOf("p2", "p0", "p1"), updated!!.pages.map { it.id })
-assertEquals(listOf(0, 1, 2), updated.pages.map { it.index })
+assertEquals(listOf("p2", "p0", "p1"), updated!!.pageIds)
+assertEquals(listOf(0, 1, 2), repository.getPages("doc-1").map { it.index })
 assertEquals(500L, updated.updatedAtMillis)
 }
 
@@ -99,10 +100,10 @@ fun movePage_movesAndReindexes() = runTest {
 seed()
 timeSource.now = 300L
 val afterUp = repository.movePage("doc-1", "p2", -1, timeSource)
-assertEquals(listOf("p0", "p2", "p1"), afterUp!!.pages.map { it.id })
-assertEquals(listOf(0, 1, 2), afterUp.pages.map { it.index })
+assertEquals(listOf("p0", "p2", "p1"), afterUp!!.pageIds)
+assertEquals(listOf(0, 1, 2), repository.getPages("doc-1").map { it.index })
 val afterDown = repository.movePage("doc-1", "p0", 1, timeSource)
-assertEquals(listOf("p2", "p0", "p1"), afterDown!!.pages.map { it.id })
+assertEquals(listOf("p2", "p0", "p1"), afterDown!!.pageIds)
 }
 
 @Test

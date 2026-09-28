@@ -32,14 +32,14 @@ test carries no Android runtime dependency and runs under
 class ScanSeamContractTest {
 
 private class RecordingScanHost : ScanHost {
-val finishedDocumentIds = mutableListOf<String>()
+val finishedDocumentIds = mutableListOf<String?>()
 
-override fun fragmentManager(): FragmentManager =
-error("FragmentManager must never be touched by the JVM seam-contract path")
+override val fragmentManager: FragmentManager
+get() = error("FragmentManager must never be touched by the JVM seam-contract path")
 
-override fun containerViewId(): Int = 42
+override val containerViewId: Int = 42
 
-override fun onScanFinished(documentId: String) {
+override fun onScanFinished(documentId: String?) {
 finishedDocumentIds += documentId
 }
 }
@@ -49,7 +49,7 @@ private class StubScanLauncher : ScanLauncher {
 val launchedHosts = mutableListOf<ScanHost>()
 var nextResult: Boolean = true
 
-override fun launchScan(host: ScanHost): Boolean {
+override fun startScan(host: ScanHost): Boolean {
 launchedHosts += host
 return nextResult
 }
@@ -60,7 +60,7 @@ fun launcher_returnsTrue_andReceivesItsHost() {
 val host = RecordingScanHost()
 val launcher = StubScanLauncher()
 
-val result = launcher.launchScan(host)
+val result = launcher.startScan(host)
 
 assertTrue(result)
 assertSame(host, launcher.launchedHosts.single())
@@ -71,7 +71,7 @@ fun fullSeamLoop_launchThenFinish_reachesTheSameHost_inOrder() {
 val host = RecordingScanHost()
 val launcher = StubScanLauncher()
 
-launcher.launchScan(host)
+launcher.startScan(host)
 host.onScanFinished("doc-1")
 host.onScanFinished("doc-2")
 
@@ -84,7 +84,7 @@ fun failedLaunch_neverInvokesTheHostCallback() {
 val host = RecordingScanHost()
 val launcher = StubScanLauncher().apply { nextResult = false }
 
-val result = launcher.launchScan(host)
+val result = launcher.startScan(host)
 
 assertFalse(result)
 assertTrue(host.finishedDocumentIds.isEmpty())

@@ -16,12 +16,15 @@ import androidx.recyclerview.widget.PagerSnapHelper
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.payswap.camscan.R
 import org.payswap.camscan.core.repository.DocumentRepository
 import org.payswap.camscan.core.storage.ContentStore
 import org.payswap.camscan.core.time.TimeSource
 import org.payswap.camscan.document.persistence.removePage
+import org.payswap.camscan.document.persistence.updateTitle
 import org.payswap.camscan.document.viewer.PagePagerAdapter
 import org.payswap.camscan.document.viewer.ViewerOps
 import org.payswap.camscan.document.viewer.ViewerUiState
@@ -54,7 +57,7 @@ override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
 val toolbar = view.findViewById<Toolbar>(R.id.viewer_toolbar)
 toolbar.setNavigationOnClickListener { parentFragmentManager.popBackStack() }
 toolbar.navigationContentDescription =
-context.getString(R.string.workspace_viewer_back_cd)
+context?.getString(R.string.workspace_viewer_back_cd)
 
 val titleView = view.findViewById<TextView>(R.id.document_detail_title)
 val indicatorView = view.findViewById<TextView>(R.id.document_page_indicator)
@@ -68,9 +71,10 @@ PagerSnapHelper().attachToRecyclerView(pager)
 pager.addOnScrollListener(object : RecyclerView.OnScrollListener() {
 override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
 if (newState == RecyclerView.SCROLL_STATE_IDLE) {
-val snapped = PagerSnapHelper().findSnappedPosition(
-recyclerView.layoutManager as LinearLayoutManager.let { recyclerView },
-)
+val snapped = PagerSnapHelper()
+.findSnapView(recyclerView.layoutManager as LinearLayoutManager)
+?.let { recyclerView.getChildAdapterPosition(it) }
+?: RecyclerView.NO_POSITION
 updatePosition(snapped)
 }
 }
@@ -95,11 +99,14 @@ setOnClickListener { showDeleteDocumentDialog() }
 
 viewLifecycleOwner.lifecycleScope.launch {
 viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-repository.observeDocument(documentId).collect { document ->
+repository.observeDocuments()
+.map { documents -> documents.firstOrNull { it.id == documentId } }
+.distinctUntilChanged()
+.collect { document ->
 if (document == null) {
 popOnceForMissingDocument()
 } else {
-render(view, document.title, ViewerOps.fromDocument(document))
+render(view, document.title, ViewerOps.fromDocument(document, repository.getPages(document.id)))
 }
 }
 }
@@ -146,7 +153,7 @@ MaterialAlertDialogBuilder(context)
 val newTitle = input.text.toString().trim()
 if (newTitle.isNotEmpty()) {
 viewLifecycleOwner.lifecycleScope.launch {
-repository.updateTitle(documentId, newTitle)
+repository.updateTitle(documentId, newTitle, TimeSource.SYSTEM)
 }
 }
 }
@@ -167,8 +174,8 @@ R.string.workspace_delete_page_dialog_message,
 )
 .setPositiveButton(R.string.workspace_dialog_confirm_delete) { _, _ ->
 viewLifecycleOwner.lifecycleScope.launch {
-val updated = repository.removePage(documentId, page.pageId, TimeSource.System)
-if (updated != null && updated.pages.isEmpty()) {
+val updated = repository.removePage(documentId, page.pageId, TimeSource.SYSTEM)
+if (updated != null && updated.pageIds.isEmpty()) {
 Toast.makeText(
 context,
 R.string.workspace_document_now_empty,

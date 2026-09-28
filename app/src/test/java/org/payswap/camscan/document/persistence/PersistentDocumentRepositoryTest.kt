@@ -88,11 +88,11 @@ createdAtMillis = createdAtMillis,
 updatedAtMillis = updatedAtMillis,
 )
 
-private fun page(id: String, index: Int, ref: String? = null): Page = Page(
+private fun page(id: String, index: Int, ref: String? = null, documentId: String = "doc-1"): Page = Page(
 id = id,
+documentId = documentId,
 index = index,
 processedImageRef = ref,
-thumbnailRef = null,
 cropQuad = if (ref == null) {
 null
 } else {
@@ -103,8 +103,10 @@ Corner(1f, 1f),
 Corner(0f, 1f),
 )
 },
-enhancement = PageEnhancementMode.NONE,
+enhancement = PageEnhancementMode.ORIGINAL,
 rotationDegrees = 0,
+createdAtMillis = 0L,
+updatedAtMillis = 0L,
 )
 
 private fun indexFile(dir: File): File = File(dir, PersistentDocumentRepository.INDEX_FILE)
@@ -129,7 +131,7 @@ assertEquals(listOf("minted-1"), repo.observeDocuments().first().map { it.id })
 
 repo.upsertDocument(
 document("doc-2", 200L),
-listOf(page(" ", 0), page("p1", 1)),
+listOf(page(" ", 0, documentId = "doc-2"), page("p1", 1, documentId = "doc-2")),
 )
 val pages = repo.getPages("doc-2")
 assertEquals("minted-2", pages[0].id)
@@ -197,8 +199,8 @@ assertTrue(repository.observeDocuments().first().isEmpty())
 @Test
 fun saveReopen_newInstanceSeesIdenticalDocumentsAndBlobs() = runTest {
 val store = FileContentStore(root)
-val ref0 = store.put(byteArrayOf(1, 2, 3), "p0")
-val ref1 = store.put(byteArrayOf(4, 5, 6, 7), "p1")
+val ref0 = store.put("p0", byteArrayOf(1, 2, 3))
+val ref1 = store.put("p1", byteArrayOf(4, 5, 6, 7))
 val savedDocument = Document(
 id = "doc-1",
 title = "Quarterly scan",
@@ -239,7 +241,7 @@ listOf(page("p0", 0), page("p1", 1), page("p2", 2)),
 )
 timeSource.now = 900L
 val updated = repository.reorderPages("doc-1", listOf("p2", "p0", "p1"), timeSource)
-assertEquals(listOf("p2", "p0", "p1"), updated!!.pages.map { it.id })
+assertEquals(listOf("p2", "p0", "p1"), updated!!.pageIds)
 assertEquals(900L, updated.updatedAtMillis)
 
 val reopened = newRepo(root)
@@ -254,15 +256,15 @@ assertEquals(900L, reopened.getDocument("doc-1")!!.updatedAtMillis)
 @Test
 fun removePage_sweepsOrphanBlob_liveRefsIntact() = runTest {
 val store = FileContentStore(root)
-val ref0 = store.put(byteArrayOf(1, 1), "p0")
-val ref1 = store.put(byteArrayOf(2, 2), "p1")
+val ref0 = store.put("p0", byteArrayOf(1, 1))
+val ref1 = store.put("p1", byteArrayOf(2, 2))
 repository.upsertDocument(
 document("doc-1", 100L),
 listOf(page("p0", 0, ref0), page("p1", 1, ref1)),
 )
 timeSource.now = 777L
 val updated = repository.removePage("doc-1", "p0", timeSource)
-assertEquals(listOf("p1"), updated!!.pages.map { it.id })
+assertEquals(listOf("p1"), updated!!.pageIds)
 assertEquals(777L, updated.updatedAtMillis)
 assertFalse(store.exists(ref0))
 assertTrue(store.exists(ref1))
@@ -275,7 +277,7 @@ assertEquals(listOf("p1"), repository.getPages("doc-1").map { it.id })
 @Test
 fun strayBlob_cleanedOnNextWrite_crashSimulation() = runTest {
 val store = FileContentStore(root)
-val liveRef = store.put(byteArrayOf(1, 2, 3), "p0")
+val liveRef = store.put("p0", byteArrayOf(1, 2, 3))
 repository.upsertDocument(
 document("doc-1", 100L),
 listOf(page("p0", 0, liveRef)),
@@ -368,19 +370,22 @@ assertArrayEquals(before, indexFile(dir2).readBytes())
 dir2.deleteRecursively()
 
 // (c) Two concurrent collectors see identical snapshot sequences:
-// [] → [doc-a] → [doc-b, doc-a] (updatedAt-desc ordering).
+// [] → [doc-a] → [doc-b, doc-a] (updatedAt-desc ordering). The collectors
+// attach to a FRESH repository so the sequence starts from the empty state.
+val dir3 = tempDir("persrepo-observe")
+val repo3 = newRepo(dir3)
 val dispatcher = UnconfinedTestDispatcher(testScheduler)
 val seen1 = mutableListOf<List<Document>>()
 val seen2 = mutableListOf<List<Document>>()
 val collector1 = launch(dispatcher) {
-repository.observeDocuments().take(3).toList(seen1)
+repo3.observeDocuments().take(3).toList(seen1)
 }
 val collector2 = launch(dispatcher) {
-repository.observeDocuments().take(3).toList(seen2)
+repo3.observeDocuments().take(3).toList(seen2)
 }
 runCurrent()
-repository.upsertDocument(docA.copy(title = "Renamed A"), emptyList())
-repository.upsertDocument(docB.copy(title = "Renamed B"), emptyList())
+repo3.upsertDocument(docA, emptyList())
+repo3.upsertDocument(docB, emptyList())
 runCurrent()
 collector1.join()
 collector2.join()
@@ -393,6 +398,7 @@ listOf(listOf<String>(), listOf("doc-a"), listOf("doc-b", "doc-a")),
 seen1.map { snapshot -> snapshot.map { it.id } },
 )
 assertEquals(3, seen1.size)
+dir3.deleteRecursively()
 }
 
 }

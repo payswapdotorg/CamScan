@@ -13,6 +13,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.payswap.camscan.R
 import org.payswap.camscan.core.repository.DocumentRepository
@@ -52,7 +54,7 @@ val adapter = ReorderAdapter(
 onMove = { pageId, offset ->
 ViewerOps.moved(workingPages, pageId, offset)?.let { moved ->
 workingPages = moved
-adapter.submitList(workingPages.toList())
+listAdapter?.submitList(workingPages.toList())
 }
 },
 )
@@ -70,11 +72,14 @@ setOnClickListener { parentFragmentManager.popBackStack() }
 
 viewLifecycleOwner.lifecycleScope.launch {
 viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-repository.observeDocument(documentId).collect { document ->
+repository.observeDocuments()
+.map { documents -> documents.firstOrNull { it.id == documentId } }
+.distinctUntilChanged()
+.collect { document ->
 if (document == null) {
 parentFragmentManager.popBackStack()
 } else if (workingPages.isEmpty()) {
-workingPages = ViewerOps.fromDocument(document).pages
+workingPages = ViewerOps.fromDocument(document, repository.getPages(document.id)).pages
 adapter.submitList(workingPages.toList())
 }
 }
@@ -85,7 +90,7 @@ adapter.submitList(workingPages.toList())
 private fun commitReorder() {
 val orderedIds = workingPages.map { it.pageId }
 viewLifecycleOwner.lifecycleScope.launch {
-repository.reorderPages(documentId, orderedIds, TimeSource.System)
+repository.reorderPages(documentId, orderedIds, TimeSource.SYSTEM)
 parentFragmentManager.popBackStack()
 }
 }

@@ -1,6 +1,7 @@
 package org.payswap.camscan.document.viewer
 
 import org.payswap.camscan.core.model.Document
+import org.payswap.camscan.core.model.Page
 
 /**
 
@@ -16,7 +17,7 @@ val processedImageRef: String?,
 val rotationDegrees: Int,
 )
 
-/** Immutable viewer UI state. /
+/** Immutable viewer UI state. */
 data class ViewerUiState(
 val documentId: String,
 val title: String,
@@ -25,9 +26,7 @@ val currentPosition: Int = 0,
 ) {
 /* One-based "3 / 7" indicator; empty when there are no pages. */
 val indicatorText: String
-get() = if (pages.isEmpty()) "" else "
-currentPosition+1/
-{pages.size}"
+get() = if (pages.isEmpty()) "" else "${currentPosition + 1} / ${pages.size}"
 
 val isEmpty: Boolean get() = pages.isEmpty()
 
@@ -46,8 +45,8 @@ private fun List<*>.lastIndexOrZero(): Int = (size - 1).coerceAtLeast(0)
 object ViewerOps {
 
 /** Builds viewer state from a document, sorting pages by index. */
-fun fromDocument(document: Document, currentPosition: Int = 0): ViewerUiState {
-val items = document.pages
+fun fromDocument(document: Document, pages: List<Page>, currentPosition: Int = 0): ViewerUiState {
+val items = pages
 .sortedBy { it.index }
 .map { page ->
 ViewerPageItem(
@@ -81,4 +80,4 @@ val moved = mutable.removeAt(from)
 mutable.add(to, moved)
 return mutable.mapIndexed { index, item -> item.copy(index = index) }
 }
-
+}

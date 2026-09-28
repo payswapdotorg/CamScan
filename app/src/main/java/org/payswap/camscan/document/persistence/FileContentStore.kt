@@ -36,15 +36,15 @@ val rootDir: File,
 private val newRefName: () -> String = { UUID.randomUUID().toString() },
 ) : ContentStore {
 
-override fun put(bytes: ByteArray, refHint: String?): String {
+override suspend fun put(key: String, bytes: ByteArray): String {
 if (!rootDir.exists() && !rootDir.mkdirs()) {
-throw IOException("ContentStore root not creatable: 
-rootDir")
+throw IOException("ContentStore root not creatable: $rootDir")
+
 }
-val ref = refHint?.let { sanitizeHint(it) } ?: (newRefName() + REF_SUFFIX)
+val ref = sanitizeHint(key) ?: (newRefName() + REF_SUFFIX)
 val target = File(rootDir, ref)
-val tmp = File(rootDir, ".$ref.
-{UUID.randomUUID()}.tmp")
+val tmp = File(rootDir, ".$ref.${UUID.randomUUID()}.tmp")
+
 try {
 FileOutputStream(tmp).use { out -> out.write(bytes) }
 if (!tmp.renameTo(target)) {
@@ -58,7 +58,7 @@ if (tmp.exists()) tmp.delete()
 return ref
 }
 
-override fun open(ref: String): ByteArray? {
+override suspend fun open(ref: String): ByteArray? {
 if (!isSafeRef(ref)) return null
 val file = File(rootDir, ref)
 if (!file.isFile) return null
@@ -69,20 +69,20 @@ null
 }
 }
 
-override fun delete(ref: String): Boolean {
+override suspend fun delete(ref: String): Boolean {
 if (!isSafeRef(ref)) return false
 val file = File(rootDir, ref)
 return file.isFile && file.delete()
 }
 
-override fun exists(ref: String): Boolean {
+override suspend fun exists(ref: String): Boolean {
 if (!isSafeRef(ref)) return false
 return File(rootDir, ref).isFile
 }
 
 companion object {
 private const val REF_SUFFIX = ".bin"
-private val REF_PATTERN = Regex("[A-Za-z0-9.-]+\.bin")
+private val REF_PATTERN = Regex("[A-Za-z0-9.-]+\\.bin")
 private val UNSAFE_CHARS = Regex("[^A-Za-z0-9.-]")
 
 /** The only android-importing line of the persistence layer. */
@@ -92,7 +92,7 @@ FileContentStore(File(context.filesDir, "content"))
 private fun isSafeRef(ref: String): Boolean = REF_PATTERN.matches(ref)
 
 private fun sanitizeHint(hint: String): String? {
-val cleaned = UNSAFE_CHARS.replace(hint, "").trim('')
+val cleaned = UNSAFE_CHARS.replace(hint, "").trim('.')
 if (cleaned.isEmpty()) return null
 val name = if (cleaned.endsWith(REF_SUFFIX)) cleaned else cleaned + REF_SUFFIX
 return if (REF_PATTERN.matches(name)) name else null

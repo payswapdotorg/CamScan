@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import kotlinx.coroutines.runBlocking
 import org.payswap.camscan.R
 import org.payswap.camscan.core.storage.ContentStore
 
@@ -74,7 +75,7 @@ placeholder.visibility = View.GONE
 return
 }
 decodeExecutor.execute {
-val bytes = contentStore.open(ref)
+val bytes = runBlocking { contentStore.open(ref) }
 val bitmap = bytes?.let { decodeRotated(it, item.rotationDegrees) }
 itemView.post {
 if (boundRef == ref) {

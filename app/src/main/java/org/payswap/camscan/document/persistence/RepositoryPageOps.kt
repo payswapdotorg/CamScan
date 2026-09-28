@@ -23,12 +23,14 @@ pageId: String,
 timeSource: TimeSource,
 ): Document? {
 val document = getDocument(documentId) ?: return null
-if (document.pages.none { it.id == pageId }) return null
-val remaining = document.pages
+val pages = getPages(documentId)
+if (pages.none { it.id == pageId }) return null
+val remaining = pages
 .filter { it.id != pageId }
 .mapIndexed { index, page -> page.copy(index = index) }
-val updated = document.copy(pages = remaining, updatedAtMillis = timeSource.nowMillis())
-return if (upsertDocument(updated)) updated else null
+val updated = document.copy(pageIds = remaining.map { it.id }, updatedAtMillis = timeSource.nowMillis())
+upsertDocument(updated, remaining)
+return updated
 }
 
 /**
@@ -43,13 +45,15 @@ orderedPageIds: List<String>,
 timeSource: TimeSource,
 ): Document? {
 val document = getDocument(documentId) ?: return null
-val currentIds = document.pages.map { it.id }
+val pages = getPages(documentId)
+val currentIds = pages.map { it.id }
 if (orderedPageIds.size != currentIds.size) return null
 if (orderedPageIds.toSet() != currentIds.toSet()) return null
-val byId = document.pages.associateBy { it.id }
+val byId = pages.associateBy { it.id }
 val reordered = orderedPageIds.mapIndexed { index, id -> byId.getValue(id).copy(index = index) }
-val updated = document.copy(pages = reordered, updatedAtMillis = timeSource.nowMillis())
-return if (upsertDocument(updated)) updated else null
+val updated = document.copy(pageIds = reordered.map { it.id }, updatedAtMillis = timeSource.nowMillis())
+upsertDocument(updated, reordered)
+return updated
 }
 
 /** Moves [pageId] by [offset] positions (negative = earlier); null when blocked. */
@@ -61,7 +65,7 @@ timeSource: TimeSource,
 ): Document? {
 if (offset == 0) return null
 val document = getDocument(documentId) ?: return null
-val ids = document.pages.sortedBy { it.index }.map { it.id }
+val ids = getPages(documentId).sortedBy { it.index }.map { it.id }
 val from = ids.indexOf(pageId)
 if (from < 0) return null
 val to = from + offset
@@ -70,4 +74,16 @@ val mutable = ids.toMutableList()
 val moved = mutable.removeAt(from)
 mutable.add(to, moved)
 return reorderPages(documentId, mutable, timeSource)
+}
+
+/** Stamps [documentId] with the new [title]; false when absent or title blank. */
+suspend fun DocumentRepository.updateTitle(
+documentId: String,
+title: String,
+timeSource: TimeSource,
+): Boolean {
+if (title.isBlank()) return false
+val current = getDocument(documentId) ?: return false
+upsertDocument(current.copy(title = title, updatedAtMillis = timeSource.nowMillis()), getPages(documentId))
+return true
 }

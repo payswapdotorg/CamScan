@@ -4,7 +4,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.Espresso.pressBack
 import androidx.test.espresso.action.ViewActions.click
-import androidx.test.espresso.assertion.ViewAssertions.exists
+import androidx.test.espresso.assertion.ViewAssertions
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
 import androidx.test.espresso.matcher.ViewMatchers.withId
@@ -36,7 +36,7 @@ onView(withId(R.id.home_empty_state)).check(matches(isDisplayed()))
 // Open Library; assert the list screen (empty state shown, list view present).
 onView(withId(R.id.home_open_library)).perform(click())
 onView(withId(R.id.library_empty_state)).check(matches(isDisplayed()))
-onView(withId(R.id.library_documents_list)).check(exists())
+onView(withId(R.id.library_documents_list)).check(ViewAssertions.matches(isDisplayed()))
 
 // Back returns to Home.
 pressBack()

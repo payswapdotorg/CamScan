@@ -54,8 +54,8 @@ documents: List<Document>,
 pagesByDocumentId: Map<String, List<Page>>,
 ): String {
 val builder = StringBuilder()
-builder.append("{"schemaVersion":").append(SCHEMA_VERSION)
-builder.append(","documents":[")
+builder.append("{\"schemaVersion\":").append(SCHEMA_VERSION)
+builder.append(",\"documents\":[")
 documents.sortedBy { it.id }.forEachIndexed { docIdx, doc ->
 if (docIdx > 0) builder.append(',')
 appendDocument(builder, doc, pagesByDocumentId[doc.id].orEmpty())
@@ -65,13 +65,13 @@ return builder.toString()
 }
 
 private fun appendDocument(builder: StringBuilder, doc: Document, pages: List<Page>) {
-builder.append("{"id":")
+builder.append("{\"id\":")
 appendString(builder, doc.id)
-builder.append(","title":")
+builder.append(",\"title\":")
 appendString(builder, doc.title)
-builder.append(","createdAtMillis":").append(doc.createdAtMillis)
-builder.append(","updatedAtMillis":").append(doc.updatedAtMillis)
-builder.append(","pages":[")
+builder.append(",\"createdAtMillis\":").append(doc.createdAtMillis)
+builder.append(",\"updatedAtMillis\":").append(doc.updatedAtMillis)
+builder.append(",\"pages\":[")
 pages.sortedBy { it.index }.forEachIndexed { pageIdx, page ->
 if (pageIdx > 0) builder.append(',')
 appendPage(builder, page)
@@ -80,24 +80,24 @@ builder.append("]}")
 }
 
 private fun appendPage(builder: StringBuilder, page: Page) {
-builder.append("{"id":")
+builder.append("{\"id\":")
 appendString(builder, page.id)
-builder.append(","index":").append(page.index)
-builder.append(","sourceCaptureRef":")
+builder.append(",\"documentId\":")
+appendString(builder, page.documentId)
+builder.append(",\"index\":").append(page.index)
+builder.append(",\"sourceCaptureRef\":")
 appendNullableString(builder, page.sourceCaptureRef)
-builder.append(","processedImageRef":")
+builder.append(",\"processedImageRef\":")
 appendNullableString(builder, page.processedImageRef)
-builder.append(","thumbnailRef":")
-appendNullableString(builder, page.thumbnailRef)
-builder.append(","cropQuad":")
+builder.append(",\"cropQuad\":")
 appendCornerList(builder, page.cropQuad)
-builder.append(","enhancement":")
+builder.append(",\"enhancement\":")
 appendString(builder, page.enhancement.name)
-builder.append(","rotationDegrees":").append(page.rotationDegrees)
-builder.append(","widthPx":").append(page.widthPx)
-builder.append(","heightPx":").append(page.heightPx)
-builder.append(","ocrResultId":")
+builder.append(",\"rotationDegrees\":").append(page.rotationDegrees)
+builder.append(",\"ocrResultId\":")
 appendNullableString(builder, page.ocrResultId)
+builder.append(",\"createdAtMillis\":").append(page.createdAtMillis)
+builder.append(",\"updatedAtMillis\":").append(page.updatedAtMillis)
 builder.append('}')
 }
 
@@ -141,16 +141,16 @@ private fun appendString(builder: StringBuilder, value: String) {
 builder.append('"')
 for (ch in value) {
 when (ch) {
-'"' -> builder.append("\"")
-'\' -> builder.append("\\")
-'\n' -> builder.append("\n")
-'\r' -> builder.append("\r")
-'\t' -> builder.append("\t")
-'\b' -> builder.append("\b")
-'' -> builder.append("\f")
+'"' -> builder.append("\\\"")
+'\\' -> builder.append("\\\\")
+'\n' -> builder.append("\\n")
+'\r' -> builder.append("\\r")
+'\t' -> builder.append("\\t")
+'\b' -> builder.append("\\b")
+'\u000C' -> builder.append("\\f")
 else ->
 if (ch < ' ') {
-builder.append("\u")
+builder.append("\\u")
 builder.append(String.format("%04x", ch.code))
 } else {
 builder.append(ch)
@@ -201,16 +201,16 @@ updatedAtMillis = map.long("updatedAtMillis") ?: 0L,
 
 private fun mapPage(map: Map<String, Any?>): Page = Page(
 id = map.requireString("id"),
+documentId = map.requireString("documentId"),
 index = map.int("index") ?: 0,
 sourceCaptureRef = map.string("sourceCaptureRef"),
 processedImageRef = map.string("processedImageRef"),
-thumbnailRef = map.string("thumbnailRef"),
 cropQuad = map.cornerList("cropQuad"),
-enhancement = enumOr(map.string("enhancement"), PageEnhancementMode.NONE),
+enhancement = enumOr(map.string("enhancement"), PageEnhancementMode.ORIGINAL),
 rotationDegrees = map.int("rotationDegrees") ?: 0,
-widthPx = map.int("widthPx") ?: 0,
-heightPx = map.int("heightPx") ?: 0,
 ocrResultId = map.string("ocrResultId"),
+createdAtMillis = map.long("createdAtMillis") ?: 0L,
+updatedAtMillis = map.long("updatedAtMillis") ?: 0L,
 )
 
 private fun Map<String, Any?>.requireString(key: String): String =
@@ -334,23 +334,23 @@ when (val ch = text[pos]) {
 pos++
 return builder.toString()
 }
-'\' -> {
+'\\' -> {
 pos++
 when (val esc = text.getOrNull(pos)) {
 '"' -> builder.append('"')
-'\' -> builder.append('\')
+'\\' -> builder.append('\\')
 '/' -> builder.append('/')
 'n' -> builder.append('\n')
 'r' -> builder.append('\r')
 't' -> builder.append('\t')
 'b' -> builder.append('\b')
-'f' -> builder.append('')
+'f' -> builder.append('\u000C')
 'u' -> {
 val hex = text.substring(pos + 1, pos + 5)
 builder.append(hex.toInt(16).toChar())
 pos += 4
 }
-else -> throw IndexParseException("bad escape '\$esc'")
+else -> throw IndexParseException("bad escape '$esc'")
 }
 pos++
 }
@@ -383,5 +383,5 @@ throw IndexParseException("bad literal at $pos")
 pos += literal.length
 return value
 }
-
+}
 }

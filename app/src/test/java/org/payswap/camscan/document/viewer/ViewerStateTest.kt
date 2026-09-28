@@ -34,10 +34,21 @@ private fun documentWithPages(vararg idsAndIndexes: Pair<String, Int>): Document
 Document(
 id = "doc-1",
 title = "Quarterly",
+pageIds = idsAndIndexes.map { it.first },
 createdAtMillis = 1L,
 updatedAtMillis = 2L,
-pages = idsAndIndexes.map { (id, index) -> Page(id = id, index = index) },
 )
+
+private fun pagesOf(vararg idsAndIndexes: Pair<String, Int>): List<Page> =
+idsAndIndexes.map { (id, index) ->
+Page(
+id = id,
+documentId = "doc-1",
+index = index,
+createdAtMillis = 1L,
+updatedAtMillis = 2L,
+)
+}
 @Test
 fun indicatorText_formatsOneBasedPosition() {
 val pages = listOf(item("a", 0), item("b", 1), item("c", 2))
@@ -81,6 +92,7 @@ assertEquals(item("a", 0), full.currentPage)
 fun fromDocument_sortsByIndex_andCarriesTitle() {
 val next = ViewerOps.fromDocument(
 documentWithPages("a" to 2, "b" to 0, "c" to 1),
+pagesOf("a" to 2, "b" to 0, "c" to 1),
 )
 assertEquals(listOf("b", "c", "a"), next.pages.map { it.pageId })
 assertEquals(listOf(0, 1, 2), next.pages.map { it.index })
@@ -113,19 +125,19 @@ fun fromDocument_honorsInitialPosition_andClamps() {
 assertEquals(
 1,
 ViewerOps.fromDocument(
-documentWithPages("a" to 0, "b" to 1), currentPosition = 1,
+documentWithPages("a" to 0, "b" to 1), pagesOf("a" to 0, "b" to 1), currentPosition = 1,
 ).currentPosition,
 )
 assertEquals(
 1,
 ViewerOps.fromDocument(
-documentWithPages("a" to 0, "b" to 1), currentPosition = 9,
+documentWithPages("a" to 0, "b" to 1), pagesOf("a" to 0, "b" to 1), currentPosition = 9,
 ).currentPosition,
 )
 assertEquals(
 0,
 ViewerOps.fromDocument(
-documentWithPages("a" to 0, "b" to 1), currentPosition = -4,
+documentWithPages("a" to 0, "b" to 1), pagesOf("a" to 0, "b" to 1), currentPosition = -4,
 ).currentPosition,
 )
 }

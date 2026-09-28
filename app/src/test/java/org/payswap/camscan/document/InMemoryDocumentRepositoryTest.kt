@@ -61,15 +61,17 @@ updatedAtMillis = updatedAtMillis,
 
 private fun page(index: Int, ref: String = "ref-$index"): Page = Page(
 id = "page-$index",
+documentId = "doc-1",
 index = index,
 processedImageRef = ref,
-thumbnailRef = null,
 cropQuad = listOf(
 Corner(0f, 0f),
 Corner(100f, 0f),
 Corner(100f, 200f),
 Corner(0f, 200f),
 ),
+createdAtMillis = 0L,
+updatedAtMillis = 0L,
 )
 
 // --- observeDocuments: emissions ---

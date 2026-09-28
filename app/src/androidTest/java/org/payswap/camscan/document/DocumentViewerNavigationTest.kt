@@ -12,6 +12,7 @@ import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.espresso.matcher.ViewMatchers.withText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import java.io.File
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -54,8 +55,9 @@ contentDir.deleteRecursively()
 contentDir.mkdirs()
 
 val store = FileContentStore(contentDir)
-val ref0 = store.put(byteArrayOf(1, 2, 3, 4), "seed-p0")
-val ref1 = store.put(byteArrayOf(5, 6, 7, 8), "seed-p1")
+runBlocking {
+val ref0 = store.put("seed-p0", byteArrayOf(1, 2, 3, 4))
+val ref1 = store.put("seed-p1", byteArrayOf(5, 6, 7, 8))
 
 val repository = PersistentDocumentRepository(
 contentDir = contentDir,
@@ -71,10 +73,25 @@ updatedAtMillis = 1_000L,
 repository.upsertDocument(
 document,
 listOf(
-Page(id = "seed-p0", index = 0, processedImageRef = ref0),
-Page(id = "seed-p1", index = 1, processedImageRef = ref1),
+Page(
+id = "seed-p0",
+documentId = "seed-doc",
+index = 0,
+processedImageRef = ref0,
+createdAtMillis = 1_000L,
+updatedAtMillis = 1_000L,
+),
+Page(
+id = "seed-p1",
+documentId = "seed-doc",
+index = 1,
+processedImageRef = ref1,
+createdAtMillis = 1_000L,
+updatedAtMillis = 1_000L,
+),
 ),
 )
+}
 }
 
 @After

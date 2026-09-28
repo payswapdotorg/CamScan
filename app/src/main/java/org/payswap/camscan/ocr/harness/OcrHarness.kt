@@ -20,7 +20,7 @@ TimeSource via [TimeSource.nowMillis] — never the raw clock) is deliberately
 kept OUT of the stable string. Engine-reported values
 ([recognisedAtMillis], [processingDurationMillis]) are included and are
 expected to be content-deterministic for harness-relevant engines.
-/
+*/
 data class OcrHarnessRecord(
 val inputIndex: Int,
 val imageSha256: String,
@@ -63,6 +63,7 @@ lines += "result.end"
 return lines.joinToString("\n")
 }
 
+}
 
 /**
 
@@ -70,7 +71,7 @@ Harness run manifest: identity, settings echo, and one record per input.
 [toStableString] is byte-identical across runs whenever the engine and the
 injected TimeSource are deterministic — that byte-identity IS the
 acceptance signal of this harness.
-/
+*/
 data class OcrHarnessReport(
 val engineId: String,
 val settingsEcho: OcrSettings,
@@ -92,6 +93,7 @@ records.forEach { record -> lines += record.toStableString().lines() }
 return lines.joinToString("\n")
 }
 
+}
 
 /**
 

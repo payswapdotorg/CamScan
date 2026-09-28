@@ -48,9 +48,10 @@ private lateinit var scanLauncher: ScanLauncher
 override fun onCreate(savedInstanceState: Bundle?) {
 // Dependencies must exist before fragment restoration inside
 // super.onCreate(); the factory re-attaches them on recreation.
-contentStore = FileContentStore.fromContext(this)
+val fileContentStore = FileContentStore.fromContext(this)
+contentStore = fileContentStore
 repository = PersistentDocumentRepository(
-contentDir = contentStore.rootDir,
+contentDir = fileContentStore.rootDir,
 timeSource = TimeSource.SYSTEM,
 idGenerator = IdGenerator { UUID.randomUUID().toString() },
 )
