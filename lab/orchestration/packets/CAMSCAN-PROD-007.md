@@ -143,6 +143,21 @@ You MUST NOT touch:
 FileProvider is not in the catalog, own a ContentProvider subclass); deterministic pure
 core; time via TimeSource; full Gradle gate if the toolchain is warm.
 
+**TRANSIT-CORRUPTION PROTOCOL (binding, new 2026-09-28):** the chat renderer that
+carries your delivered code corrupts it in transit — it eats dollar-sign characters
+in string templates (math-delimiter rendering), halves double backslashes, mangles
+multi-line KDoc closers, and can eat closing braces. The gate-2 forensics proved this
+on the raw transcripts. Therefore, in EVERY file you deliver:
+- Use plain string CONCATENATION instead of interpolated templates wherever a
+  template would appear — build strings with the `+` operator and explicit
+  `.toString()` calls. NO dollar signs inside any delivered string literal.
+- Prefer single-line KDoc (`/** Text. */`) or `//` comments; avoid multi-line
+  `/** ... */` blocks whose closers can be mangled.
+- Avoid double-backslash escape sequences where concatenation of explicit
+  characters works.
+The lead station-repairs any residual damage and the gate re-verifies — but code
+delivered per this protocol survives transit verbatim.
+
 # 7. VERIFICATION (honest, bounded)
 
 Same rules as your prior orders: full Gradle gate if possible (verbatim summaries);
