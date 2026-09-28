@@ -71,6 +71,16 @@ waves:
       - W2: CAMSCAN-PROD-005,CAMSCAN-PROD-006,CAMSCAN-PROD-007
       - W3: CAMSCAN-PROD-009 plus scan parity scenarios
     integration_gate: CAMSCAN-PROD-013
+    in_flight:
+      CAMSCAN-PROD-002:
+        status: dispatched 2026-09-28T00:21Z (Worker 1 session d4dc4ebc; execution confirmed ~00:50Z — live terminal commands in transcript)
+        packet: lab/orchestration/packets/CAMSCAN-PROD-002.md
+        base: f1356c986b09ea435baa30328db8e822464a327d (PROD-001 head — W1's own capture foundation)
+        scope: quad detector + quality flags, DetectionStabilizer, framing overlay, ImageAnalysis wiring
+      CAMSCAN-PROD-005:
+        status: packet staged 2026-09-28T00:39Z in fresh agent session (chat 43d65dcd, message landed via chats/new); generation trigger blocked by route-guard bounce + captcha on signed replay — retry next cycle
+      CAMSCAN-PROD-009:
+        status: packet landed 2026-09-27T22:04Z in f1a04ca7 (no pod — turn cannot execute); needs a pod-holding session (lottery/redispatch)
     delivered:
       CAMSCAN-PROD-001:
         status: delivered 2026-09-27 (worker re-execution; supersedes first execution 71bc2d1)
