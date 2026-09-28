@@ -73,7 +73,9 @@ waves:
     integration_gate: CAMSCAN-PROD-013
     in_flight:
       CAMSCAN-PROD-013-lab:
-        status: Gradle gate on the integrated tree pending (pod-with-toolchain or E2B substrate); static gates ALL PASS on 7db32c9
+        status: GATE RED 2026-09-28T06:0xZ (compileDebugKotlin 130 errors: W3-ocr 98 truncation+defects, W2-contract 32, W1 0) — fix orders dispatched to W2 (contract alignment + CropQuad + missing codec) and W3 (re-delivery with split protocol); re-gate pending
+      CAMSCAN-PROD-006:
+        status: transit complete 22 files BUT lead audit found: IndexJsonCodec.kt missing + nonexistent core.model.CropQuad in 4 test files + codec — REQUIRE-CHANGES fix in flight (06:34+06:59Z orders)
     delivered:
       CAMSCAN-PROD-001:
         status: delivered 2026-09-27 (worker re-execution; supersedes first execution 71bc2d1)
