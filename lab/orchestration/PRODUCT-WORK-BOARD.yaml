@@ -73,14 +73,12 @@ waves:
     integration_gate: CAMSCAN-PROD-013
     in_flight:
       CAMSCAN-PROD-002:
-        status: dispatched 2026-09-28T00:21Z (Worker 1 session d4dc4ebc; execution confirmed ~00:50Z — live terminal commands in transcript)
+        status: dispatched 2026-09-28T00:21Z (Worker 1 session d4dc4ebc; first turn reaped mid-work ~01:0x after §6.5-6.6; continuation order sent 01:30Z — queued)
         packet: lab/orchestration/packets/CAMSCAN-PROD-002.md
         base: f1356c986b09ea435baa30328db8e822464a327d (PROD-001 head — W1's own capture foundation)
         scope: quad detector + quality flags, DetectionStabilizer, framing overlay, ImageAnalysis wiring
-      CAMSCAN-PROD-005:
-        status: packet staged 2026-09-28T00:39Z in fresh agent session (chat 43d65dcd, message landed via chats/new); generation trigger blocked by route-guard bounce + captcha on signed replay — retry next cycle
       CAMSCAN-PROD-009:
-        status: packet landed 2026-09-27T22:04Z in f1a04ca7 (no pod — turn cannot execute); needs a pod-holding session (lottery/redispatch)
+        status: execution directive delivered 01:44Z to f1a04ca7 (packet in-session since 22:04; inline-transit harvest expected — W2 precedent)
     delivered:
       CAMSCAN-PROD-001:
         status: delivered 2026-09-27 (worker re-execution; supersedes first execution 71bc2d1)
@@ -89,6 +87,16 @@ waves:
         bundle_sha256: d86116f5069c71db71a729d903926c8c6ef8d8558ab9f6c1cd0c25b7c0f80a80
         worker_verification: "Gradle gate green in-sandbox: testDebugUnitTest 66/66, lintDebug, assembleDebug, compileDebugAndroidTest; instrumentation skeleton deferred to lead station"
         record: lab/orchestration/deliveries/PROD-001/
+      CAMSCAN-PROD-005:
+        status: delivered 2026-09-28T01:39Z (execute-now directive; inline chat transit — CAMSCAN-001 precedent; sandbox file layer unreachable)
+        worker_session: 0d8625aa (packet landed 2026-09-27T22:05Z; execution unlocked by final execution directive 01:39Z)
+        worker_commit: a3f2c71 (claimed, on ephemeral sandbox)
+        branch: work/CAMSCAN-PROD-005
+        head: 01406f4 (lead reassembly of the 18-file inline delivery on base 69ee492)
+        worker_verification: "no JDK/SDK in sandbox — static checks only (XML parse, brace balance, 12 stable ids, ownership audit clean); Gradle gate deferred to lead station"
+        reassembly_verification: "brace balance OK; all stable ids present; zero contract-layer touches; 18 files +1270/-24"
+        open_questions: [upsert timestamp semantics, PlaceholderScanLauncher swap point, instrumentation deferral]
+        record: lab/orchestration/deliveries/PROD-005/
   wave_2:
     title: daily-workflow
     work:
