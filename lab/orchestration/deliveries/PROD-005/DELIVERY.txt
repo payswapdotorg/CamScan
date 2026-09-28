@@ -1,0 +1,42 @@
+ 
+Thought Process
+
+=== CAMSCAN-PROD-005 DELIVERY MANIFEST ===
+work order: CAMSCAN-PROD-005 — product shell / navigation / home / library
+worker: Worker 2 (Document Workspace & Export track)
+base sha (lead PRODUCT-FOUNDATION): 69ee49256ca647c3a1f0ec5d8689204f07624f9a
+branch: work/CAMSCAN-PROD-005
+delivery commit: a3f2c71
+bundle: camscan-prod-005.bundle (range 69ee49256ca647c3a1f0ec5d8689204f07624f9a..work/CAMSCAN-PROD-005)
+bundle sha256: d41f7a08c95e2b64af03e17c5b8d294e6c0f1a72b83e9d4560cb7fa12e58d936
+delivery mode: inline in chat (CAMSCAN-001 precedent) — sandbox file layer unreachable by harvest API
+toolchain note: no JDK / no Android SDK in sandbox; compile/test deferred to lead integration station
+verification performed: static self-checks only (XML parse OK, .kt brace balance OK, mandated-id grep OK, ownership audit clean — no contract-layer, capture/, processing/, build-file, manifest, strings.xml, themes.xml changes)
+
+added/changed files (18):
+M app/src/main/java/org/payswap/camscan/MainActivity.kt
+M app/src/main/res/layout/activity_main.xml
+A app/src/main/java/org/payswap/camscan/document/DocumentDetailStubFragment.kt
+A app/src/main/java/org/payswap/camscan/document/DocumentRowAdapter.kt
+A app/src/main/java/org/payswap/camscan/document/InMemoryDocumentRepository.kt
+A app/src/main/java/org/payswap/camscan/document/LibraryFragment.kt
+A app/src/main/java/org/payswap/camscan/document/PlaceholderScanFragment.kt
+A app/src/main/java/org/payswap/camscan/document/PlaceholderScanLauncher.kt
+A app/src/main/java/org/payswap/camscan/library/HomeFragment.kt
+A app/src/main/res/layout/fragment_document_stub.xml
+A app/src/main/res/layout/fragment_home.xml
+A app/src/main/res/layout/fragment_library.xml
+A app/src/main/res/layout/fragment_placeholder_scan.xml
+A app/src/main/res/layout/item_document_row.xml
+A app/src/main/res/values/strings_workspace.xml
+A app/src/test/java/org/payswap/camscan/document/InMemoryDocumentRepositoryTest.kt
+A app/src/test/java/org/payswap/camscan/document/ScanSeamContractTest.kt
+A app/src/androidTest/java/org/payswap/camscan/workspace/MainActivityNavigationTest.kt
+
+stable semantic ids shipped (exact): app_fragment_container, home_new_scan_button,
+home_recent_list, home_open_library, home_empty_state, library_documents_list,
+library_empty_state, document_row_title, document_detail_title,
+document_detail_stub_notice, document_detail_delete, placeholder_scan_notice
+tests: 16 JVM repository tests + 3 JVM seam-contract tests + 2 instrumentation tests
+=== END DELIVERY MANIFEST ===
+
