@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+xmlns:app="http://schemas.android.com/apk/res-auto"
+android:layout_width="match_parent"
+android:layout_height="match_parent"
+android:orientation="vertical">
+
+<androidx.appcompat.widget.Toolbar
+android:id="@+id/viewer_toolbar"
+android:layout_width="match_parent"
+android:layout_height="?attr/actionBarSize"
+android:background="?attr/colorPrimary"
+app:navigationIcon="?attr/homeAsUpIndicator"
+app:title="@string/workspace_document_detail_title"
+app:titleTextColor="?attr/colorOnPrimary" />
+
+<LinearLayout
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:gravity="center_vertical"
+android:orientation="horizontal"
+android:paddingStart="16dp"
+android:paddingEnd="8dp"
+android:paddingTop="8dp"
+android:paddingBottom="8dp">
+
+<TextView
+android:id="@+id/document_detail_title"
+android:layout_width="0dp"
+android:layout_height="wrap_content"
+android:layout_weight="1"
+android:ellipsize="end"
+android:maxLines="1"
+android:textAppearance="?attr/textAppearanceHeadline6" />
+
+<TextView
+android:id="@+id/document_edit_title"
+android:layout_width="wrap_content"
+android:layout_height="wrap_content"
+android:padding="8dp"
+android:text="@string/workspace_edit_title"
+android:textAppearance="?attr/textAppearanceButton"
+android:textColor="?attr/colorPrimary" />
+</LinearLayout>
+
+<TextView
+android:id="@+id/document_page_indicator"
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:gravity="center"
+android:paddingBottom="8dp"
+android:textAppearance="?attr/textAppearanceBody2"
+android:textColor="?android:attr/textColorSecondary" />
+
+<FrameLayout
+android:layout_width="match_parent"
+android:layout_height="0dp"
+android:layout_weight="1">
+
+<androidx.recyclerview.widget.RecyclerView
+android:id="@+id/document_pages_pager"
+android:layout_width="match_parent"
+android:layout_height="match_parent"
+android:clipToPadding="false" />
+
+<LinearLayout
+android:id="@+id/document_empty_state"
+android:layout_width="match_parent"
+android:layout_height="match_parent"
+android:gravity="center"
+android:orientation="vertical"
+android:padding="32dp"
+android:visibility="gone">
+
+<TextView
+android:layout_width="wrap_content"
+android:layout_height="wrap_content"
+android:gravity="center"
+android:text="@string/workspace_viewer_empty_message"
+android:textAppearance="?attr/textAppearanceBody1" />
+</LinearLayout>
+</FrameLayout>
+
+<LinearLayout
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:orientation="horizontal"
+android:padding="16dp">
+
+<com.google.android.material.button.MaterialButton
+android:id="@+id/document_reorder_pages"
+android:layout_width="0dp"
+android:layout_height="wrap_content"
+android:layout_marginEnd="4dp"
+android:layout_weight="1"
+android:text="@string/workspace_reorder_pages" />
+
+<com.google.android.material.button.MaterialButton
+android:id="@+id/document_page_delete"
+style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+android:layout_width="0dp"
+android:layout_height="wrap_content"
+android:layout_marginStart="4dp"
+android:layout_marginEnd="4dp"
+android:layout_weight="1"
+android:text="@string/workspace_page_delete" />
+
+<com.google.android.material.button.MaterialButton
+android:id="@+id/document_detail_delete"
+style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+android:layout_width="0dp"
+android:layout_height="wrap_content"
+android:layout_marginStart="4dp"
+android:layout_weight="1"
+android:text="@string/workspace_document_detail_delete" />
+</LinearLayout></LinearLayout>

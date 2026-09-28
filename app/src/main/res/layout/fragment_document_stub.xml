@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+xmlns:app="http://schemas.android.com/apk/res-auto"
+android:layout_width="match_parent"
+android:layout_height="match_parent"
+android:orientation="vertical">
+
+<androidx.appcompat.widget.Toolbar
+android:id="@+id/document_detail_toolbar"
+android:layout_width="match_parent"
+android:layout_height="?attr/actionBarSize"
+android:background="?attr/colorPrimary"
+app:title="@string/workspace_document_detail_title"
+app:titleTextColor="?attr/colorOnPrimary" />
+
+<ScrollView
+android:layout_width="match_parent"
+android:layout_height="0dp"
+android:layout_weight="1"
+android:fillViewport="true">
+
+<LinearLayout
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:orientation="vertical"
+android:padding="16dp">
+
+<TextView
+android:id="@+id/document_detail_title"
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:textAppearance="?attr/textAppearanceHeadline6" />
+
+<TextView
+android:id="@+id/document_detail_page_count"
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:layout_marginTop="4dp"
+android:textAppearance="?attr/textAppearanceBody2"
+android:textColor="?android:attr/textColorSecondary" />
+
+<TextView
+android:id="@+id/document_detail_stub_notice"
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:layout_marginTop="16dp"
+android:text="@string/workspace_document_detail_stub_notice"
+android:textAppearance="?attr/textAppearanceBody1" />
+
+<com.google.android.material.button.MaterialButton
+android:id="@+id/document_detail_delete"
+style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+android:layout_width="wrap_content"
+android:layout_height="wrap_content"
+android:layout_marginTop="24dp"
+android:text="@string/workspace_document_detail_delete" />
+</LinearLayout>
+</ScrollView></LinearLayout>
