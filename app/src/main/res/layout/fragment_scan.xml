@@ -4,7 +4,9 @@
      The scan_* ids are contract-frozen for ADB parity tests — do not rename:
      scan_camera_preview, scan_capture_button, scan_flash_toggle,
      scan_switch_camera, scan_permission_request_button,
-     scan_permission_rationale, scan_unavailable_state, scan_done_button.
+     scan_permission_rationale, scan_unavailable_state, scan_done_button,
+     plus the CAMSCAN-PROD-002 detection ids scan_framing_overlay and
+     scan_detection_guidance.
 
      Framework-only style attributes on purpose: the layout must inflate under
      any host theme (FragmentScenario included). -->
@@ -20,6 +22,37 @@
         android:layout_height="match_parent"
         android:contentDescription="@string/scan_preview_camera"
         app:implementationMode="compatible" />
+
+    <!-- CAMSCAN-PROD-002 §6.6: live document framing overlay. Sits on top of
+         the preview, under the controls; purely presentational (detection
+         never gates capture). Transparent background keeps the preview
+         fully visible; the three-state coloring comes from
+         colors_capture.xml. -->
+    <org.payswap.camscan.capture.detect.FramingOverlayView
+        android:id="@+id/scan_framing_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@string/scan_framing_overlay_desc" />
+
+    <!-- CAMSCAN-PROD-002 §6.6: guidance line mapping the stable detection's
+         quality flags to short scan_guidance_* copy. -->
+    <TextView
+        android:id="@+id/scan_detection_guidance"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="104dp"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
+        android:gravity="center"
+        android:padding="8dp"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:textColor="@android:color/white"
+        android:shadowColor="@android:color/black"
+        android:shadowDy="1"
+        android:shadowRadius="4"
+        android:text="@string/scan_guidance_searching"
+        android:contentDescription="@string/scan_guidance_searching" />
 
     <LinearLayout
         android:layout_width="match_parent"

@@ -13,6 +13,12 @@ import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import org.payswap.camscan.R
+import org.payswap.camscan.capture.detect.DetectionAnalyzer
+import org.payswap.camscan.capture.detect.DetectionQualityFlag
+import org.payswap.camscan.capture.detect.DetectionStabilizer
+import org.payswap.camscan.capture.detect.EdgeQuadDetector
+import org.payswap.camscan.capture.detect.FramingOverlayView
+import org.payswap.camscan.capture.detect.StableDetection
 import org.payswap.camscan.core.time.TimeSource
 import java.io.File
 
@@ -24,7 +30,9 @@ import java.io.File
  * on them; do not rename:
  *  scan_camera_preview, scan_capture_button, scan_flash_toggle,
  *  scan_switch_camera, scan_permission_request_button,
- *  scan_permission_rationale, scan_unavailable_state, scan_done_button.
+ *  scan_permission_rationale, scan_unavailable_state, scan_done_button,
+ *  plus the CAMSCAN-PROD-002 detection ids scan_framing_overlay and
+ *  scan_detection_guidance.
  *
  * Behavior:
  *  - hosts a [CameraController]; the [CameraStateMachine] is driven through
@@ -34,6 +42,11 @@ import java.io.File
  *  - capture button enabled only while the machine is READY; on success the
  *    shot is kept in memory as a [CapturedShot] and the surface re-arms;
  *    document persistence is NOT this work order's concern;
+ *  - CAMSCAN-PROD-002: live document detection feeds the framing overlay
+ *    (scan_framing_overlay) and the guidance line (scan_detection_guidance)
+ *    through a [DetectionAnalyzer] bound into the controller's camera bind.
+ *    Detection is *advisory only* — it never gates capture (the capture
+ *    button's enabled state remains exactly the PROD-001 rule);
  *  - [onCaptureResult] is invoked with all shots when the user finishes via
  *    scan_done_button; [onScanAbandoned] fires when the surface is left any
  *    other way (back navigation);
@@ -60,6 +73,7 @@ class ScanFragment : Fragment(R.layout.fragment_scan) {
 
     private lateinit var permissionGate: CameraPermissionGate
     private var cameraController: CameraController? = null
+    private var detectionAnalyzer: DetectionAnalyzer? = null
 
     private var cameraPreview: PreviewView? = null
     private var captureButton: Button? = null
@@ -70,6 +84,8 @@ class ScanFragment : Fragment(R.layout.fragment_scan) {
     private var permissionRequestButton: Button? = null
     private var permissionOverlay: View? = null
     private var unavailableState: TextView? = null
+    private var framingOverlay: FramingOverlayView? = null
+    private var guidanceText: TextView? = null
 
     private val capturedShots = mutableListOf<CapturedShot>()
 
@@ -106,6 +122,8 @@ class ScanFragment : Fragment(R.layout.fragment_scan) {
         permissionRequestButton = view.findViewById(R.id.scan_permission_request_button)
         permissionOverlay = view.findViewById(R.id.scan_permission_overlay)
         unavailableState = view.findViewById(R.id.scan_unavailable_state)
+        framingOverlay = view.findViewById(R.id.scan_framing_overlay)
+        guidanceText = view.findViewById(R.id.scan_detection_guidance)
 
         permissionGate = CameraPermissionGate(
             RationaleChecker { shouldShowRequestPermissionRationale(Manifest.permission.CAMERA) },
@@ -152,6 +170,8 @@ class ScanFragment : Fragment(R.layout.fragment_scan) {
         super.onDestroyView()
         cameraController?.stop()
         cameraController = null
+        detectionAnalyzer?.shutdown()
+        detectionAnalyzer = null
         if (!finished) {
             finished = true
             onScanAbandoned?.invoke()
@@ -165,6 +185,8 @@ class ScanFragment : Fragment(R.layout.fragment_scan) {
         permissionRequestButton = null
         permissionOverlay = null
         unavailableState = null
+        framingOverlay = null
+        guidanceText = null
     }
 
     private fun isOsPermissionGranted(): Boolean =
@@ -208,8 +230,46 @@ class ScanFragment : Fragment(R.layout.fragment_scan) {
             permissionGate = permissionGate,
         )
         controller.listener = controllerListener
+
+        // CAMSCAN-PROD-002: live detection feeds the overlay + guidance line.
+        // Bound into the controller's camera bind (analysis frames + the
+        // stabilizer run on the analyzer's serial background executor;
+        // results arrive on the main executor). Advisory only — capture is
+        // never gated (see captureStill / updateCameraControls).
+        val analyzer = DetectionAnalyzer(
+            detector = EdgeQuadDetector(),
+            stabilizer = DetectionStabilizer(),
+            timeSource = timeSource,
+            mainExecutor = ContextCompat.getMainExecutor(requireContext()),
+        )
+        analyzer.onDetectionResult = { result -> renderDetection(result) }
+        detectionAnalyzer = analyzer
+        controller.setAnalyzer(analyzer.analysisExecutor, analyzer)
+
         cameraController = controller
         controller.start()
+    }
+
+    /**
+     * Renders one stabilizer result onto the overlay + guidance line. Runs on
+     * the main executor; view refs are null-safe because a final in-flight
+     * callback may land after the view is torn down.
+     */
+    private fun renderDetection(result: DetectionAnalyzer.DetectionResult) {
+        framingOverlay?.show(result.detection, result.frameWidth, result.frameHeight)
+        guidanceText?.setText(guidanceFor(result.detection))
+    }
+
+    /** Maps a stable detection's flags onto the scan_guidance_* copy. */
+    private fun guidanceFor(detection: StableDetection?): Int = when {
+        detection == null -> R.string.scan_guidance_searching
+        DetectionQualityFlag.NO_PAGE in detection.qualityFlags -> R.string.scan_guidance_no_page
+        DetectionQualityFlag.PARTIAL_PAGE in detection.qualityFlags -> R.string.scan_guidance_partial
+        DetectionQualityFlag.BLUR in detection.qualityFlags -> R.string.scan_guidance_blur
+        DetectionQualityFlag.GLARE in detection.qualityFlags -> R.string.scan_guidance_glare
+        DetectionQualityFlag.LOW_CONTRAST in detection.qualityFlags -> R.string.scan_guidance_low_contrast
+        DetectionQualityFlag.MOTION_UNSTABLE in detection.qualityFlags -> R.string.scan_guidance_unstable
+        else -> R.string.scan_guidance_locked
     }
 
     private fun updateCameraControls() {

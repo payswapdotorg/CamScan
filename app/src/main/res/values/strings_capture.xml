@@ -15,4 +15,18 @@
     <string name="scan_permission_request">Allow camera</string>
     <string name="scan_unavailable">The camera is not available on this device.</string>
     <string name="scan_capture_failed">Capture failed. Try again.</string>
+
+    <!-- CAMSCAN-PROD-002 §6.6: detection surface — the framing overlay and
+         the quality-flag guidance line. Every name carries the scan_guidance_
+         prefix (or the overlay description); advisory copy only — detection
+         never gates capture. -->
+    <string name="scan_framing_overlay_desc">Document detection overlay</string>
+    <string name="scan_guidance_searching">Position the document inside the frame</string>
+    <string name="scan_guidance_locked">Document detected — ready to capture</string>
+    <string name="scan_guidance_no_page">No document detected</string>
+    <string name="scan_guidance_partial">Move closer — the page extends beyond the frame</string>
+    <string name="scan_guidance_blur">Hold steady — the page looks blurry</string>
+    <string name="scan_guidance_glare">Tilt slightly — glare is washing out the page</string>
+    <string name="scan_guidance_low_contrast">Low contrast — try brighter, more even light</string>
+    <string name="scan_guidance_unstable">Hold still — the page is moving</string>
 </resources>

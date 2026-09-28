@@ -4,9 +4,13 @@ package org.payswap.camscan.capture.camera
 import android.content.Context
 import android.util.Log
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
+import androidx.camera.core.UseCase
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
@@ -14,6 +18,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import java.io.File
+import java.util.concurrent.Executor
+import android.util.Size
 
 
 /**
@@ -26,14 +32,20 @@ import java.io.File
  *  - [StableCameraState] / [StableCameraReducer] own settings + availability.
  *
  * Responsibilities:
- *  - binds Preview + ImageCapture to a [LifecycleOwner] through
+ *  - binds Preview + ImageCapture (+ the optional CAMSCAN-PROD-002
+ *    [setAnalyzer] ImageAnalysis use case) to a [LifecycleOwner] through
  *    [ProcessCameraProvider.getInstance] using the ListenableFuture listener
  *    pattern (the future is only read inside its own listener, where it has
  *    already completed — there are no blocking waits);
  *  - rebinds on lens switch and on recoverable errors (bounded to
- *    [MAX_REBIND_ATTEMPTS] consecutive attempts, then a permanent ERROR);
+ *    [MAX_REBIND_ATTEMPTS] consecutive attempts, then a permanent ERROR) —
+ *    every rebind re-attaches the analysis use case;
  *  - maps the flash policy onto ImageCapture flash modes;
  *  - runs [takeStill] with the §6.4 failure taxonomy.
+ *
+ * CAMSCAN-PROD-002 note: the analyzer hook is additive — the capture path
+ * (permission gating, machine events, takeStill taxonomy, rebind policy) is
+ * byte-identical in behavior when no analyzer is attached.
  *
  * Constraints honored: no Activity/Fragment imports beyond
  * LifecycleOwner/Context; main-thread confined (CameraX callbacks and our
@@ -64,6 +76,13 @@ class CameraController(
     private var cameraProvider: ProcessCameraProvider? = null
     private var imageCapture: ImageCapture? = null
     private var preview: Preview? = null
+    private var imageAnalysis: ImageAnalysis? = null
+
+    /** CAMSCAN-PROD-002: the live-analysis hook (see [setAnalyzer]). */
+    private var analyzer: ImageAnalysis.Analyzer? = null
+
+    /** CAMSCAN-PROD-002: the serial executor the analyzer runs on. */
+    private var analyzerExecutor: Executor? = null
 
     /** Monotonic bind generation: stale async bind listeners become no-ops. */
     private var bindGeneration = 0
@@ -111,6 +130,9 @@ class CameraController(
         cameraProvider = null
         imageCapture = null
         preview = null
+        imageAnalysis = null
+        analyzer = null
+        analyzerExecutor = null
     }
 
     /** Cycles the flash policy and applies it to the bound ImageCapture. */
@@ -143,6 +165,38 @@ class CameraController(
             notifyStateChanged()
         }
         bindCamera()
+    }
+
+    /**
+     * CAMSCAN-PROD-002 — attaches a live frame analyzer.
+     *
+     * An [ImageAnalysis] use case (KEEP_ONLY_LATEST, ~[ANALYSIS_TARGET_WIDTH]x
+     * [ANALYSIS_TARGET_HEIGHT]) is bound alongside Preview + ImageCapture in
+     * every bind — the initial one and every rebind (lens switch, recoverable
+     * error), so the analyzer survives rebinding. [executor] MUST be the
+     * analyzer's own serial executor (detection must not run on main); the
+     * controller keeps the pair but never calls into the analyzer itself.
+     *
+     * Call before [start], or while the camera is READY/OPENING (a late call
+     * triggers one rebind so the analyzer attaches immediately). Detached by
+     * [stop] and ignored in every other state. Additive: capture-path behavior
+     * is unchanged whether or not an analyzer is attached.
+     */
+    fun setAnalyzer(executor: Executor, imageAnalyzer: ImageAnalysis.Analyzer) {
+        val machineState = stateMachine.state
+        if (machineState == CameraState.CLOSED || machineState == CameraState.ERROR) {
+            logRejection("setAnalyzer() ignored in state $machineState")
+            return
+        }
+        analyzer = imageAnalyzer
+        analyzerExecutor = executor
+        if (machineState == CameraState.READY) {
+            stateMachine.bindStarted() // READY -> OPENING for the attaching rebind
+            notifyStateChanged()
+        }
+        if (stateMachine.state == CameraState.OPENING) {
+            bindCamera()
+        }
     }
 
     /**
@@ -300,8 +354,31 @@ class CameraController(
                     val newPreview = Preview.Builder().build().also { p ->
                         p.setSurfaceProvider(previewView.surfaceProvider)
                     }
+                    val useCases = mutableListOf<UseCase>(newPreview, newCapture)
+                    val currentAnalyzer = analyzer
+                    val currentAnalyzerExecutor = analyzerExecutor
+                    if (currentAnalyzer != null && currentAnalyzerExecutor != null) {
+                        val newAnalysis = ImageAnalysis.Builder()
+                            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                            .setResolutionSelector(
+                                ResolutionSelector.Builder()
+                                    .setResolutionStrategy(
+                                        ResolutionStrategy(
+                                            Size(ANALYSIS_TARGET_WIDTH, ANALYSIS_TARGET_HEIGHT),
+                                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER,
+                                        ),
+                                    )
+                                    .build(),
+                            )
+                            .build()
+                        newAnalysis.setAnalyzer(currentAnalyzerExecutor, currentAnalyzer)
+                        useCases.add(newAnalysis)
+                        imageAnalysis = newAnalysis
+                    } else {
+                        imageAnalysis = null
+                    }
                     provider.unbindAll()
-                    provider.bindToLifecycle(lifecycleOwner, selector, newPreview, newCapture)
+                    provider.bindToLifecycle(lifecycleOwner, selector, *useCases.toTypedArray())
                     imageCapture = newCapture
                     preview = newPreview
                     rebindAttempts = 0
@@ -368,6 +445,12 @@ class CameraController(
 
         /** Consecutive rebind attempts allowed before declaring a permanent error. */
         private const val MAX_REBIND_ATTEMPTS = 3
+
+        /** CAMSCAN-PROD-002 §6.5: analysis use-case target resolution (~640x480). */
+        private const val ANALYSIS_TARGET_WIDTH = 640
+
+        /** CAMSCAN-PROD-002 §6.5: analysis use-case target resolution (~640x480). */
+        private const val ANALYSIS_TARGET_HEIGHT = 480
     }
 }
 
