@@ -147,10 +147,13 @@ waves:
         record: lab/orchestration/deliveries/PROD-004/
   wave_2:
     title: daily-workflow
+    status: "implementation + local integration COMPLETE 2026-09-29T01:2xZ (all lead-executed during the platform outage): PROD-007, PROD-008, PROD-010 delivered gate-green; PROD-014 integration merge clean @ 283a05a, 480/480 JVM tests, 50.9MB APK. OPEN (honest): the parity/instrumented surface — androidTest suites + the ML Kit smoke test need an emulator-backed station; P1 parity loop vs the reference app needs campaign run dirs"
     work:
       - "W2: CAMSCAN-PROD-008"
       - "W3: CAMSCAN-PROD-010"
     integration_gate: CAMSCAN-PROD-014
+    branch: work/CAMSCAN-PROD-014
+    head: 283a05a31ca731daeaa50f68c105ffb31910726d
     packets:
       CAMSCAN-PROD-007:
         status: "DELIVERED + GATE GREEN 2026-09-28T23:2xZ (lead-executed during the platform-queue outage — the PROD-013-lab precedent; branch work/CAMSCAN-PROD-007 @ 9b7b75a, base dce4e58 the integration head; 367/367 tests, 56 new export tests, APK assembled; manifest provider amendment landed; delivery record lab/orchestration/deliveries/PROD-007/). The queued W2 dispatch is SUPERSEDED by this delivery — on queue recovery send W2 the supersede + PROD-008 re-pinned onto 9b7b75a"
