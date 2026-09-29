@@ -7,6 +7,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -27,9 +28,20 @@ applies [ViewerPageItem.rotationDegrees] at render time (display only —
 re-edit belongs to the scan-session review). A placeholder stays visible
 
 until delivery; a per-holder bound-ref guard discards stale loads.
+CAMSCAN-PROD-008: split SELECTION MODE — the injected [pageTapListener]
+
+routes taps (set only while the viewer is in split mode) and
+
+[selectedPageIds] is read live at bind time so the "Selected" badge and
+
+dimmed image track the viewer's selection state (the viewer forces a
+
+rebind when the selection changes; the differ cannot see it).
 */
 class PagePagerAdapter(
 private val contentStore: ContentStore,
+private val pageTapListener: ((pageId: String) -> Unit)? = null,
+private val selectedPageIds: () -> Set<String> = { emptySet() },
 ) : ListAdapter<ViewerPageItem, PagePagerAdapter.PageViewHolder>(DIFF_CALLBACK) {
 
 private val decodeExecutor: ExecutorService = Executors.newFixedThreadPool(2)
@@ -54,6 +66,7 @@ inner class PageViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
 
 private val image: ImageView = itemView.findViewById(R.id.document_page_image)
 private val placeholder: View = itemView.findViewById(R.id.document_page_loading)
+private val selectedBadge: TextView = itemView.findViewById(R.id.document_split_selected_badge)
 @Volatile
 private var boundRef: String? = null
 
@@ -63,9 +76,15 @@ boundRef = null
 
 fun bind(item: ViewerPageItem, position: Int, pageCount: Int) {
 val context = itemView.context
-image.contentDescription = context.getString(
-R.string.workspace_viewer_page_cd, position + 1, pageCount,
-)
+val selected = item.pageId in selectedPageIds()
+image.contentDescription = if (selected) {
+context.getString(R.string.workspace_split_page_selected_cd, position + 1, pageCount)
+} else {
+context.getString(R.string.workspace_viewer_page_cd, position + 1, pageCount)
+}
+image.alpha = if (selected) SELECTED_IMAGE_ALPHA else 1f
+selectedBadge.visibility = if (selected) View.VISIBLE else View.GONE
+itemView.setOnClickListener { pageTapListener?.invoke(item.pageId) }
 val ref = item.processedImageRef
 boundRef = ref
 placeholder.visibility = View.VISIBLE
@@ -101,6 +120,8 @@ return Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix,
  }
 
 companion object {
+private const val SELECTED_IMAGE_ALPHA = 0.45f
+
 private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<ViewerPageItem>() {
 override fun areItemsTheSame(oldItem: ViewerPageItem, newItem: ViewerPageItem): Boolean =
 oldItem.pageId == newItem.pageId

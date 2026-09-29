@@ -15,4 +15,19 @@ android:id="@+id/document_page_loading"
 android:layout_width="wrap_content"
 android:layout_height="wrap_content"
 android:layout_gravity="center"
-android:indeterminate="true" /></FrameLayout>
+android:indeterminate="true" />
+
+<!-- CAMSCAN-PROD-008: split selection badge (stable id
+     document_split_selected_badge); gone unless the viewer is in split
+     selection mode AND this page is selected. -->
+<TextView
+android:id="@+id/document_split_selected_badge"
+android:layout_width="wrap_content"
+android:layout_height="wrap_content"
+android:layout_gravity="top|end"
+android:padding="8dp"
+android:text="@string/workspace_split_selected_badge"
+android:textAppearance="?attr/textAppearanceButton"
+android:textColor="?attr/colorPrimary"
+android:visibility="gone" />
+</FrameLayout>

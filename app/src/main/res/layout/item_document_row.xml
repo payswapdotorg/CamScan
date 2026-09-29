@@ -11,6 +11,19 @@ android:paddingEnd="16dp"
 android:paddingTop="12dp"
 android:paddingBottom="12dp">
 
+<!-- CAMSCAN-PROD-008: merge selection checkbox (stable id
+     document_row_select); gone unless the library is in merge selection
+     mode. Non-clickable on purpose: the row itself routes the tap. -->
+<CheckBox
+android:id="@+id/document_row_select"
+android:layout_width="wrap_content"
+android:layout_height="wrap_content"
+android:layout_gravity="center_vertical"
+android:layout_marginEnd="12dp"
+android:clickable="false"
+android:focusable="false"
+android:visibility="gone" />
+
 <LinearLayout
 android:layout_width="0dp"
 android:layout_height="wrap_content"

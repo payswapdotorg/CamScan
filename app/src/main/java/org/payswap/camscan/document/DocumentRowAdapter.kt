@@ -5,6 +5,7 @@ import android.text.format.DateUtils
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.CheckBox
 import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
@@ -28,11 +29,26 @@ renders a count-less meta line for surfaces that supply no counts). Time
 enters only via the [TimeSource] seam — TimeSource.SYSTEM, never
 
 System.currentTimeMillis() directly.
+
+CAMSCAN-PROD-008: merge SELECTION MODE. The three new constructor seams are
+
+read live at bind time ([selectionMode], [selectedIds]) plus a toggle
+
+callback — HomeFragment keeps the default (no selection mode), and the
+
+Library turns the rows into checkboxes while merging. Toggling calls the
+
+host's [onToggleSelection], which updates its state and forces a rebind
+
+(the differ cannot see selection changes).
 */
 class DocumentRowAdapter(
 private val onClick: (Document) -> Unit,
 private val nowMillis: () -> Long = { TimeSource.SYSTEM.nowMillis() },
 private val pageCountOf: (documentId: String) -> Int = { -1 },
+private val selectionMode: () -> Boolean = { false },
+private val selectedIds: () -> Set<String> = { emptySet() },
+private val onToggleSelection: (documentId: String) -> Unit = {},
 ) : ListAdapter<Document, DocumentRowAdapter.DocumentViewHolder>(DIFF_CALLBACK) {
 
 override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): DocumentViewHolder {
@@ -49,12 +65,18 @@ inner class DocumentViewHolder(itemView: View) : RecyclerView.ViewHolder(itemVie
 
 private val titleView: TextView = itemView.findViewById(R.id.document_row_title)
 private val metaView: TextView = itemView.findViewById(R.id.document_row_meta)
+private val selectBox: CheckBox = itemView.findViewById(R.id.document_row_select)
 
 init {
 itemView.setOnClickListener {
 val position = bindingAdapterPosition
 if (position != RecyclerView.NO_POSITION) {
-onClick(getItem(position))
+val document = getItem(position)
+if (selectionMode()) {
+onToggleSelection(document.id)
+} else {
+onClick(document)
+}
 }
 }
 }
@@ -63,8 +85,15 @@ fun bind(document: Document) {
 val context = itemView.context
 titleView.text = document.title
 metaView.text = metaLabel(context, document)
-itemView.contentDescription =
+val selecting = selectionMode()
+val selected = selecting && document.id in selectedIds()
+selectBox.visibility = if (selecting) View.VISIBLE else View.GONE
+selectBox.isChecked = selected
+itemView.contentDescription = if (selecting) {
+context.getString(R.string.workspace_document_row_select_cd, document.title)
+} else {
 context.getString(R.string.workspace_document_row_cd, document.title)
+}
 }
 
 private fun metaLabel(context: Context, document: Document): String {

@@ -80,4 +80,54 @@
 <plurals name="workspace_page_count">
 <item quantity="one">%d page</item>
 <item quantity="other">%d pages</item>
-</plurals></resources>
+</plurals>
+
+<!-- CAMSCAN-PROD-008: import, merge/split, and compression affordances. -->
+<string name="workspace_library_import">Import</string>
+<string name="workspace_library_import_cd">Import an image or PDF from the device</string>
+<string name="workspace_library_merge">Merge</string>
+<string name="workspace_library_merge_cd">Start merging documents</string>
+<string name="workspace_library_merge_confirm">Merge selected</string>
+<string name="workspace_library_merge_confirm_cd">Merge the selected documents into one</string>
+<string name="workspace_library_merge_cancel">Cancel</string>
+<string name="workspace_library_merge_cancel_cd">Cancel merging documents</string>
+<string name="workspace_library_merge_hint">Select two or more documents to merge</string>
+<string name="workspace_document_row_select_cd">Select document %1$s for merging</string>
+<string name="workspace_importing">Importing…</string>
+<string name="workspace_import_success">Imported %1$s</string>
+<string name="workspace_import_failed">Import failed — %1$s</string>
+<string name="workspace_import_failed_reason_empty">no image was selected</string>
+<string name="workspace_import_failed_reason_unreadable">the selected item could not be read</string>
+<string name="workspace_import_failed_reason_undecodable">the selected image could not be decoded</string>
+<string name="workspace_import_failed_reason_too_large">the image is too large (%1$d pixels, %2$s — caps are %3$d pixels, %4$s)</string>
+<string name="workspace_import_failed_reason_pdf_pages">the PDF has %1$d pages (cap %2$d)</string>
+<string name="workspace_import_failed_reason_pdf_unreadable">the PDF could not be opened (corrupt or password-protected)</string>
+<string name="workspace_import_failed_reason_pdf_page">PDF page %1$d could not be rendered</string>
+<string name="workspace_merge_success">Merged into %1$s</string>
+<string name="workspace_merge_failed">Merge failed — %1$s</string>
+<string name="workspace_merge_failed_reason_missing">a selected document or its pages are no longer available</string>
+<string name="workspace_document_merge">Merge</string>
+<string name="workspace_document_merge_cd">Merge this document with others</string>
+<string name="workspace_document_append_import">Append</string>
+<string name="workspace_document_append_import_cd">Import images or a PDF and append them to this document</string>
+<string name="workspace_append_import_success">Pages added to %1$s</string>
+<string name="workspace_append_import_failed_reason_missing">this document is no longer available</string>
+<string name="workspace_document_split">Split</string>
+<string name="workspace_document_split_cd">Select pages to extract into a new document</string>
+<string name="workspace_document_split_confirm">Extract</string>
+<string name="workspace_document_split_confirm_cd">Extract the selected pages into a new document</string>
+<string name="workspace_document_split_cancel">Cancel</string>
+<string name="workspace_document_split_cancel_cd">Cancel page selection</string>
+<string name="workspace_split_hint">Tap pages to select them for extraction</string>
+<string name="workspace_split_selected_count">%1$d selected</string>
+<string name="workspace_split_selected_badge">Selected</string>
+<string name="workspace_split_page_selected_cd">Page %1$d of %2$d, selected for extraction</string>
+<string name="workspace_split_success">Extracted %1$d pages</string>
+<string name="workspace_split_failed">Extract failed — %1$s</string>
+<string name="workspace_split_failed_reason_missing">this document or its pages are no longer available</string>
+<string name="workspace_export_compress">Compress</string>
+<string name="workspace_export_compress_cd">Export this document as a compressed PDF</string>
+<string name="workspace_compress_success">Original %1$s → compressed %2$s</string>
+<string name="workspace_compress_failed">Compression failed — %1$s</string>
+<string name="workspace_compress_failed_reason_page">a page image is missing or could not be compressed</string>
+</resources>
