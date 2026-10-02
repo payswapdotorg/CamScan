@@ -1,5 +1,5 @@
 version: 1
-updated: 2026-09-27
+updated: 2026-09-28
 authority:
   architecture: docs/PRODUCT-ARCHITECTURE-LOCK.md
   features: docs/PRODUCT-FEATURE-MATRIX.md
@@ -32,6 +32,7 @@ workers:
       - app/src/main/java/org/payswap/camscan/document/**
       - app/src/main/java/org/payswap/camscan/library/**
       - app/src/main/java/org/payswap/camscan/export/**
+      - app/src/main/java/org/payswap/camscan/imports/**
       - app/src/main/java/org/payswap/camscan/settings/**
       - app/src/androidTest/**
     work_orders:
@@ -42,7 +43,7 @@ workers:
   W3:
     name: ocr-tools-and-verification
     paths:
-      -       - app/src/main/java/org/payswap/camscan/ocr/**
+      - app/src/main/java/org/payswap/camscan/ocr/**
       - app/src/main/java/org/payswap/camscan/tools/**
       - app/src/main/java/org/payswap/camscan/search/**
       - lab/reconciliation/**
@@ -67,16 +68,23 @@ waves:
     title: scanner-vertical-slice
     branch_base: 69ee49256ca647c3a1f0ec5d8689204f07624f9a (PRODUCT-FOUNDATION; packet revision 2, 2026-09-27)
     parallel:
-      - W1: CAMSCAN-PROD-001,CAMSCAN-PROD-002,CAMSCAN-PROD-003,CAMSCAN-PROD-004
-      - W2: CAMSCAN-PROD-005,CAMSCAN-PROD-006,CAMSCAN-PROD-007
-      - W3: CAMSCAN-PROD-009 plus scan parity scenarios
+      - "W1: CAMSCAN-PROD-001,CAMSCAN-PROD-002,CAMSCAN-PROD-003,CAMSCAN-PROD-004"
+      - "W2: CAMSCAN-PROD-005,CAMSCAN-PROD-006,CAMSCAN-PROD-007"
+      - "W3: CAMSCAN-PROD-009 plus scan parity scenarios"
     integration_gate: CAMSCAN-PROD-013
     in_flight:
       CAMSCAN-PROD-013-lab:
-        status: GATE RED 2026-09-28T06:0xZ (compileDebugKotlin 130 errors: W3-ocr 98 truncation+defects, W2-contract 32, W1 0) — fix orders dispatched to W2 (contract alignment + CropQuad + missing codec) and W3 (re-delivery with split protocol); re-gate pending
+        status: "GATE GREEN 2026-09-28T15:5xZ (lead-executed local gate — the platform outage parked the GATE-2 station, so the lead ran the gate on-box: JDK 21.0.12, SDK 35, --no-daemon, boxed -Xmx900m, worktree @ 617ab06). Second run went RED 387 errors — root-caused to CHAT-TRANSIT CORRUPTION (5 classes: $-strip+newline-in-string; backslash halving; KDoc closer */ -> /; eaten closing braces; contract drift) present in the raw transcripts — worker re-delivery would re-corrupt. Lead station repair on work/CAMSCAN-PROD-013 @ da7996e (24 files +270/-209; W1 untouched, contracts untouched; first-run bugs fixed: repository observe-publish + RECOVERED_EMPTY healing; blind test expectations corrected). VERDICT: compileDebugKotlin GREEN; testDebugUnitTest 311/311 GREEN; assembleDebug GREEN (app-debug.apk 7.3MB); compileDebugAndroidTestKotlin GREEN; lintDebug GREEN"
       CAMSCAN-PROD-006:
-        status: transit complete 22 files BUT lead audit found: IndexJsonCodec.kt missing + nonexistent core.model.CropQuad in 4 test files + codec — REQUIRE-CHANGES fix in flight (06:34+06:59Z orders)
+        status: delivered + gate-green inside the PROD-013 integrated verdict (the fix cycle's files were repaired further in the da7996e station repair; see PROD-013-lab)
     delivered:
+      CAMSCAN-PROD-007:
+        status: "delivered 2026-09-28T23:2xZ (LEAD-EXECUTED during the platform outage; see wave_2.packets note and lab/orchestration/deliveries/PROD-007/)"
+        branch: work/CAMSCAN-PROD-007
+        head: 9b7b75a3b59ddf2079e80061087d4151e1daf5d5
+        base: dce4e58 (wave-1 integration head)
+        verification: "GATE GREEN (lead local, independently re-verified): testDebugUnitTest 367/367 (56 new), lintDebug, assembleDebug, compileDebugAndroidTestKotlin"
+        record: lab/orchestration/deliveries/PROD-007/
       CAMSCAN-PROD-001:
         status: delivered 2026-09-27 (worker re-execution; supersedes first execution 71bc2d1)
         branch: work/CAMSCAN-PROD-001
@@ -113,11 +121,11 @@ waves:
         open_questions: [OCR engine adapter seam vs live ML engine binding (PROD-010), harness determinism proof at station]
         record: lab/orchestration/deliveries/PROD-009/
       CAMSCAN-PROD-013:
-        status: delivered 2026-09-28T03:1xZ (LEAD-EXECUTED after W4's fabricated report was rejected — merges clean, launcher wired, gates 4a-4f PASS)
+        status: delivered 2026-09-28T03:1xZ (LEAD-EXECUTED after W4's fabricated report was rejected — merges clean, launcher wired, gates 4a-4f PASS); GATE GREEN 2026-09-28T15:5xZ (lead local run, 311/311 tests, APK assembled) after the da7996e station repair
         station_session: eba5188d (packet 03:01Z; no-shell session composed fake git output; require-changes notice sent 03:14Z)
         branch: work/CAMSCAN-PROD-013
-        head: 7db32c9
-        verification: "static gates 4a-4f ALL PASS (lead-run); Gradle gate deferred to the lab phase"
+        head: da7996e
+        verification: "GATE GREEN (lead local): compileDebugKotlin, testDebugUnitTest 311/311, assembleDebug, compileDebugAndroidTestKotlin, lintDebug — on 617ab06 + station repair"
         record: lab/orchestration/deliveries/PROD-013/
       CAMSCAN-PROD-003:
         status: delivered 2026-09-28T03:2xZ (bundle transit via pod files-API; sha256 byte-verified)
@@ -139,19 +147,29 @@ waves:
         record: lab/orchestration/deliveries/PROD-004/
   wave_2:
     title: daily-workflow
+    status: "implementation + local integration COMPLETE 2026-09-29T01:2xZ (all lead-executed during the platform outage): PROD-007, PROD-008, PROD-010 delivered gate-green; PROD-014 integration merge clean @ 283a05a, 480/480 JVM tests, 50.9MB APK. OPEN (honest): the parity/instrumented surface — androidTest suites + the ML Kit smoke test need an emulator-backed station; P1 parity loop vs the reference app needs campaign run dirs"
     work:
-      - W2: CAMSCAN-PROD-008
-      - W3: CAMSCAN-PROD-010
+      - "W2: CAMSCAN-PROD-008"
+      - "W3: CAMSCAN-PROD-010"
     integration_gate: CAMSCAN-PROD-014
+    branch: work/CAMSCAN-PROD-014
+    head: 283a05a31ca731daeaa50f68c105ffb31910726d
+    packets:
+      CAMSCAN-PROD-007:
+        status: "DELIVERED + GATE GREEN 2026-09-28T23:2xZ (lead-executed during the platform-queue outage — the PROD-013-lab precedent; branch work/CAMSCAN-PROD-007 @ 9b7b75a, base dce4e58 the integration head; 367/367 tests, 56 new export tests, APK assembled; manifest provider amendment landed; delivery record lab/orchestration/deliveries/PROD-007/). The queued W2 dispatch is SUPERSEDED by this delivery — on queue recovery send W2 the supersede + PROD-008 re-pinned onto 9b7b75a"
+      CAMSCAN-PROD-008:
+        status: "DELIVERED + GATE GREEN 2026-09-29T00:xxZ (LEAD-EXECUTED two-pass during the platform outage — impl + finishing; branch work/CAMSCAN-PROD-008 @ 97546c1 on base 9b7b75a per the packet's own rebase note; 448/448 tests (+81), APK 7.5MB; delivery record lab/orchestration/deliveries/PROD-008/). Wave-2 implementation orders ALL DELIVERED (007/008/010) — PROD-014 integration gate is the remaining wave-2 step"
+      CAMSCAN-PROD-010:
+        status: "DELIVERED + GATE GREEN 2026-09-28T23:5xZ (LEAD-EXECUTED during the platform outage — branch work/CAMSCAN-PROD-010 @ a818c7d on base bcbc8db; 60/60 tests on-branch (+32), universal APK assembled; the queued W3 dispatch is SUPERSEDED; delivery record lab/orchestration/deliveries/PROD-010/; smoke-test handoff in lead-staging DELIVERY-PROD-010.txt for PROD-014)"
   wave_3:
     title: advanced-tools
     work:
-      - W3: CAMSCAN-PROD-011,CAMSCAN-PROD-012
+      - "W3: CAMSCAN-PROD-011,CAMSCAN-PROD-012"
     integration_gate: P2 feature scenarios reconciled
   wave_4:
     title: ecosystem-and-hardening
     work:
-      - all: CAMSCAN-PROD-015
+      - "all: CAMSCAN-PROD-015"
     integration_gate: feature matrix truthfully covered
 
 dispatch_rules:
@@ -163,6 +181,7 @@ dispatch_rules:
   - Every accepted feature requires current evidence and a ledger PASS.
   - Android Studio is never a worker dependency.
   - E2B is the current substrate; camera_fixture=false remains honest until a deterministic camera fixture is empirically proven.
+  - "TRANSIT-CORRUPTION PROTOCOL (2026-09-28, gate-2 evidence): the chat renderer eats '$' in string templates (math delimiters), halves double backslashes, mangles multi-line KDoc closers (*/ -> /), and can eat closing braces. Workers delivering code in chat MUST: (a) write every '$' in a string template as ${'$'} (Kotlin-valid, transit-safe), (b) prefer single-line KDoc or // comments over multi-line /** */ blocks, (c) avoid '\\' where string concatenation or unicode escapes work. The lead station-repairs any residual damage; the gate re-verifies."
 
 scanner_p0_user_journey:
   - home
