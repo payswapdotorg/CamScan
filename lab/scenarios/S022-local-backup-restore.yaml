@@ -1,0 +1,46 @@
+# authored directly in DSL v0.1 (typed meta.requires + explicit timeouts); CAMSCAN-PROD-015 wave-4 ecosystem spec
+id: local-backup-restore
+title: Local backup and restore
+status: UNKNOWN
+preconditions:
+- fresh-install
+- existing-document
+fixture:
+  camera: null
+  sequence: null
+steps:
+- launch
+- 'tap: library'
+- 'tap: document (first row)'
+- 'tap: more-options'
+- 'tap: backup-local'
+- 'wait-for: backup-file-created'
+- 'tap: restore-local'
+- 'assert-visible: restore-confirmation'
+assertions:
+  behavior:
+  - backup-file-created
+  - restore-round-trip-succeeds
+  - non-destructive-restore
+  ui: []
+  state:
+  - library-unchanged-after-restore
+  output:
+  - backup-archive-created
+meta:
+  timeout_seconds: 2400
+  step_timeout_seconds: 180
+  requires:
+    gui: true
+    adb: true
+    android_emulator: true
+    android_sdk: true
+    android_cli: true
+    emulator_acceleration:
+      allowed:
+      - none
+    camera_fixture: false
+  owner: lead
+  notes: Engine-level implementation exists (tools/backup — manifest + deterministic zip archive
+    + restore planner with merge policies); UI wiring + live verification are lead-station work —
+    honest UNKNOWN. No camera dependency (fixture camera is null).
