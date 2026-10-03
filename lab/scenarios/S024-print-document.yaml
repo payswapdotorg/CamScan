@@ -1,0 +1,41 @@
+# authored directly in DSL v0.1 (typed meta.requires + explicit timeouts); CAMSCAN-PROD-015 wave-4 ecosystem spec
+id: print-document
+title: Print a document
+status: UNKNOWN
+preconditions:
+- fresh-install
+- existing-document
+fixture:
+  camera: null
+  sequence: null
+steps:
+- launch
+- 'tap: library'
+- 'tap: document'
+- 'tap: more-options'
+- 'tap: print'
+- 'wait-for: print-preview-visible'
+assertions:
+  behavior:
+  - print-preview-visible
+  ui:
+  - print-preview-visible
+  state: []
+  output: []
+meta:
+  timeout_seconds: 2400
+  step_timeout_seconds: 180
+  requires:
+    gui: true
+    adb: true
+    android_emulator: true
+    android_sdk: true
+    android_cli: true
+    emulator_acceleration:
+      allowed:
+      - none
+    camera_fixture: false
+  owner: lead
+  notes: Print planning exists (tools/printops — paper tables, fit/fill/actual scale math, margins,
+    page ranges); the Android print-framework glue + a real printer are lead-station /
+    out-of-substrate — honest UNKNOWN. No camera dependency (fixture camera is null).

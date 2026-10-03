@@ -1,0 +1,44 @@
+# authored directly in DSL v0.1 (typed meta.requires + explicit timeouts); CAMSCAN-PROD-015 wave-4 ecosystem spec
+id: export-office-docx
+title: Export document text to Office formats
+status: UNKNOWN
+preconditions:
+- fresh-install
+- existing-document
+fixture:
+  camera: null
+  sequence: null
+steps:
+- launch
+- 'tap: library'
+- 'tap: document'
+- 'tap: share-export'
+- 'tap: export-docx'
+- 'wait-for: docx-file-created'
+assertions:
+  behavior:
+  - docx-file-created
+  - docx-contains-page-text
+  ui: []
+  state: []
+  output:
+  - docx-file-created
+  - docx-unzippable
+meta:
+  timeout_seconds: 2400
+  step_timeout_seconds: 180
+  requires:
+    gui: true
+    adb: true
+    android_emulator: true
+    android_sdk: true
+    android_cli: true
+    emulator_acceleration:
+      allowed:
+      - none
+    camera_fixture: false
+  owner: lead
+  notes: Adapter-level implementation exists (tools/conversion — minimal WordprocessingML docx +
+    SpreadsheetML xlsx from OCR text, deterministic bytes); text-level conversion, layout parity
+    UNVERIFIED. UI wiring + live verification are lead-station work — honest UNKNOWN. No camera
+    dependency (fixture camera is null).
