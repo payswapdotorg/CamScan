@@ -114,20 +114,21 @@ def _drop_key_block(body: str, key: str) -> str:
 
 # ------------------------------------------------------ real repo tree
 
-def test_real_tree_s019_to_s021_validate_clean() -> None:
+def test_real_tree_s019_to_s024_validate_clean() -> None:
     outcome = reconcile(
         REPO_ROOT / "lab" / "scenarios",
         REPO_ROOT / "lab" / "parity-ledger" / "ledger.json",
     )
     assert outcome.validation_errors == []
     gap_ids = [gap["id"] for gap in outcome.scenario_without_entry]
-    assert gap_ids == ["S019", "S020", "S021"]
+    assert gap_ids == ["S019", "S020", "S021", "S022", "S023", "S024"]
     gap_scenarios = [gap["scenario"] for gap in outcome.scenario_without_entry]
     assert gap_scenarios == ["id-card-scan", "business-card-scan",
-                             "book-spread-scan"]
+                             "book-spread-scan", "local-backup-restore",
+                             "export-office-docx", "print-document"]
     assert outcome.entry_without_scenario == []
     assert outcome.status_disagreements == []
-    assert outcome.scenario_count == 21
+    assert outcome.scenario_count == 24
     assert outcome.ledger_entry_count == 18
 
 

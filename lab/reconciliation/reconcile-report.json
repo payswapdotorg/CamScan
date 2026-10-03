@@ -22,6 +22,27 @@
         "scenario": "book-spread-scan",
         "status": "UNKNOWN",
         "title": "Book spread scan"
+      },
+      {
+        "file": "S022-local-backup-restore.yaml",
+        "id": "S022",
+        "scenario": "local-backup-restore",
+        "status": "UNKNOWN",
+        "title": "Local backup and restore"
+      },
+      {
+        "file": "S023-export-office-docx.yaml",
+        "id": "S023",
+        "scenario": "export-office-docx",
+        "status": "UNKNOWN",
+        "title": "Export document text to Office formats"
+      },
+      {
+        "file": "S024-print-document.yaml",
+        "id": "S024",
+        "scenario": "print-document",
+        "status": "UNKNOWN",
+        "title": "Print a document"
       }
     ],
     "status_disagreements": []
@@ -31,8 +52,8 @@
   "summary": {
     "entry_without_scenario": 0,
     "ledger_entries": 18,
-    "scenario_without_entry": 3,
-    "scenarios": 21,
+    "scenario_without_entry": 6,
+    "scenarios": 24,
     "status_disagreements": 0,
     "validation_errors": 0
   },
