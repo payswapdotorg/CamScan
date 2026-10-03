@@ -1,0 +1,50 @@
+# authored at DSL v0.1 (typed meta.requires + explicit timeouts) — CAMSCAN-PROD-012 specialist-mode spec; new file, no v0.0 predecessor to migrate.
+id: business-card-scan
+title: Business card scan
+status: UNKNOWN
+preconditions:
+- fresh-install
+- camera-permission-granted
+fixture:
+  camera: business-card
+  sequence: null
+steps:
+- launch
+- 'tap: scan'
+- 'tap: mode-business-card'
+- capture
+- accept-document
+- save
+assertions:
+  behavior:
+  - document-detected
+  - business-card-aspect-guidance
+  - save-succeeds
+  ui:
+  - scan-control-visible
+  - mode-chip-business-card-visible
+  state:
+  - document-added-to-library
+  output:
+  - pdf-created
+  - pdf-readable
+  - one-page-document
+meta:
+  timeout_seconds: 2400
+  step_timeout_seconds: 180
+  requires:
+    gui: true
+    adb: true
+    android_emulator: true
+    android_sdk: true
+    android_cli: true
+    emulator_acceleration:
+      allowed:
+      - none
+    camera_fixture: true
+  owner: lead
+  notes: specialist-mode spec — pending reference discovery + wave-4 mode UI.
+    US variant is the mode default (88.9 x 50.8 mm, catalog-order default for
+    the mode-business-card semantic id); the EU variant (85 x 55 mm) is the
+    second catalog entry — variant selection UI is a wave-4 concern. The
+    lab business-card fixture (1080x1920 frame) is bound via fixture.camera.

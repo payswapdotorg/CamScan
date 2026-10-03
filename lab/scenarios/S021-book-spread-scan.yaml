@@ -1,0 +1,55 @@
+# authored at DSL v0.1 (typed meta.requires + explicit timeouts) — CAMSCAN-PROD-012 specialist-mode spec; new file, no v0.0 predecessor to migrate.
+id: book-spread-scan
+title: Book spread scan
+status: UNKNOWN
+preconditions:
+- fresh-install
+- camera-permission-granted
+fixture:
+  camera: null
+  sequence: null
+steps:
+- launch
+- 'tap: scan'
+- 'tap: mode-book-spread'
+- capture
+- accept-document
+- save
+assertions:
+  behavior:
+  - document-detected
+  - spread-split-applied
+  - save-succeeds
+  ui:
+  - scan-control-visible
+  - mode-chip-book-spread-visible
+  state:
+  - document-added-to-library
+  output:
+  - pdf-created
+  - pdf-readable
+  - two-page-document
+meta:
+  timeout_seconds: 2400
+  step_timeout_seconds: 180
+  requires:
+    gui: true
+    adb: true
+    android_emulator: true
+    android_sdk: true
+    android_cli: true
+    emulator_acceleration:
+      allowed:
+      - none
+    camera_fixture: true
+  owner: lead
+  notes: specialist-mode spec — pending reference discovery + wave-4 mode UI.
+    No book-spread fixture exists in lab/fixtures/manifest.json at base
+    283a05a, so fixture.camera stays null honestly — a two-page spread
+    fixture must land before this scenario can run. Spread geometry is A5
+    per face (148.5 x 210 mm) with the full spread at 297 x 210 mm; the
+    split follows the tools/modes SpreadSplitPlanner midpoint-line
+    construction (CAMSCAN-PROD-012). The split REVIEW surface
+    (accepting/reordering the two produced pages) is wave-4 UI — this
+    scenario only asserts that the split is applied and a two-page
+    document is saved.

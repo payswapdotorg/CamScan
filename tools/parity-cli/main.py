@@ -35,6 +35,7 @@ from tools.parity_cli.gaps import write_gaps
 from tools.parity_cli.ledger import update_ledger
 from tools.parity_cli.load import resolve_run_dir
 from tools.parity_cli.model import DIMENSIONS, SEVERITIES, ParityCliError
+from tools.parity_cli.reconcile import check_reports, reconcile, write_reports
 
 
 def _add_common(parser: argparse.ArgumentParser) -> None:
@@ -165,6 +166,53 @@ def cmd_ledger_update(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_reconcile(args: argparse.Namespace) -> int:
+    repo_root = _repo_root(args)
+    scenarios_dir = (Path(args.scenarios_dir) if args.scenarios_dir
+                     else repo_root / "lab" / "scenarios")
+    ledger_path = (Path(args.ledger) if args.ledger
+                   else repo_root / "lab" / "parity-ledger" / "ledger.json")
+    report_dir = (Path(args.report_dir) if args.report_dir
+                  else repo_root / "lab" / "reconciliation")
+    outcome = reconcile(scenarios_dir, ledger_path)
+    summary = outcome.report_json()["summary"]
+    print("reconcile: {} scenarios, {} ledger entries".format(
+        summary["scenarios"], summary["ledger_entries"]))
+    print("  validation errors: {}".format(
+        summary["validation_errors"]))
+    print("  scenario without entry: {}".format(
+        summary["scenario_without_entry"]))
+    print("  entry without scenario: {}".format(
+        summary["entry_without_scenario"]))
+    print("  status disagreements: {}".format(
+        summary["status_disagreements"]))
+    if args.check:
+        problems = check_reports(report_dir, outcome)
+        for error in outcome.validation_errors:
+            problems.append(
+                "validation error in {}: {}".format(
+                    error["file"], error["problem"]))
+        if problems:
+            print("RECONCILE CHECK FAILED (reports stale or scenarios "
+                  "invalid):", file=sys.stderr)
+            for problem in problems:
+                print("  - " + problem, file=sys.stderr)
+            return 1
+        print("reconcile check ok: lab/reconciliation/"
+              "reconcile-report.json + reconcile-report.md up to date")
+        return 0
+    write_reports(report_dir, outcome)
+    print("wrote {}".format((report_dir / "reconcile-report.json").name))
+    print("wrote {}".format((report_dir / "reconcile-report.md").name))
+    if outcome.has_validation_errors:
+        print("RECONCILE FAILED (validation errors):", file=sys.stderr)
+        for error in outcome.validation_errors:
+            print("  - {}: {}".format(error["file"], error["problem"]),
+                  file=sys.stderr)
+        return 1
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="parity-cli",
@@ -221,6 +269,29 @@ def main(argv: list[str] | None = None) -> int:
                           help="compute the mutation, write nothing")
     _add_common(p_ledger)
     p_ledger.set_defaults(func=cmd_ledger_update)
+
+    p_reconcile = sub.add_parser(
+        "reconcile", help="validate scenarios against the DSL v0.1 "
+                          "schema and cross-reference them with the "
+                          "parity ledger; emit the deterministic "
+                          "reconciliation report pair")
+    p_reconcile.add_argument("--scenarios-dir", metavar="PATH",
+                             default=None,
+                             help="scenarios directory (default: "
+                                  "<repo-root>/lab/scenarios)")
+    p_reconcile.add_argument("--ledger", metavar="PATH", default=None,
+                             help="ledger.json path (default: "
+                                  "<repo-root>/lab/parity-ledger/"
+                                  "ledger.json)")
+    p_reconcile.add_argument("--report-dir", metavar="PATH", default=None,
+                             help="report output directory (default: "
+                                  "<repo-root>/lab/reconciliation)")
+    p_reconcile.add_argument("--check", action="store_true",
+                             help="gate only: fail if the on-disk reports "
+                                  "are stale or any validation error "
+                                  "exists; write nothing")
+    _add_common(p_reconcile)
+    p_reconcile.set_defaults(func=cmd_reconcile)
 
     args = parser.parse_args(argv)
     try:
