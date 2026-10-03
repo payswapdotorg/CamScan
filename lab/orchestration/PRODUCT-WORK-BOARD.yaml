@@ -1,5 +1,5 @@
 version: 1
-updated: 2026-09-28
+updated: 2026-10-03
 authority:
   architecture: docs/PRODUCT-ARCHITECTURE-LOCK.md
   features: docs/PRODUCT-FEATURE-MATRIX.md
@@ -163,9 +163,17 @@ waves:
         status: "DELIVERED + GATE GREEN 2026-09-28T23:5xZ (LEAD-EXECUTED during the platform outage — branch work/CAMSCAN-PROD-010 @ a818c7d on base bcbc8db; 60/60 tests on-branch (+32), universal APK assembled; the queued W3 dispatch is SUPERSEDED; delivery record lab/orchestration/deliveries/PROD-010/; smoke-test handoff in lead-staging DELIVERY-PROD-010.txt for PROD-014)"
   wave_3:
     title: advanced-tools
+    status: "COMPLETE 2026-10-03T06:0xZ (W3 worker-executed via chat.z.ai replay dispatch; integration line work/CAMSCAN-PROD-014 @ f278bbc PUSHED): PROD-011 delivered gate-green (276 new tests; branch work/CAMSCAN-PROD-011 @ 2dda0ea, merge 531682c), PROD-012 delivered gate-green (131 new Kotlin tests + 45 pytest; branch work/CAMSCAN-PROD-012 @ f0f704e, merge f278bbc). Merge gate 887/887 JVM tests, lint + assemble green, APK 50.9MB. OPEN (honest): tools are pure intelligence with NO UI wiring yet — wave-4 PROD-015 owns the seams; parity scenarios S019-S021 delivered as UNKNOWN with the reconcile engine; instrumented/androidTest surface still needs an emulator-backed station"
     work:
       - "W3: CAMSCAN-PROD-011,CAMSCAN-PROD-012"
     integration_gate: P2 feature scenarios reconciled
+    branch: work/CAMSCAN-PROD-014
+    head: f278bbccc227068dfa62228d89208e3a72433463
+    packets:
+      CAMSCAN-PROD-011:
+        status: "DELIVERED + GATE GREEN 2026-10-02T23:35Z (W3 worker turn, rescue-harvested during-turn per the reaper doctrine; branch work/CAMSCAN-PROD-011 @ 2dda0ea on base 283a05a, 36 files +6128/-0 all under tools/**; station gate independently reproduced 756/756 — 276 new tests across render/signature/annotation/watermark/protection incl. RC4 with public KAT vectors; merged 531682c and PUSHED; delivery record lab/orchestration/deliveries/PROD-011/)"
+      CAMSCAN-PROD-012:
+        status: "DELIVERED + GATE GREEN 2026-10-03T05:5xZ (W3 worker turn run-3, early-delivery survival directive worked — payload secured 49 min into the turn; branch work/CAMSCAN-PROD-012 @ f0f704e on base 283a05a, 20 files +3931/-0; station gate independently reproduced 611/611 JVM + 191/191 pytest + lint + assemble + androidTest-compile; shipped bundle sha 8f1da629; merged f278bbc and PUSHED; delivery record lab/orchestration/deliveries/PROD-012/)"
   wave_4:
     title: ecosystem-and-hardening
     work:

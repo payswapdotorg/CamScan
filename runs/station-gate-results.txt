@@ -1,0 +1,7 @@
+compileDebugKotlin rc=0 dur=181s
+testDebugUnitTest rc=0 dur=27s
+assembleDebug rc=1 dur=76s
+compileDebugAndroidTestKotlin rc=0 dur=28s
+lintDebug rc=1 dur=90s
+assembleDebug-retry rc=0 dur=34s
+lintDebug-retry rc=0 dur=58s

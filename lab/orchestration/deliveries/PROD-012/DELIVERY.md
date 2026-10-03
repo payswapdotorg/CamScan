@@ -1,0 +1,192 @@
+CAMSCAN-PROD-012 — DELIVERY (Worker 3: OCR, Tools & Verification track)
+======================================================================
+
+Base:     work/CAMSCAN-PROD-014 integration head
+          283a05a31ca731daeaa50f68c105ffb31910726d (verified with git rev-parse)
+Branch:   work/CAMSCAN-PROD-012
+Head:     8d6b2418f59be9946068990675b28f7d943c83a8
+Bundle:   camscan-prod-012.bundle
+sha256:   37d0c174b32fa7ed3daed13c05b7ab668bf31f10aabf7d2b899f79872a098fb9
+Copies:   /home/z/my-project/camscan-prod-012.bundle  (station files-API root)
+          /home/z/camscan-prod-012.bundle             (workspace root)
+Diff:     19 files changed, 3750 insertions(+), 0 deletions(-)
+
+ADDED / CHANGED FILES (all within the §5 ownership boundary)
+------------------------------------------------------------
+NEW  app/src/main/java/org/payswap/camscan/tools/modes/ModeGeometry.kt
+     ModePoint / ModeBox / ModeQuad: canonical centroid-angle edge ordering
+     with (y, x) tie-break, AABB, shoelace area, strict convexity, point-set
+     degeneracy floors. Pure Kotlin, zero android.* imports.
+NEW  app/src/main/java/org/payswap/camscan/tools/modes/ScanMode.kt
+     ScanModeIds constants (mode-id-card / mode-business-card /
+     mode-book-spread), sealed SplitPolicy (NONE / BOOK_SPREAD_MIDLINE),
+     BusinessCardVariant (US / EU), sealed ScanMode with IdCardMode
+     (85.60 x 53.98 mm, ISO/IEC 7810 ID-1), BusinessCardMode (US 88.9 x
+     50.8 mm; EU 85 x 55 mm), BookSpreadMode (per-face A5 148.5 x 210 mm;
+     matching aspect = full spread 297/210), ScanModeCatalog with fixed
+     declaration order + byModeId lookup (US default for the shared
+     business-card id, catalog-order tie-break).
+NEW  app/src/main/java/org/payswap/camscan/tools/modes/ModeSelection.kt
+     ModeRejectionReason (ASPECT_OUT_OF_TOLERANCE / DEGENERATE_QUAD /
+     NO_MATCH / AMBIGUOUS), sealed ModeSelectionResult, ModeSelector:
+     aspect matching |observed - target| / target <= 0.12, confidence =
+     1 - dev / (target * tolerance) clamped to [0, 1], min-deviation
+     selection, ties within TIE_EPSILON = 1e-9 reported AMBIGUOUS with
+     candidates in catalog order, explicit-choice path, degenerate-quad
+     guard (never throws), direct-aspect path.
+NEW  app/src/main/java/org/payswap/camscan/tools/modes/GuidanceGeometry.kt
+     roundHalfUp (ties toward +infinity at exactly 0.5 px), GuidanceFrame,
+     CornerDelta (guidance minus observed, documented sign convention),
+     GuidanceGeometry.computeGuidance: largest centered rect with the mode
+     aspect inside the margin-shrunk viewport (default margin 0.05), exact
+     Double math with rounded output views; invalid input yields null.
+NEW  app/src/main/java/org/payswap/camscan/tools/modes/SpreadSplitPlanner.kt
+     SplitRejectionReason (PARALLEL_EDGES / INTERSECTION_OFF_QUAD /
+     COLLINEAR_POINTS), sealed SplitResult, planSplit: midpoint line from
+     mid(TL, TR) to mid(BL, BR) (the spine-crossed opposite edges — exact
+     construction documented), parametric line clipping against all four
+     quad edges, exactly one crossing on the top edge and one on the
+     bottom edge required, LEFT = (TL, A, B, BL), RIGHT = (A, TR, BR, B);
+     degenerate inputs return Degenerate, never throw.
+NEW  app/src/main/java/org/payswap/camscan/tools/modes/ModeNote.kt
+     Persistence-shaped record (documentId, modeId, appliedAtMillis via
+     injected core/time TimeSource, pagesProduced, splitApplied,
+     selectionConfidence) + deterministic toLine()/parse() with documented
+     six-column pipe-separated field order, forbidden-character validation
+     (pipe / tab / CR / LF — line-level injection guard added after the
+     first test run caught numeric parsers trimming trailing newlines),
+     byte-identical round-trip, record() factory with TimeSource stamping.
+NEW  app/src/test/java/org/payswap/camscan/tools/modes/ (5 files, 131 @Test)
+     ScanModeCatalogTest (22), ModeSelectionTest (44),
+     GuidanceGeometryTest (22), SpreadSplitPlannerTest (19),
+     ModeNoteTest (24). Matching-table expectations pinned against
+     IEEE-754 Double arithmetic before authoring. Pure JVM, zero
+     android.* imports.
+NEW  lab/scenarios/S019-id-card-scan.yaml   (DSL v0.1, status UNKNOWN)
+NEW  lab/scenarios/S020-business-card-scan.yaml (camera fixture:
+     business-card — exists in lab/fixtures/manifest.json)
+NEW  lab/scenarios/S021-book-spread-scan.yaml (camera fixture null — no
+     book-spread fixture at base, notes say so honestly)
+     All three: leading authoring comment per the S004 migration-comment
+     convention, timeout_seconds 2400, step_timeout_seconds 180, typed
+     meta.requires (gui/adb/android_emulator/android_sdk/android_cli true,
+     emulator_acceleration.allowed [none], camera_fixture true), owner
+     lead. Status stays UNKNOWN (ledger is truth; no entries exist yet).
+NEW  tools/parity-cli/reconcile.py
+     Additive reconcile engine: DSL v0.1 schema validation (REQUIRED keys
+     present + typed, S###-<id> stems, status enum, timeout floors, typed
+     meta.requires with required keys + capability vocabulary + CLI-first
+     android_studio rejection), cross-referencing (scenario-without-entry,
+     entry-without-scenario, status disagreements — ledger is truth),
+     deterministic byte-identical report pair (json via the repo's
+     jsonio.dump conventions + hand-built markdown tables), check_reports
+     staleness gate. NEVER mutates the ledger or scenario files.
+MOD  tools/parity-cli/main.py  (+71 lines, 0 deletions — purely additive)
+     New reconcile subparser + cmd_reconcile (--scenarios-dir / --ledger /
+     --report-dir / --check, plus the shared --repo-root). Existing
+     compare / gap / ledger-update subcommands byte-identical (verified by
+     the untouched 146-test existing suite staying green).
+NEW  tools/parity-cli/tests/test_reconcile.py (45 pytest items)
+     Real-tree S019-S021 validation + determinism; every REQUIRED field
+     missing (8 parametrized); bad stem; id/stem mismatch; bad status;
+     timeout floors + non-int; untyped/missing/requires keys; unknown
+     capability; android_studio; non-bool capability; bad acceleration
+     value + form; YAML parse error; duplicate stems; all three gap kinds;
+     two-run byte determinism; CLI write/check exit codes (fresh, stale,
+     missing, validation-error); ledger + scenario immutability; report
+     structure + sorting; operational errors for missing dir / bad ledger.
+NEW  lab/reconciliation/reconcile-report.json + reconcile-report.md
+     The committed deterministic reports for the current tree (21
+     scenarios, 18 ledger entries, 0 validation errors, S019-S021 as
+     scenario_without_entry gaps — honest, the ledger has no entries yet).
+
+TEST COUNTS
+-----------
+Kotlin  @Test methods under tools/modes: 131  (requirement: >= 80)
+        testDebugUnitTest total: 611 passed / 0 failed / 0 errors
+        (480 pre-existing wave-2 tests + 131 new — zero regressions)
+pytest  new reconcile items: 45 collected (37 functions, 8 parametrized)
+        (requirement: >= 25)
+        full parity-cli suite: 191 passed / 0 failed in 1.11s
+        (146 pre-existing + 45 new — zero regressions)
+
+VERIFICATION TRANSCRIPT (honest, verbatim commands and outcomes)
+----------------------------------------------------------------
+Environment: Debian sandbox, network available; OpenJDK 21.0.12.1;
+Android SDK was NOT present — installed via cmdline-tools
+(platforms;android-35, build-tools;34.0.0, platform-tools) into
+/home/z/android-sdk with local.properties (gitignored, not committed).
+Gradle 8.9 wrapper distribution downloaded on demand. Python 3.12 venv
+with pyyaml 6.0.3, pytest 9.0.2; ruff 0.16.10 installed via pip
+--break-system-packages (sandbox-home pyproject.toml supplies the ruff
+config: UP/I/PIE/RUF rules observed).
+
+1. ./gradlew :app:testDebugUnitTest
+   First run: BUILD FAILED — 3 failures (2 wrong test expectations +
+   1 real leniency bug: ModeNote.parse accepted a trailing newline
+   because toDoubleOrNull trims whitespace). Fixed all three
+   (line-level newline/tab/CR guard in parse; corrected expectations).
+   Final run: BUILD SUCCESSFUL in 6s — 611 tests, 0 failures, 0 errors
+   (parsed from app/build/test-results/testDebugUnitTest/*.xml).
+
+2. python3 -m pytest tools/parity-cli/tests/ -q
+   191 passed in 1.11s (first run had 4 failures — keyword-only argument
+   misuse in four test call sites; fixed; then 191 passed).
+
+3. python3 tools/parity-cli/main.py reconcile        -> exit 0
+   reconcile: 21 scenarios, 18 ledger entries
+   validation errors: 0 / scenario without entry: 3 /
+   entry without scenario: 0 / status disagreements: 0
+   wrote reconcile-report.json + reconcile-report.md
+
+4. python3 tools/parity-cli/main.py reconcile --check -> exit 0
+   "reconcile check ok: lab/reconciliation/reconcile-report.json +
+   reconcile-report.md up to date"
+
+5. Determinism: two consecutive reconcile runs produced byte-identical
+   reports (sha256 equal: ba323349c45c20812d2251cc.. for json,
+   13bb92389efc5bf26bb23c1f.. for md; verified before commit).
+
+6. python3 -m ruff check tools/parity-cli/
+   All checks passed! (after .format->f-string normalization + 2 manual
+   fixes: merged startswith tuple, underscored unused unpack).
+
+7. Static self-checks:
+   - grep "import android" under tools/modes main+test: 0 hits
+   - grep for dollar signs under tools/modes: 0 hits (transit protocol)
+   - local.properties gitignored, not committed
+   - git diff --stat vs base: 19 files, 3750 insertions, 0 deletions
+   - ledger.json and existing S001-S018 untouched (git status clean of
+     any modification to them)
+   - the three new yaml files parse with pyyaml (verified twice)
+
+8. Bonus gates AFTER the commit+bundle (per the survival directive the
+   delivery was secured first): ./gradlew :app:lintDebug and
+   :app:assembleDebug — see the final report for their outcomes (they
+   were started after the bundle existed).
+
+NOT DELIVERED / HONEST LIMITS
+-----------------------------
+- No instrumented/androidTest execution (no emulator in this sandbox;
+  androidTest tree untouched per §5).
+- Scenario statuses stay UNKNOWN; the parity ledger is lead-owned and
+  was NOT mutated (workers never declare parity acceptance).
+- tools/modes is pure scan-mode intelligence: NO UI, NO camera wiring
+  (wave-4 lead-owned handoffs).
+- The §4 instruction said processing/geometry/** could be READ for quad
+  context; at this base the tree has no processing/geometry/ directory
+  (geometry lives in processing/QuadF.kt etc.). Read QuadF.kt for the
+  ordering discipline instead; tools/modes stays self-contained and
+  imports nothing from the app trees except the frozen core/time
+  TimeSource contract (explicitly required by the §6.5 ModeNote spec).
+
+SHIPPED BUNDLE NOTE
+-------------------
+The sha256 above (37d0c174...) is the code-content bundle built from the
+work commit 8d6b2418f59be9946068990675b28f7d943c83a8 (before this
+manifest file was committed). The SHIPPED bundle additionally contains
+this manifest commit (f0f704e3e4a4d75a9ae7b5dd4df53bb958db1e51) and its
+sha256 is:
+  8f1da629f7d6462f495cf250ad44bf072d02780adcf9edac41914fae0a09b074
+Both files live at /home/z/my-project/ (station files-API root) and at
+/home/z/ (workspace root).

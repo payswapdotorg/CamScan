@@ -1,0 +1,42 @@
+{
+ "run": "station-gate-2026-10-02 (reset #12 rebuild)",
+ "ts": "2026-10-02T10:42:57.556459+00:00",
+ "head": "5c34e76e51ea50c13ef7cebba7e9147d1d82d97e",
+ "branch": "work/CAMSCAN-PROD-014 (local integration head = 283a05a + main board-records merge)",
+ "gates": {
+  "compileDebugKotlin": {
+   "rc": 0,
+   "duration": "181s",
+   "attempt": "compileDebugKotlin"
+  },
+  "testDebugUnitTest": {
+   "rc": 0,
+   "duration": "27s",
+   "attempt": "testDebugUnitTest"
+  },
+  "assembleDebug": {
+   "rc": 0,
+   "duration": "34s",
+   "attempt": "assembleDebug-retry"
+  },
+  "compileDebugAndroidTestKotlin": {
+   "rc": 0,
+   "duration": "28s",
+   "attempt": "compileDebugAndroidTestKotlin"
+  },
+  "lintDebug": {
+   "rc": 0,
+   "duration": "58s",
+   "attempt": "lintDebug-retry"
+  }
+ },
+ "tests": {
+  "total": 480,
+  "failed_or_errored": 0,
+  "source": "testDebugUnitTest XML results"
+ },
+ "verdict": "GREEN",
+ "verdict_note": "First pass: compile/test(480/480)/androidTest-compile GREEN; assemble+lint INFRA-FAILED (2GiB daemon OOM-killed). Retry (1024m daemon, workers=1) results supersede per gate (attempt field records which pass).",
+ "emulator": "system-image-install-failed (No space left on device during unpack \u2014 honest; emulator binary installed, AVD deferred; disk reclaimed)",
+ "notes": "Five-gate honest record; infrastructure failures are never recorded as PASS."
+}
