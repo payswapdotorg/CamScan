@@ -1,0 +1,40 @@
+{
+  "gaps": {
+    "entry_without_scenario": [],
+    "scenario_without_entry": [
+      {
+        "file": "S019-id-card-scan.yaml",
+        "id": "S019",
+        "scenario": "id-card-scan",
+        "status": "UNKNOWN",
+        "title": "ID card scan (ID-1)"
+      },
+      {
+        "file": "S020-business-card-scan.yaml",
+        "id": "S020",
+        "scenario": "business-card-scan",
+        "status": "UNKNOWN",
+        "title": "Business card scan"
+      },
+      {
+        "file": "S021-book-spread-scan.yaml",
+        "id": "S021",
+        "scenario": "book-spread-scan",
+        "status": "UNKNOWN",
+        "title": "Book spread scan"
+      }
+    ],
+    "status_disagreements": []
+  },
+  "generated_by": "parity-cli reconcile (CAMSCAN-PROD-012)",
+  "schema": "camscan-reconcile-report/0.1",
+  "summary": {
+    "entry_without_scenario": 0,
+    "ledger_entries": 18,
+    "scenario_without_entry": 3,
+    "scenarios": 21,
+    "status_disagreements": 0,
+    "validation_errors": 0
+  },
+  "validation_errors": []
+}

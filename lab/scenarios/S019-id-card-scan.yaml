@@ -1,0 +1,52 @@
+# authored at DSL v0.1 (typed meta.requires + explicit timeouts) — CAMSCAN-PROD-012 specialist-mode spec; new file, no v0.0 predecessor to migrate.
+id: id-card-scan
+title: ID card scan (ID-1)
+status: UNKNOWN
+preconditions:
+- fresh-install
+- camera-permission-granted
+fixture:
+  camera: null
+  sequence: null
+steps:
+- launch
+- 'tap: scan'
+- 'tap: mode-id-card'
+- capture
+- accept-document
+- save
+assertions:
+  behavior:
+  - document-detected
+  - id-card-aspect-guidance
+  - save-succeeds
+  ui:
+  - scan-control-visible
+  - mode-chip-id-card-visible
+  state:
+  - document-added-to-library
+  output:
+  - pdf-created
+  - pdf-readable
+  - one-page-document
+meta:
+  timeout_seconds: 2400
+  step_timeout_seconds: 180
+  requires:
+    gui: true
+    adb: true
+    android_emulator: true
+    android_sdk: true
+    android_cli: true
+    emulator_acceleration:
+      allowed:
+      - none
+    camera_fixture: true
+  owner: lead
+  notes: specialist-mode spec — pending reference discovery + wave-4 mode UI.
+    No id-card fixture exists in lab/fixtures/manifest.json at base 283a05a
+    (documents are clean-a4, skewed-document, receipt, business-card,
+    handwritten, low-light, multi-page), so fixture.camera stays null
+    honestly — an ID-1 fixture must land before this scenario can run.
+    ID-1 target geometry per ISO/IEC 7810 ID-1 (85.60 x 53.98 mm); the
+    tools/modes catalog (CAMSCAN-PROD-012) is the aspect authority.
