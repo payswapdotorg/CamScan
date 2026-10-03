@@ -1,5 +1,5 @@
 version: 1
-updated: 2026-10-03
+updated: 2026-10-03 (wave-4 close)
 authority:
   architecture: docs/PRODUCT-ARCHITECTURE-LOCK.md
   features: docs/PRODUCT-FEATURE-MATRIX.md
@@ -176,9 +176,15 @@ waves:
         status: "DELIVERED + GATE GREEN 2026-10-03T05:5xZ (W3 worker turn run-3, early-delivery survival directive worked — payload secured 49 min into the turn; branch work/CAMSCAN-PROD-012 @ f0f704e on base 283a05a, 20 files +3931/-0; station gate independently reproduced 611/611 JVM + 191/191 pytest + lint + assemble + androidTest-compile; shipped bundle sha 8f1da629; merged f278bbc and PUSHED; delivery record lab/orchestration/deliveries/PROD-012/)"
   wave_4:
     title: ecosystem-and-hardening
+    status: "COMPLETE 2026-10-03T06:5xZ (W3 worker-executed, final program order; integration line work/CAMSCAN-PROD-014 @ b9b2534 PUSHED): PROD-015 delivered gate-green — 40 files +4910/-0, 252 new tests (1139/1139 total), tools/backup (manifest + deterministic zip + restore planner with sealed merge policies), tools/conversion (docx + xlsx text-level adapters, deterministic bytes), tools/printops (paper tables, fit/fill/actual, margins, page ranges), tools/exportops (long-image strip planner), scenarios S022-S024, reconciliation reports regenerated (24 scenarios, 6 honest gaps). PROGRAM ROADMAP COMPLETE at the implementation + local-integration bar. OPEN (honest, the standing truth): (a) parity/instrumented surface — ledger S001-S018 all UNKNOWN, no emulator-backed station yet; (b) UI wiring seams for ALL P2/P3 tool engines (signature/annotation/watermark/protection/modes/backup/convert/print/long-image) — lead-station work; (c) pptx adapter, auto-capture, batch scan, batch selection UI — not implemented; (d) cloud/sync/collaboration/fax/translation/cross-device — NOT-IN-SCOPE by the offline-first clean-room mandate"
     work:
       - "all: CAMSCAN-PROD-015"
     integration_gate: feature matrix truthfully covered
+    branch: work/CAMSCAN-PROD-014
+    head: b9b253489222cadf66f5e8557c25425299cab481
+    packets:
+      CAMSCAN-PROD-015:
+        status: "DELIVERED + GATE GREEN 2026-10-03T06:4xZ (W3 worker turn, early delivery secured ~32 min into the turn — the survival doctrine's fastest landing yet; branch work/CAMSCAN-PROD-015 @ eab8b93 on base f278bbc, 40 files +4910/-0 all inside the §5 boundary; station gates independently reproduced 1139/1139 JVM + 191/191 pytest + lint + assemble + androidTest-compile; bundle sha 7380b416; merged 303fbc5 + integration close b9b2534 PUSHED; delivery record lab/orchestration/deliveries/PROD-015/)"
 
 dispatch_rules:
   - One worker packet is one bounded work order.
