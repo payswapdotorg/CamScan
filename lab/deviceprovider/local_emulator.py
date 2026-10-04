@@ -62,10 +62,15 @@ class LocalEmulatorProvider(DeviceProvider):
                 )
             import subprocess
 
+            # TCG honesty: this box has NO /dev/kvm — x86_64 images run under
+            # software emulation (-no-accel). Boot crawls (~50 min recorded);
+            # the deterministic surface is worth the wait when the memory
+            # window allows it. KVM-capable hosts simply boot faster.
             subprocess.Popen(
                 [
                     str(EMULATOR), "-avd", self.avd,
                     "-no-window", "-no-audio", "-no-boot-anim",
+                    "-no-accel",
                     "-gpu", "swiftshader_indirect",
                     "-camera-back", "virtualscene",
                     "-qemu", "-m", "1792",
