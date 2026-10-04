@@ -20,6 +20,16 @@ data class ExportArtifact(
     companion object {
         const val MIME_PDF = "application/pdf"
         const val MIME_JPEG = "image/jpeg"
+
+        // CAMSCAN-VERIFY-002 — additive MIME members of the Office
+        // conversion + long-image exports (no existing member changed).
+        const val MIME_PNG = "image/png"
+        const val MIME_PPTX =
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        const val MIME_DOCX =
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        const val MIME_XLSX =
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     }
 }
 

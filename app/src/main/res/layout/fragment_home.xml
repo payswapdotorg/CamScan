@@ -73,4 +73,19 @@ style="@style/Widget.MaterialComponents.Button.TextButton"
 android:layout_width="match_parent"
 android:layout_height="wrap_content"
 android:text="@string/workspace_home_open_library" />
+
+<!-- CAMSCAN-VERIFY-002: batch-selection + settings entries (additive). -->
+<com.google.android.material.button.MaterialButton
+android:id="@+id/home_batch_select_button"
+style="@style/Widget.MaterialComponents.Button.TextButton"
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:text="@string/workspace_home_batch_select" />
+
+<com.google.android.material.button.MaterialButton
+android:id="@+id/home_settings_button"
+style="@style/Widget.MaterialComponents.Button.TextButton"
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:text="@string/workspace_home_settings" />
 </LinearLayout></LinearLayout>

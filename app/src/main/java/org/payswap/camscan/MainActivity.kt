@@ -21,7 +21,10 @@ import org.payswap.camscan.document.persistence.IdGenerator
 import org.payswap.camscan.document.persistence.PersistentDocumentRepository
 import org.payswap.camscan.document.viewer.DocumentReorderFragment
 import org.payswap.camscan.document.viewer.DocumentViewerFragment
+import org.payswap.camscan.export.DocumentExportFragment
+import org.payswap.camscan.library.BatchSelectionFragment
 import org.payswap.camscan.library.HomeFragment
+import org.payswap.camscan.settings.SettingsFragment
 
 /**
 
@@ -116,6 +119,11 @@ DocumentDetailStubFragment::class.java.name -> DocumentDetailStubFragment(reposi
 PlaceholderScanFragment::class.java.name -> PlaceholderScanFragment()
 DocumentViewerFragment::class.java.name -> DocumentViewerFragment(repository, contentStore)
 DocumentReorderFragment::class.java.name -> DocumentReorderFragment(repository)
+// CAMSCAN-VERIFY-002 additive factory cases (constructor injection;
+// per-instance state travels via the arguments bundle).
+BatchSelectionFragment::class.java.name -> BatchSelectionFragment(repository, contentStore)
+DocumentExportFragment::class.java.name -> DocumentExportFragment(repository, contentStore)
+SettingsFragment::class.java.name -> SettingsFragment(repository, contentStore)
 else -> super.instantiate(classLoader, className)
 }
 

@@ -107,4 +107,91 @@ object ShareIntents {
             null
         }
     }
+
+    // ------------------------------------------------ CAMSCAN-VERIFY-002
+
+    /** ACTION_SEND_MULTIPLE value, spelled out (pure seam stays testable). */
+    const val ACTION_SEND_MULTIPLE = "android.intent.action.SEND_MULTIPLE"
+
+    /**
+     * Pure construction seam: N artifacts (one shared MIME) -> their
+     * multi-share request description. JVM-testable like [buildShareSpec].
+     */
+    fun buildMultipleShareSpec(mime: String, uris: List<String>): MultipleShareSpec =
+        MultipleShareSpec(
+            action = ACTION_SEND_MULTIPLE,
+            mime = mime,
+            streamUris = uris.toList(),
+            grantReadUriPermission = true,
+        )
+
+    /** Pure flag mapping for the multi spec (JVM-testable). */
+    fun shareFlagsForMultiple(spec: MultipleShareSpec): Int =
+        if (spec.grantReadUriPermission) Intent.FLAG_GRANT_READ_URI_PERMISSION else 0
+
+    /**
+     * Materializes [artifacts] into one share chooser intent. One artifact
+     * routes through [shareArtifact]; two or more build an ACTION_SEND_MULTIPLE
+     * intent over the same cache + provider channel (CAMSCAN-VERIFY-002:
+     * the batch share seam PROD-007 deliberately left open). Returns null
+     * — honest, never a throw — when any artifact's bytes are missing, the
+     * cache copies fail, or a provider mapping fails.
+     */
+    suspend fun shareArtifacts(
+        context: Context,
+        artifacts: List<ExportArtifact>,
+        store: ContentStore,
+    ): Intent? {
+        if (artifacts.isEmpty()) return null
+        if (artifacts.size == 1) return shareArtifact(context, artifacts[0], store)
+        return try {
+            val shareDir = File(context.cacheDir, EXPORT_CACHE_DIR)
+            if (!shareDir.exists() && !shareDir.mkdirs()) return null
+            val uris = ArrayList<Uri>(artifacts.size)
+            val usedNames = HashSet<String>(artifacts.size)
+            val commonMime = artifacts.map { it.mime }.distinct().singleOrNull()
+            for (artifact in artifacts) {
+                val bytes = store.open(artifact.ref) ?: return null
+                var fileName = artifact.displayName
+                var suffix = 1
+                while (!usedNames.add(fileName)) {
+                    suffix += 1
+                    val dot = artifact.displayName.lastIndexOf('.')
+                    fileName = if (dot > 0) {
+                        artifact.displayName.substring(0, dot) + "-" + suffix +
+                            artifact.displayName.substring(dot)
+                    } else {
+                        artifact.displayName + "-" + suffix
+                    }
+                }
+                val target = File(shareDir, fileName)
+                target.writeBytes(bytes)
+                val uri = FileProvider.getUriForFile(context, EXPORT_PROVIDER_AUTHORITY, target)
+                uris.add(uri)
+            }
+            val mime = commonMime ?: MIME_WILDCARD
+            val spec = buildMultipleShareSpec(mime, uris.map { it.toString() })
+            val send = Intent(spec.action).apply {
+                type = spec.mime
+                putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
+                addFlags(shareFlagsForMultiple(spec))
+            }
+            Intent.createChooser(send, context.getString(R.string.workspace_share_chooser_title))
+        } catch (expected: IOException) {
+            null
+        } catch (expected: IllegalArgumentException) {
+            null
+        }
+    }
+
+    /** Wildcard MIME for mixed-type multi shares. */
+    const val MIME_WILDCARD = "*/*"
 }
+
+/** Pure description of a multi-artifact share request (JVM-testable). */
+data class MultipleShareSpec(
+    val action: String,
+    val mime: String,
+    val streamUris: List<String>,
+    val grantReadUriPermission: Boolean = true,
+)
