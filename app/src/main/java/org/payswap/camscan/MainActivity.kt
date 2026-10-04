@@ -32,6 +32,9 @@ import org.payswap.camscan.tools.protection.PinProtectionRegistry
 import org.payswap.camscan.tools.protection.SaltSource
 import org.payswap.camscan.tools.signature.SignatureStore
 import org.payswap.camscan.tools.ui.ViewerToolHost
+import org.payswap.camscan.export.DocumentExportFragment
+import org.payswap.camscan.library.BatchSelectionFragment
+import org.payswap.camscan.settings.SettingsFragment
 
 /**
 
@@ -162,6 +165,11 @@ AnnotationEditorFragment::class.java.name ->
 AnnotationEditorFragment(repository, contentStore, annotationStore)
 WatermarkComposerFragment::class.java.name ->
 WatermarkComposerFragment(repository, contentStore)
+// CAMSCAN-VERIFY-002 additive factory cases (constructor injection;
+// per-instance state travels via the arguments bundle).
+BatchSelectionFragment::class.java.name -> BatchSelectionFragment(repository, contentStore)
+DocumentExportFragment::class.java.name -> DocumentExportFragment(repository, contentStore)
+SettingsFragment::class.java.name -> SettingsFragment(repository, contentStore)
 else -> super.instantiate(classLoader, className)
 }
 

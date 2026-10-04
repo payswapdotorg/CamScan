@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+xmlns:app="http://schemas.android.com/apk/res-auto"
+android:layout_width="match_parent"
+android:layout_height="match_parent"
+android:orientation="vertical">
+
+<androidx.appcompat.widget.Toolbar
+android:id="@+id/export_toolbar"
+android:layout_width="match_parent"
+android:layout_height="?attr/actionBarSize"
+android:background="?attr/colorPrimary"
+app:navigationIcon="?attr/homeAsUpIndicator"
+app:title="@string/workspace_export_title"
+app:titleTextColor="?attr/colorOnPrimary" />
+
+<ScrollView
+android:layout_width="match_parent"
+android:layout_height="0dp"
+android:layout_weight="1"
+android:fillViewport="true">
+
+<LinearLayout
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:orientation="vertical"
+android:padding="16dp">
+
+<TextView
+android:id="@+id/export_document_title"
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:ellipsize="end"
+android:maxLines="2"
+android:paddingBottom="8dp"
+android:textAppearance="?attr/textAppearanceHeadline6" />
+
+<TextView
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:paddingBottom="8dp"
+android:text="@string/workspace_export_section_convert"
+android:textAppearance="?attr/textAppearanceSubtitle2"
+android:textColor="?attr/colorPrimary" />
+
+<!-- CAMSCAN-VERIFY-002: the flagship PPTX entry plus the text-level
+     DOCX/XLSX pair; the layout-unpreserved declaration is VISIBLE in
+     the picker (subtitle text under the buttons, not a toast). -->
+<com.google.android.material.button.MaterialButton
+android:id="@+id/export_pptx_button"
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:text="@string/workspace_export_pptx" />
+
+<com.google.android.material.button.MaterialButton
+android:id="@+id/export_docx_button"
+style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:text="@string/workspace_export_docx" />
+
+<TextView
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:paddingStart="8dp"
+android:paddingEnd="8dp"
+android:paddingBottom="8dp"
+android:text="@string/workspace_export_docx_hint"
+android:textAppearance="?attr/textAppearanceCaption"
+android:textColor="?android:attr/textColorSecondary" />
+
+<com.google.android.material.button.MaterialButton
+android:id="@+id/export_xlsx_button"
+style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:text="@string/workspace_export_xlsx" />
+
+<TextView
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:paddingStart="8dp"
+android:paddingEnd="8dp"
+android:paddingBottom="8dp"
+android:text="@string/workspace_export_xlsx_hint"
+android:textAppearance="?attr/textAppearanceCaption"
+android:textColor="?android:attr/textColorSecondary" />
+
+<TextView
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:paddingTop="8dp"
+android:paddingBottom="8dp"
+android:text="@string/workspace_export_section_image"
+android:textAppearance="?attr/textAppearanceSubtitle2"
+android:textColor="?attr/colorPrimary" />
+
+<com.google.android.material.button.MaterialButton
+android:id="@+id/export_long_image_button"
+style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:text="@string/workspace_export_long_image" />
+
+<TextView
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:paddingStart="8dp"
+android:paddingEnd="8dp"
+android:paddingBottom="8dp"
+android:text="@string/workspace_export_long_image_hint"
+android:textAppearance="?attr/textAppearanceCaption"
+android:textColor="?android:attr/textColorSecondary" />
+
+<TextView
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:paddingTop="8dp"
+android:paddingBottom="8dp"
+android:text="@string/workspace_export_section_print"
+android:textAppearance="?attr/textAppearanceSubtitle2"
+android:textColor="?attr/colorPrimary" />
+
+<TextView
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:paddingStart="8dp"
+android:paddingEnd="8dp"
+android:paddingBottom="8dp"
+android:text="@string/workspace_export_print_hint"
+android:textAppearance="?attr/textAppearanceCaption"
+android:textColor="?android:attr/textColorSecondary" />
+
+<!-- CAMSCAN-VERIFY-002: paper + scale toggles (checkable outlined
+     buttons carry the selection visual without extra resources). -->
+<LinearLayout
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:orientation="horizontal"
+android:paddingBottom="8dp">
+
+<com.google.android.material.button.MaterialButton
+android:id="@+id/export_print_paper_a4"
+style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+android:layout_width="0dp"
+android:layout_height="wrap_content"
+android:layout_marginEnd="4dp"
+android:layout_weight="1"
+android:checkable="true"
+android:text="@string/workspace_export_print_paper_a4" />
+
+<com.google.android.material.button.MaterialButton
+android:id="@+id/export_print_paper_letter"
+style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+android:layout_width="0dp"
+android:layout_height="wrap_content"
+android:layout_marginStart="4dp"
+android:layout_weight="1"
+android:checkable="true"
+android:text="@string/workspace_export_print_paper_letter" />
+</LinearLayout>
+
+<LinearLayout
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:orientation="horizontal"
+android:paddingBottom="8dp">
+
+<com.google.android.material.button.MaterialButton
+android:id="@+id/export_print_scale_fit"
+style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+android:layout_width="0dp"
+android:layout_height="wrap_content"
+android:layout_marginEnd="4dp"
+android:layout_weight="1"
+android:checkable="true"
+android:text="@string/workspace_export_print_scale_fit" />
+
+<com.google.android.material.button.MaterialButton
+android:id="@+id/export_print_scale_fill"
+style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+android:layout_width="0dp"
+android:layout_height="wrap_content"
+android:layout_marginEnd="4dp"
+android:layout_weight="1"
+android:checkable="true"
+android:text="@string/workspace_export_print_scale_fill" />
+
+<com.google.android.material.button.MaterialButton
+android:id="@+id/export_print_scale_actual"
+style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+android:layout_width="0dp"
+android:layout_height="wrap_content"
+android:layout_marginStart="4dp"
+android:layout_weight="1"
+android:checkable="true"
+android:text="@string/workspace_export_print_scale_actual" />
+</LinearLayout>
+
+<com.google.android.material.button.MaterialButton
+android:id="@+id/export_print_button"
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:text="@string/workspace_export_print" />
+</LinearLayout>
+</ScrollView>
+
+<!-- Honest busy/status line: plain text, no fake progress bars. -->
+<TextView
+android:id="@+id/export_status"
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:gravity="center"
+android:paddingStart="16dp"
+android:paddingEnd="16dp"
+android:paddingTop="8dp"
+android:paddingBottom="8dp"
+android:textAppearance="?attr/textAppearanceBody2"
+android:textColor="?android:attr/textColorSecondary" />
+</LinearLayout>

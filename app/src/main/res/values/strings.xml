@@ -109,4 +109,98 @@
     <string name="watermark_apply_failed_reason_page">the page is no longer available</string>
     <string name="watermark_empty_text">Enter watermark text and a strength above zero to apply.</string>
     <string name="watermark_preview_cd">Live watermark preview on the page</string>
+
+    <!-- CAMSCAN-VERIFY-002 append-only additions: export-side conversions,
+         batch selection, settings backup/restore, and print glue. Every
+         entry below is NEW; nothing above is modified. -->
+
+    <!-- Home entries (additive). -->
+    <string name="workspace_home_batch_select">Select documents</string>
+    <string name="workspace_home_batch_select_cd">Open the document selection surface</string>
+    <string name="workspace_home_settings">Settings</string>
+    <string name="workspace_home_settings_cd">Open settings (backup and restore)</string>
+
+    <!-- Batch selection surface. -->
+    <string name="workspace_batch_title">Select documents</string>
+    <string name="workspace_batch_title_selecting">Selecting documents</string>
+    <string name="workspace_batch_empty_message">No documents yet</string>
+    <string name="workspace_batch_up_cd">Navigate up</string>
+    <string name="workspace_batch_hint">Long-press a document to start selecting. Tap Export to convert, print or share as long image.</string>
+    <string name="workspace_batch_selected_count">%1$d selected</string>
+    <string name="workspace_batch_share">Share</string>
+    <string name="workspace_batch_share_cd">Share the selected documents as PDFs in one share sheet</string>
+    <string name="workspace_batch_share_failed">Share failed — %1$s</string>
+    <string name="workspace_batch_share_failed_reason_page">a document has no readable pages</string>
+    <string name="workspace_batch_delete">Delete</string>
+    <string name="workspace_batch_delete_cd">Delete the selected documents</string>
+    <string name="workspace_batch_delete_dialog_title">Delete documents?</string>
+    <string name="workspace_batch_delete_dialog_message">Delete %1$d document(s) and all of their pages? This cannot be undone.</string>
+    <string name="workspace_batch_delete_success">Deleted %1$d document(s)</string>
+    <string name="workspace_batch_move_pending">Move (pending)</string>
+    <string name="workspace_batch_tag_pending">Tag (pending)</string>
+    <string name="workspace_batch_pending_cd">Not available yet — a future version adds this action</string>
+    <string name="workspace_batch_cancel">Cancel</string>
+    <string name="workspace_batch_cancel_cd">Leave selection mode</string>
+    <string name="workspace_batch_row_cd">Open document %1$s</string>
+    <string name="workspace_batch_row_select_cd">Select document %1$s</string>
+    <string name="workspace_batch_row_export">Export</string>
+    <string name="workspace_batch_row_export_cd">Export document %1$s</string>
+
+    <!-- Export/convert picker surface. -->
+    <string name="workspace_export_title">Export document</string>
+    <string name="workspace_export_up_cd">Navigate up</string>
+    <string name="workspace_export_section_convert">Convert document</string>
+    <string name="workspace_export_pptx">PowerPoint (.pptx)</string>
+    <string name="workspace_export_pptx_cd">Convert this document into a PowerPoint presentation</string>
+    <string name="workspace_export_docx">Word (.docx)</string>
+    <string name="workspace_export_docx_cd">Convert this document into a Word document</string>
+    <string name="workspace_export_docx_hint">Text-level export — recognized text only, layout is not preserved</string>
+    <string name="workspace_export_xlsx">Excel (.xlsx)</string>
+    <string name="workspace_export_xlsx_cd">Convert this document into an Excel workbook</string>
+    <string name="workspace_export_xlsx_hint">Text-level export — recognized text only, layout is not preserved</string>
+    <string name="workspace_export_section_image">Export as image</string>
+    <string name="workspace_export_long_image">Long image (.png)</string>
+    <string name="workspace_export_long_image_cd">Stitch all pages into one tall image</string>
+    <string name="workspace_export_long_image_hint">All pages stitched vertically into a single PNG</string>
+    <string name="workspace_export_section_print">Print</string>
+    <string name="workspace_export_print_hint">Paper and scale apply to every page; the system dialog handles the rest</string>
+    <string name="workspace_export_print">Print</string>
+    <string name="workspace_export_print_cd">Print this document</string>
+    <string name="workspace_export_print_paper_a4">A4</string>
+    <string name="workspace_export_print_paper_letter">Letter</string>
+    <string name="workspace_export_print_scale_fit">Fit</string>
+    <string name="workspace_export_print_scale_fill">Fill</string>
+    <string name="workspace_export_print_scale_actual">Actual size</string>
+    <string name="workspace_export_working">Working…</string>
+    <string name="workspace_export_ocr_working">Recognizing text…</string>
+    <string name="workspace_export_failed_reason_ocr">text recognition failed or is unavailable on this device</string>
+    <string name="workspace_export_failed_reason_image">the long image could not be composed</string>
+    <string name="workspace_export_failed_reason_print">the document could not be prepared for printing</string>
+    <string name="workspace_print_unavailable">Printing is not available on this device.</string>
+    <string name="workspace_print_job_name">CamScan — %1$s</string>
+    <string name="workspace_document_fallback_name">Document</string>
+
+    <!-- Settings surface (backup/restore). -->
+    <string name="workspace_settings_title">Settings</string>
+    <string name="workspace_settings_up_cd">Navigate up</string>
+    <string name="workspace_settings_section_backup">Backup</string>
+    <string name="workspace_settings_backup_now">Back up now</string>
+    <string name="workspace_settings_backup_cd">Build a backup archive of all documents</string>
+    <string name="workspace_settings_backup_none">No documents to back up yet.</string>
+    <string name="workspace_settings_backup_success">Backed up %1$d document(s), %2$d page(s) — %3$s</string>
+    <string name="workspace_settings_backup_skipped"> — %1$d page(s) skipped (image missing)</string>
+    <string name="workspace_settings_backup_failed">Backup failed — %1$s</string>
+    <string name="workspace_settings_backup_failed_reason_destination">no writable destination was available</string>
+    <string name="workspace_settings_backup_failed_reason_write">the destination could not be written</string>
+    <string name="workspace_settings_backup_location">Saved to: %1$s</string>
+    <string name="workspace_settings_section_restore">Restore</string>
+    <string name="workspace_settings_restore">Restore from backup…</string>
+    <string name="workspace_settings_restore_cd">Pick a backup archive and restore its documents</string>
+    <string name="workspace_settings_restore_failed">Restore failed — %1$s</string>
+    <string name="workspace_settings_restore_failed_reason_archive">the archive could not be read or verified</string>
+    <string name="workspace_settings_restore_failed_reason_picker">no file picker is available on this device</string>
+    <string name="workspace_settings_restore_conflict">Restore blocked — %1$d conflict(s): %2$s</string>
+    <string name="workspace_settings_restore_success">Restored: %1$d added, %2$d replaced, %3$d kept, %4$d failed (%5$d pages restored)</string>
+    <string name="workspace_settings_working">Working…</string>
+    <string name="workspace_settings_scope_note">Backups contain document indexes and processed page images. Original captures, recognized text and app settings are not included yet.</string>
 </resources>

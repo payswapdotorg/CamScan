@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+xmlns:app="http://schemas.android.com/apk/res-auto"
+android:layout_width="match_parent"
+android:layout_height="match_parent"
+android:orientation="vertical">
+
+<androidx.appcompat.widget.Toolbar
+android:id="@+id/settings_toolbar"
+android:layout_width="match_parent"
+android:layout_height="?attr/actionBarSize"
+android:background="?attr/colorPrimary"
+app:navigationIcon="?attr/homeAsUpIndicator"
+app:title="@string/workspace_settings_title"
+app:titleTextColor="?attr/colorOnPrimary" />
+
+<ScrollView
+android:layout_width="match_parent"
+android:layout_height="0dp"
+android:layout_weight="1"
+android:fillViewport="true">
+
+<LinearLayout
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:orientation="vertical"
+android:padding="16dp">
+
+<TextView
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:paddingBottom="8dp"
+android:text="@string/workspace_settings_section_backup"
+android:textAppearance="?attr/textAppearanceSubtitle2"
+android:textColor="?attr/colorPrimary" />
+
+<!-- CAMSCAN-VERIFY-002: backup entry (manifest + deterministic
+     archive via the backup engine; destination via the system file
+     picker, fallback app-external-files with a visible path). -->
+<com.google.android.material.button.MaterialButton
+android:id="@+id/settings_backup_button"
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:text="@string/workspace_settings_backup_now" />
+
+<TextView
+android:id="@+id/settings_backup_status"
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:paddingStart="8dp"
+android:paddingEnd="8dp"
+android:paddingTop="4dp"
+android:paddingBottom="4dp"
+android:textAppearance="?attr/textAppearanceBody2"
+android:textColor="?android:attr/textColorSecondary" />
+
+<TextView
+android:id="@+id/settings_backup_path"
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:paddingStart="8dp"
+android:paddingEnd="8dp"
+android:paddingTop="4dp"
+android:paddingBottom="8dp"
+android:textAppearance="?attr/textAppearanceCaption"
+android:textColor="?android:attr/textColorSecondary" />
+
+<TextView
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:paddingTop="8dp"
+android:paddingBottom="8dp"
+android:text="@string/workspace_settings_section_restore"
+android:textAppearance="?attr/textAppearanceSubtitle2"
+android:textColor="?attr/colorPrimary" />
+
+<!-- CAMSCAN-VERIFY-002: restore entry (pick archive -> restore
+     planner -> visible per-document result summary). -->
+<com.google.android.material.button.MaterialButton
+android:id="@+id/settings_restore_button"
+style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:text="@string/workspace_settings_restore" />
+
+<TextView
+android:id="@+id/settings_restore_status"
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:paddingStart="8dp"
+android:paddingEnd="8dp"
+android:paddingTop="4dp"
+android:paddingBottom="8dp"
+android:textAppearance="?attr/textAppearanceBody2"
+android:textColor="?android:attr/textColorSecondary" />
+
+<TextView
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:paddingTop="16dp"
+android:text="@string/workspace_settings_scope_note"
+android:textAppearance="?attr/textAppearanceCaption"
+android:textColor="?android:attr/textColorSecondary" />
+</LinearLayout>
+</ScrollView>
+</LinearLayout>

@@ -19,6 +19,7 @@ import org.payswap.camscan.core.storage.ContentStore
 import org.payswap.camscan.document.DocumentRowAdapter
 import org.payswap.camscan.document.LibraryFragment
 import org.payswap.camscan.document.viewer.DocumentViewerFragment
+import org.payswap.camscan.settings.SettingsFragment
 
 /**
 
@@ -62,6 +63,15 @@ setOnClickListener { launchScan() }
 view.findViewById<MaterialButton>(R.id.home_open_library).apply {
 contentDescription = context.getString(R.string.workspace_home_open_library_cd)
 setOnClickListener { openLibrary() }
+}
+// CAMSCAN-VERIFY-002: batch-selection + settings entries (additive).
+view.findViewById<MaterialButton>(R.id.home_batch_select_button).apply {
+contentDescription = context.getString(R.string.workspace_home_batch_select_cd)
+setOnClickListener { openBatchSelection() }
+}
+view.findViewById<MaterialButton>(R.id.home_settings_button).apply {
+contentDescription = context.getString(R.string.workspace_home_settings_cd)
+setOnClickListener { openSettings() }
 }
 viewLifecycleOwner.lifecycleScope.launch {
 viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -118,6 +128,28 @@ parentFragmentManager.beginTransaction()
 .commit()
 }
 
+/** CAMSCAN-VERIFY-002: the library batch-selection surface. */
+private fun openBatchSelection() {
+parentFragmentManager.beginTransaction()
+.replace(
+R.id.app_fragment_container,
+BatchSelectionFragment(repository, contentStore),
+)
+.addToBackStack(BACK_STACK_BATCH)
+.commit()
+}
+
+/** CAMSCAN-VERIFY-002: the settings surface (backup/restore entries). */
+private fun openSettings() {
+parentFragmentManager.beginTransaction()
+.replace(
+R.id.app_fragment_container,
+SettingsFragment(repository, contentStore),
+)
+.addToBackStack(BACK_STACK_SETTINGS)
+.commit()
+}
+
 private fun openDocumentViewer(document: Document) {
 parentFragmentManager.beginTransaction()
 .replace(
@@ -132,6 +164,8 @@ companion object {
 private const val RECENT_DOCUMENT_LIMIT = 10
 private const val BACK_STACK_LIBRARY = "workspace_library"
 private const val BACK_STACK_VIEWER = "workspace_document_viewer"
+private const val BACK_STACK_BATCH = "workspace_batch_selection"
+private const val BACK_STACK_SETTINGS = "workspace_settings"
 }
 
 }
