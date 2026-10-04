@@ -1,3 +1,112 @@
 <resources>
     <string name="app_name">CamScan</string>
+    <!-- CAMSCAN-VERIFY-001 (appended; existing entries above are untouched):
+         P2 viewer tool wiring strings. -->
+
+    <!-- Viewer tools row + PIN unlock overlay. -->
+    <string name="viewer_tool_sign_pad">Sign pad</string>
+    <string name="viewer_tool_sign_pad_cd">Open the signature pad to draw a new signature</string>
+    <string name="viewer_tool_apply_signature">Apply signature</string>
+    <string name="viewer_tool_apply_signature_cd">Place a stored signature on the current page</string>
+    <string name="viewer_tool_annotate">Annotate</string>
+    <string name="viewer_tool_annotate_cd">Annotate the current page with ink, highlight, or a text note</string>
+    <string name="viewer_tool_watermark">Watermark</string>
+    <string name="viewer_tool_watermark_cd">Compose and apply a watermark to the current page</string>
+    <string name="viewer_tool_protect">Protect</string>
+    <string name="viewer_tool_protect_cd">Set or remove the PIN protection for this document</string>
+    <string name="viewer_unlock_title">This document is protected</string>
+    <string name="viewer_unlock_hint">Enter the PIN to unlock this document.</string>
+    <string name="viewer_unlock_pin_hint">PIN</string>
+    <string name="viewer_unlock_button">Unlock</string>
+    <string name="viewer_unlock_button_cd">Verify the PIN and unlock this document</string>
+    <string name="viewer_unlock_wrong_pin">Wrong PIN. The pages stay hidden.</string>
+
+    <!-- Protect dialogs. -->
+    <string name="viewer_protect_set_title">Set a PIN</string>
+    <string name="viewer_protect_set_message">Enter the PIN twice. The PIN must be 4 to 8 digits; opening this document will require it.</string>
+    <string name="viewer_protect_pin_hint">PIN</string>
+    <string name="viewer_protect_confirm_hint">Re-enter the PIN</string>
+    <string name="viewer_protect_set_action">Set PIN</string>
+    <string name="viewer_protect_set_done">PIN set — this document is now protected.</string>
+    <string name="viewer_protect_length_error">The PIN must be 4 to 8 digits.</string>
+    <string name="viewer_protect_mismatch">The two entries do not match.</string>
+    <string name="viewer_protect_remove_title">Remove protection</string>
+    <string name="viewer_protect_remove_message">Enter the current PIN to remove protection from this document.</string>
+    <string name="viewer_protect_remove_action">Remove PIN</string>
+    <string name="viewer_protect_removed">Protection removed.</string>
+
+    <!-- Signature pad. -->
+    <string name="viewer_pad_title">Signature pad</string>
+    <string name="viewer_pad_name_hint">Signature name</string>
+    <string name="viewer_pad_default_name">Signature %1$d</string>
+    <string name="viewer_pad_empty_reject">Draw your signature before saving.</string>
+    <string name="viewer_pad_name_invalid">Enter a signature name (1 to 40 characters).</string>
+    <string name="viewer_pad_saved">Signature saved.</string>
+    <string name="viewer_pad_clear">Clear</string>
+    <string name="viewer_pad_clear_cd">Clear the drawn signature</string>
+    <string name="viewer_pad_save_cd">Save the drawn signature</string>
+    <string name="viewer_pad_surface_cd">Signature drawing surface</string>
+
+    <!-- Apply signature. -->
+    <string name="viewer_apply_title">Apply signature</string>
+    <string name="viewer_apply_status_loading">Loading page…</string>
+    <string name="viewer_apply_status_failed">The page image could not be loaded.</string>
+    <string name="viewer_apply_no_signature">No signature stored yet. Create one, then apply it here.</string>
+    <string name="viewer_apply_drag_hint">Drag on the page to place the signature; Smaller and Larger resize it.</string>
+    <string name="viewer_apply_size_label">Signature width: %1$d%% of the page</string>
+    <string name="viewer_apply_smaller">Smaller</string>
+    <string name="viewer_apply_smaller_cd">Shrink the signature</string>
+    <string name="viewer_apply_larger">Larger</string>
+    <string name="viewer_apply_larger_cd">Grow the signature</string>
+    <string name="viewer_apply_pick">Pick</string>
+    <string name="viewer_apply_pick_cd">Pick which stored signature to apply</string>
+    <string name="viewer_apply_pick_title">Pick a signature</string>
+    <string name="viewer_apply_create">New signature</string>
+    <string name="viewer_apply_create_cd">Open the signature pad to create a signature</string>
+    <string name="viewer_apply_apply">Apply</string>
+    <string name="viewer_apply_apply_cd">Apply the signature onto this page</string>
+    <string name="viewer_apply_success">Signature applied to the page.</string>
+    <string name="viewer_apply_failed">Apply failed — %1$s</string>
+    <string name="viewer_apply_failed_reason_page">the page is no longer available</string>
+    <string name="viewer_apply_surface_cd">Page preview with the placed signature</string>
+
+    <!-- Annotation editor. -->
+    <string name="annotation_title">Annotate</string>
+    <string name="annotation_status_loading">Loading page…</string>
+    <string name="annotation_status_failed">The page image could not be loaded.</string>
+    <string name="annotation_hint_ink">Draw with your finger to add ink.</string>
+    <string name="annotation_hint_highlight">Drag to cover an area with the highlighter.</string>
+    <string name="annotation_hint_text">Tap where the text note should sit, then type it.</string>
+    <string name="annotation_mode_ink">Ink</string>
+    <string name="annotation_mode_highlight">Highlight</string>
+    <string name="annotation_mode_text">Text</string>
+    <string name="annotation_undo">Undo</string>
+    <string name="annotation_undo_cd">Remove the most recent annotation</string>
+    <string name="annotation_apply">Apply</string>
+    <string name="annotation_apply_cd">Apply the drafted annotations to the page</string>
+    <string name="annotation_nothing_to_apply">Nothing to apply — add an annotation first.</string>
+    <string name="annotation_applied">%1$d annotation(s) applied to the page.</string>
+    <string name="annotation_apply_failed">Apply failed — %1$s</string>
+    <string name="annotation_apply_failed_reason_page">the page is no longer available</string>
+    <string name="annotation_text_title">Text note</string>
+    <string name="annotation_text_hint">Note text</string>
+    <string name="annotation_text_confirm">Add</string>
+    <string name="annotation_surface_cd">Page preview with annotation editing</string>
+
+    <!-- Watermark composer. -->
+    <string name="watermark_title">Watermark</string>
+    <string name="watermark_status_loading">Loading page…</string>
+    <string name="watermark_status_failed">The page image could not be loaded.</string>
+    <string name="watermark_hint">The preview below is the exact engine output; Apply persists it.</string>
+    <string name="watermark_text_hint">Watermark text</string>
+    <string name="watermark_diagonal">Diagonal layout</string>
+    <string name="watermark_strength_label">Strength</string>
+    <string name="watermark_strength_value">%1$d%%</string>
+    <string name="watermark_apply">Apply</string>
+    <string name="watermark_apply_cd">Apply the watermark to this page</string>
+    <string name="watermark_applied">Watermark applied to the page.</string>
+    <string name="watermark_apply_failed">Apply failed — %1$s</string>
+    <string name="watermark_apply_failed_reason_page">the page is no longer available</string>
+    <string name="watermark_empty_text">Enter watermark text and a strength above zero to apply.</string>
+    <string name="watermark_preview_cd">Live watermark preview on the page</string>
 </resources>

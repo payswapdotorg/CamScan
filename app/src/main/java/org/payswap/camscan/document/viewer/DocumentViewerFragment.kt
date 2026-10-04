@@ -3,8 +3,10 @@ package org.payswap.camscan.document.viewer
 import android.content.ActivityNotFoundException
 import android.net.Uri
 import android.os.Bundle
+import android.text.InputType
 import android.view.View
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -55,6 +57,10 @@ import org.payswap.camscan.imports.ImportIntents
 import org.payswap.camscan.imports.ImportResult
 import org.payswap.camscan.imports.pdf.PdfImporter
 import org.payswap.camscan.imports.pdf.PdfRendererOpener
+import org.payswap.camscan.tools.protection.DocumentProtectionPolicy
+import org.payswap.camscan.tools.ui.PinSetFlow
+import org.payswap.camscan.tools.ui.ViewerGate
+import org.payswap.camscan.tools.ui.ViewerToolHost
 
 /**
 
@@ -81,6 +87,14 @@ select; document_split_confirm_button extracts via DocumentSplitEngine);
 export_compress_button exports a compressed PDF with the honest
 
 "original X → compressed Y" snackbar from CompressionReport.
+
+CAMSCAN-VERIFY-001: the P2 viewer tools row (signature pad, apply
+
+signature, annotate, watermark, protect) makes the delivered pure engines
+
+user-reachable; PIN protection gates THIS viewer instance (unlock overlay,
+
+rotation-surviving unlocked flag, re-lock on a fresh viewer instance).
 */
 class DocumentViewerFragment(
 private val repository: DocumentRepository,
@@ -91,6 +105,10 @@ private val documentId: String
 get() = arguments?.getString(ARG_DOCUMENT_ID).orEmpty()
 private var state: ViewerUiState? = null
 private var poppedForMissingDocument = false
+
+// CAMSCAN-VERIFY-001: instance-scoped PIN gate + twice-entry PIN flow.
+private var gate: ViewerGate? = null
+private val pinSetFlow = PinSetFlow()
 
 /** CAMSCAN-PROD-008: split page selection (ids of pages chosen for extraction). */
 private val splitSelection = LinkedHashSet<String>()
@@ -223,6 +241,47 @@ contentDescription = context.getString(R.string.workspace_export_compress_cd)
 setOnClickListener { compressCurrentDocument() }
 }
 
+// ------------------------------------------------- CAMSCAN-VERIFY-001
+
+// PIN gate: restore the rotation-surviving unlocked flag, then evaluate.
+gate = ViewerGate(
+protectedNow = {
+ViewerToolHost.policyFor(documentId) is DocumentProtectionPolicy.PinRequired
+},
+verifyPin = { pin -> ViewerToolHost.pinRegistry.verify(documentId, pin) },
+)
+savedInstanceState?.let { saved ->
+gate?.restoreUnlocked(saved.getBoolean(STATE_UNLOCKED, false))
+}
+renderLockState()
+
+view.findViewById<MaterialButton>(R.id.document_unlock_button).apply {
+contentDescription = context.getString(R.string.viewer_unlock_button_cd)
+setOnClickListener { attemptUnlock() }
+}
+
+// Viewer tools row: the five P2 tool entries.
+view.findViewById<MaterialButton>(R.id.viewer_tool_sign_pad).apply {
+contentDescription = context.getString(R.string.viewer_tool_sign_pad_cd)
+setOnClickListener { openSignaturePad() }
+}
+view.findViewById<MaterialButton>(R.id.viewer_tool_apply_signature).apply {
+contentDescription = context.getString(R.string.viewer_tool_apply_signature_cd)
+setOnClickListener { openApplySignature() }
+}
+view.findViewById<MaterialButton>(R.id.viewer_tool_annotate).apply {
+contentDescription = context.getString(R.string.viewer_tool_annotate_cd)
+setOnClickListener { openAnnotationEditor() }
+}
+view.findViewById<MaterialButton>(R.id.viewer_tool_watermark).apply {
+contentDescription = context.getString(R.string.viewer_tool_watermark_cd)
+setOnClickListener { openWatermarkComposer() }
+}
+view.findViewById<MaterialButton>(R.id.viewer_tool_protect).apply {
+contentDescription = context.getString(R.string.viewer_tool_protect_cd)
+setOnClickListener { showProtectDialog() }
+}
+
 viewLifecycleOwner.lifecycleScope.launch {
 viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
 repository.observeDocuments()
@@ -232,7 +291,14 @@ repository.observeDocuments()
 if (document == null) {
 popOnceForMissingDocument()
 } else {
-render(view, document.title, ViewerOps.fromDocument(document, repository.getPages(document.id)))
+val next = ViewerOps.fromDocument(document, repository.getPages(document.id))
+// While the PIN gate is closed the viewer reveals nothing: state is
+// held but not rendered until a successful unlock.
+if (gate?.isLocked() == true) {
+state = next
+} else {
+render(view, document.title, next)
+}
 }
 }
 }
@@ -263,6 +329,12 @@ view.findViewById<View>(R.id.export_compress_button).isEnabled = !next.isEmpty
 // A page-set change (e.g. an extract) makes any stale selection invalid.
 splitSelection.retainAll(next.pages.map { it.pageId }.toSet())
 renderSplitBar()
+
+// CAMSCAN-VERIFY-001: page-bound tool entries need a current page;
+// the pad and Protect work on any document state.
+view.findViewById<View>(R.id.viewer_tool_apply_signature).isEnabled = !next.isEmpty
+view.findViewById<View>(R.id.viewer_tool_annotate).isEnabled = !next.isEmpty
+view.findViewById<View>(R.id.viewer_tool_watermark).isEnabled = !next.isEmpty
 
 pageAdapter.submitList(next.pages)
 }
@@ -640,10 +712,187 @@ poppedForMissingDocument = true
 parentFragmentManager.popBackStack()
 }
 
+// --------------------------------------------- CAMSCAN-VERIFY-001 tools
+
+private fun currentPageIdOrNull(): String? = state?.currentPage?.pageId
+
+private fun openSignaturePad() {
+parentFragmentManager.beginTransaction()
+.replace(
+R.id.app_fragment_container,
+SignaturePadFragment.forDocument(ViewerToolHost.signatureStore, documentId),
+)
+.addToBackStack(BACK_STACK_TOOLS)
+.commit()
+}
+
+private fun openApplySignature() {
+val pageId = currentPageIdOrNull() ?: return
+parentFragmentManager.beginTransaction()
+.replace(
+R.id.app_fragment_container,
+SignatureApplyFragment.forPage(
+repository,
+contentStore,
+ViewerToolHost.signatureStore,
+documentId,
+pageId,
+),
+)
+.addToBackStack(BACK_STACK_TOOLS)
+.commit()
+}
+
+private fun openAnnotationEditor() {
+val pageId = currentPageIdOrNull() ?: return
+parentFragmentManager.beginTransaction()
+.replace(
+R.id.app_fragment_container,
+AnnotationEditorFragment.forPage(
+repository,
+contentStore,
+ViewerToolHost.annotationStore,
+documentId,
+pageId,
+),
+)
+.addToBackStack(BACK_STACK_TOOLS)
+.commit()
+}
+
+private fun openWatermarkComposer() {
+val pageId = currentPageIdOrNull() ?: return
+parentFragmentManager.beginTransaction()
+.replace(
+R.id.app_fragment_container,
+WatermarkComposerFragment.forPage(repository, contentStore, documentId, pageId),
+)
+.addToBackStack(BACK_STACK_TOOLS)
+.commit()
+}
+
+// -------------------------------------------- CAMSCAN-VERIFY-001 gate
+
+private fun renderLockState() {
+val host = view ?: return
+val locked = gate?.isLocked() ?: false
+host.findViewById<View>(R.id.viewer_content).visibility = if (locked) View.GONE else View.VISIBLE
+host.findViewById<View>(R.id.document_unlock_overlay).visibility =
+if (locked) View.VISIBLE else View.GONE
+if (!locked) {
+host.findViewById<TextView>(R.id.document_unlock_error).visibility = View.GONE
+}
+}
+
+private fun attemptUnlock() {
+val host = view ?: return
+val currentGate = gate ?: return
+val pinView = host.findViewById<EditText>(R.id.document_unlock_pin)
+val errorView = host.findViewById<TextView>(R.id.document_unlock_error)
+if (currentGate.attemptUnlock(pinView.text.toString())) {
+pinView.setText("")
+errorView.visibility = View.GONE
+renderLockState()
+state?.let { current -> render(host, current.title, current) }
+} else {
+errorView.text = getString(R.string.viewer_unlock_wrong_pin)
+errorView.visibility = View.VISIBLE
+}
+}
+
+private fun showProtectDialog() {
+val context = requireContext()
+if (ViewerToolHost.pinRegistry.policyFor(documentId) is DocumentProtectionPolicy.PinRequired) {
+showRemoveProtectionDialog(context)
+return
+}
+val pinField = pinInputField(R.string.viewer_protect_pin_hint)
+val confirmField = pinInputField(R.string.viewer_protect_confirm_hint)
+val container = LinearLayout(context).apply {
+orientation = LinearLayout.VERTICAL
+val pad = (16 * resources.displayMetrics.density).toInt()
+setPadding(pad, 0, pad, 0)
+addView(pinField)
+addView(confirmField)
+}
+MaterialAlertDialogBuilder(context)
+.setTitle(R.string.viewer_protect_set_title)
+.setMessage(R.string.viewer_protect_set_message)
+.setView(container)
+.setPositiveButton(R.string.viewer_protect_set_action) { _, _ ->
+val outcome = pinSetFlow.submit(
+pinField.text.toString(),
+confirmField.text.toString(),
+)
+when (outcome) {
+is PinSetFlow.Result.InvalidLength ->
+Toast.makeText(context, R.string.viewer_protect_length_error, Toast.LENGTH_LONG).show()
+
+PinSetFlow.Result.Mismatch ->
+Toast.makeText(context, R.string.viewer_protect_mismatch, Toast.LENGTH_LONG).show()
+
+is PinSetFlow.Result.Ready -> {
+ViewerToolHost.pinRegistry.register(documentId, outcome.pin)
+gate?.relock()
+renderLockState()
+Toast.makeText(context, R.string.viewer_protect_set_done, Toast.LENGTH_LONG).show()
+}
+}
+}
+.setNegativeButton(R.string.workspace_dialog_cancel, null)
+.show()
+}
+
+private fun showRemoveProtectionDialog(context: android.content.Context) {
+val pinField = pinInputField(R.string.viewer_protect_pin_hint)
+val container = LinearLayout(context).apply {
+orientation = LinearLayout.VERTICAL
+val pad = (16 * resources.displayMetrics.density).toInt()
+setPadding(pad, 0, pad, 0)
+addView(pinField)
+}
+MaterialAlertDialogBuilder(context)
+.setTitle(R.string.viewer_protect_remove_title)
+.setMessage(R.string.viewer_protect_remove_message)
+.setView(container)
+.setPositiveButton(R.string.viewer_protect_remove_action) { _, _ ->
+val pin = pinField.text.toString()
+if (ViewerToolHost.pinRegistry.verify(documentId, pin)) {
+ViewerToolHost.pinRegistry.remove(documentId)
+gate?.onProtectionRemoved()
+renderLockState()
+val host = view
+val current = state
+if (host != null && current != null) {
+render(host, current.title, current)
+}
+Toast.makeText(context, R.string.viewer_protect_removed, Toast.LENGTH_LONG).show()
+} else {
+Toast.makeText(context, R.string.viewer_unlock_wrong_pin, Toast.LENGTH_LONG).show()
+}
+}
+.setNegativeButton(R.string.workspace_dialog_cancel, null)
+.show()
+}
+
+private fun pinInputField(hintRes: Int): EditText {
+val field = EditText(requireContext())
+field.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+field.hint = getString(hintRes)
+return field
+}
+
+override fun onSaveInstanceState(outState: Bundle) {
+super.onSaveInstanceState(outState)
+gate?.let { outState.putBoolean(STATE_UNLOCKED, it.snapshotUnlocked()) }
+}
+
 companion object {
 private const val ARG_DOCUMENT_ID = "arg_document_id"
 private const val BACK_STACK_REORDER = "workspace_reorder"
 private const val BACK_STACK_LIBRARY_MERGE = "workspace_library_merge"
+private const val BACK_STACK_TOOLS = "workspace_viewer_tools"
+private const val STATE_UNLOCKED = "state_viewer_unlocked"
 
 fun forDocument(
 repository: DocumentRepository,
