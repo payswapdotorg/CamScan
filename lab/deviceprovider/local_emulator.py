@@ -6,6 +6,18 @@ reproducible, no external quota. Justification recorded in provider.py's
 module docstring (board open-item (a) needs an emulator-backed station; the
 operator's Device Streaming minutes stay reserved for REAL-device evidence).
 
+CAPABILITY RECORD (2026-10-04, empirically proven on the 9.9GB station box):
+this box class CANNOT host an API-35 emulator alongside the replay stack —
+(a) no /dev/kvm → TCG software emulation (recorded ~50-min crawl);
+(b) the emulator's launcher REWRITES config.ini (device-profile defaults
+restore disk.dataPartition.size=6GiB and re-enable firstboot snapshot flags
+regardless of edits, -partition-size, -no-snapshot, or -no-snapstorage);
+(c) the pre-flight check then requires 7.4GB free for the raw (non-qcow2)
+userdata pre-allocation — 2.9GB free with SDK+stack resident. Three failure
+modes, three honest attempts. On this box the device evidence route is the
+GoogleDeviceProvider (the handoff's primary external route); this provider
+serves KVM-capable hosts (where it boots in ~1 min) unchanged.
+
 Booting recipe (the recorded TCG lessons): audio ON, virtualscene camera for
 a semi-deterministic camera scene, -qemu -m cap on the 4GB box, low_ram prop.
 CAMERA FIXTURE HONESTY (handoff §9): a booted virtual camera does NOT flip
