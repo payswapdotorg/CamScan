@@ -17,6 +17,15 @@ object ConversionNames {
     /** Fallback base name when a title sanitizes to nothing. */
     const val DEFAULT_BASE_NAME = "document"
 
+    // CAMSCAN-PPTX-017 — append-only registry of the Office export format
+    // extensions, in delivery order: the wave-4 docx/xlsx pair plus the
+    // pptx member completing the trio. Existing constants are untouched;
+    // this catalog is ADDITIVE so the export UI seam can enumerate formats
+    // from one place. The extensions intentionally mirror the frozen
+    // FILE_EXTENSION constants of the three adapters (tested).
+    /** Append-only catalog of Office export extensions: docx, xlsx, pptx. */
+    val EXPORT_EXTENSIONS: List<String> = listOf(".docx", ".xlsx", ".pptx")
+
     /** Applies the documented three-rule sanitizer to a document title. */
     fun sanitizeFileName(title: String): String {
         var result = title.trim()

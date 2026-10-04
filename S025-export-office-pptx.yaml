@@ -1,0 +1,45 @@
+# authored directly in DSL v0.1 (typed meta.requires + explicit timeouts); CAMSCAN-PPTX-017 — P3 office-conversion trio completion (pptx member), staged at repo ROOT for the lead to drop into lab/scenarios/
+id: export-office-pptx
+title: Export document text to Office presentation format
+status: UNKNOWN
+preconditions:
+- fresh-install
+- existing-document
+fixture:
+  camera: null
+  sequence: null
+steps:
+- launch
+- 'tap: library'
+- 'tap: document'
+- 'tap: share-export'
+- 'tap: export-pptx'
+- 'wait-for: pptx-file-created'
+assertions:
+  behavior:
+  - pptx-file-created
+  - pptx-contains-page-text
+  ui: []
+  state: []
+  output:
+  - pptx-file-created
+  - pptx-unzippable
+meta:
+  timeout_seconds: 2400
+  step_timeout_seconds: 180
+  requires:
+    gui: true
+    adb: true
+    android_emulator: true
+    android_sdk: true
+    android_cli: true
+    emulator_acceleration:
+      allowed:
+      - none
+    camera_fixture: false
+  owner: lead
+  notes: Adapter-level implementation exists (tools/conversion — PptxExportAdapter, minimal
+    PresentationML pptx from OCR text, one slide per page with first paragraph as title,
+    deterministic bytes with golden hash pinned); text-level conversion, layout parity
+    UNVERIFIED. UI wiring + live verification are lead-station work — honest UNKNOWN. No camera
+    dependency (fixture camera is null).
